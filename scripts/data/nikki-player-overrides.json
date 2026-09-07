@@ -31,6 +31,15 @@
     },
     {
       "kind": "event_alias",
+      "eventId": "bobc-6",
+      "observedAlias": "SALT",
+      "playerId": "salt",
+      "resolution": "probable",
+      "sourceUrl": "https://liquipedia.net/smash/Battle_of_BC/6/Melee",
+      "notes": "The replay label exactly matches Salt's public tag, and the cited event page confirms Salt competed at Battle of BC 6. Individual replay sides remain probable rather than bracket-verified."
+    },
+    {
+      "kind": "event_alias",
       "eventId": "lmmm-2024",
       "observedAlias": "AKLO",
       "playerId": "aklo",
@@ -111,6 +120,24 @@
       "notes": "The replay label exactly matches Zain's public tag, and the cited event page confirms Zain competed at Riptide 2022. The available replay sample is very small, so the individual side remains probable rather than bracket-verified."
     },
     {
+      "kind": "event_alias",
+      "eventId": "major-upset-2023",
+      "observedAlias": "SALT",
+      "playerId": "salt",
+      "resolution": "probable",
+      "sourceUrl": "https://liquipedia.net/smash/MAJOR_UPSET/Melee",
+      "notes": "The replay label exactly matches Salt's public tag, and the cited event page confirms Salt competed at MAJOR UPSET. Individual replay sides remain probable rather than bracket-verified."
+    },
+    {
+      "kind": "event_alias",
+      "eventId": "shine-2022",
+      "observedAlias": "SALT",
+      "playerId": "salt",
+      "resolution": "probable",
+      "sourceUrl": "https://liquipedia.net/smash/Shine/2022/Melee/Singles_Bracket",
+      "notes": "The replay label exactly matches Salt's public tag, and the cited singles bracket confirms Salt competed at Shine 2022. Individual replay sides remain probable rather than bracket-verified."
+    },
+    {
       "kind": "event_aliases",
       "eventId": "bobc-8",
       "resolution": "probable",
@@ -124,6 +151,7 @@
         { "observedAlias": "Joshman", "playerId": "joshman" },
         { "observedAlias": "moky", "playerId": "moky" },
         { "observedAlias": "n0ne", "playerId": "none" },
+        { "observedAlias": "Salt", "playerId": "salt" },
         { "observedAlias": "Soonsay", "playerId": "soonsay" },
         { "observedAlias": "Spark", "playerId": "spark" },
         { "observedAlias": "Wizzrobe", "playerId": "wizzrobe" },
@@ -148,6 +176,7 @@
         { "observedAlias": "moky", "playerId": "moky" },
         { "observedAlias": "Ossify", "playerId": "ossify" },
         { "observedAlias": "S2J", "playerId": "s2j" },
+        { "observedAlias": "Salt", "playerId": "salt" },
         { "observedAlias": "SFAT", "playerId": "sfat" },
         { "observedAlias": "Soonsay", "playerId": "soonsay" },
         { "observedAlias": "Spark", "playerId": "spark" },
@@ -175,6 +204,7 @@
         { "observedAlias": "Ossify", "playerId": "ossify" },
         { "observedAlias": "RapMonster", "playerId": "rapmonster" },
         { "observedAlias": "S2J", "playerId": "s2j" },
+        { "observedAlias": "Salt", "playerId": "salt" },
         { "observedAlias": "SFAT", "playerId": "sfat" },
         { "observedAlias": "Shroomed", "playerId": "shroomed" },
         { "observedAlias": "Soonsay", "playerId": "soonsay" },
