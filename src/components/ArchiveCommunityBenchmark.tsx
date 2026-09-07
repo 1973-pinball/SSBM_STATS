@@ -8,6 +8,7 @@ import type {
 import { countNoun, pct, num, shortDate } from "../lib/format";
 import { charName, moveGroup, moveGroupLabel } from "../lib/melee";
 import {
+  archiveRankingLabel,
   fetchArchiveCommunityBenchmarks,
   fetchArchiveCommunityProBenchmark,
   fetchArchiveCommunityProOptions,
@@ -404,7 +405,7 @@ export function ArchiveCommunityBenchmark({
         <div className="community-controls">
           {controls}
           <label>
-            Named Top 100 player
+            Named ranked player
             <select value={playerId ?? "none"} disabled={pros.length === 0} onChange={(event) => {
               const nextId = event.target.value === "none" ? null : event.target.value;
               setPlayerId(nextId);
@@ -412,7 +413,7 @@ export function ArchiveCommunityBenchmark({
               if (player) onCharacterChange?.(player.primary_character_id);
             }}>
               <option value="none">No pro comparison</option>
-              {pros.map((player) => <option key={player.id} value={player.id}>{player.display_name} · {charName(player.primary_character_id)} · #{player.latest_ranking.rank} {player.latest_ranking.edition_year}</option>)}
+              {pros.map((player) => <option key={player.id} value={player.id}>{player.display_name} · {charName(player.primary_character_id)} · {archiveRankingLabel(player.latest_ranking)}</option>)}
             </select>
           </label>
         </div>
@@ -465,11 +466,11 @@ export function ArchiveCommunityBenchmark({
         These archive columns are separate event-derived averages—not additional members of the opt-in SSBM Stats cohort,
         and not merged into its player-balanced quartiles. “Venue archive” includes usable event-associated games;
         “Tournament archive” uses conservatively curated tournament games. Named rows appear only for published,
-        externally resolved Top 100 identities.
+        externally resolved publicly ranked identities.
       </div>
       {dataset && <div className="hint">
         Sources: <a href={dataset.source_url} target="_blank" rel="noreferrer">{dataset.source_label}</a> · derived snapshot {shortDate(dataset.data_as_of)};
-        {" "}<a href="https://liquipedia.net/smash/SSBMRank" target="_blank" rel="noreferrer">Liquipedia SSBMRank history</a> for the pro roster and rankings
+        {" "}<a href="https://liquipedia.net/smash/SSBMRank" target="_blank" rel="noreferrer">Liquipedia rankings and player pages</a> for the player roster and rankings
         {" "}(<a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noreferrer">CC BY-SA 3.0</a>).
         Raw replay files and private identifiers are not part of the public dataset.
       </div>}

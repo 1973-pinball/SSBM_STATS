@@ -192,9 +192,9 @@ create table if not exists public.archive_player_aliases (
 create index if not exists archive_player_aliases_lookup_idx
   on public.archive_player_aliases (normalized_alias);
 
--- A player is eligible for the compact pro picker when they have a current or
--- historical top-100 row. Keeping editions normalized lets the list update when
--- a new ranking snapshot is imported instead of hard-coding a fixed roster.
+-- A player is eligible for the compact ranked-player picker when they have a
+-- public ranking row. Keeping editions normalized lets the list update when a
+-- new ranking snapshot is imported instead of hard-coding a fixed roster.
 create table if not exists public.archive_player_rankings (
   player_id text not null references public.archive_players (id) on delete cascade,
   ranking_series text not null,

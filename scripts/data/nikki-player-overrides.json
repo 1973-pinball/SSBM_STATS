@@ -1,6 +1,25 @@
 {
-  "schemaVersion": 1,
-  "methodology": "Only mappings backed by a public event/set source belong here. Candidate tag matches are generated locally for review and are never published automatically. event_aliases groups share one event source but expand to independent strict event-and-alias rules during the build.",
+  "schemaVersion": 2,
+  "methodology": "Only mappings backed by a public event/set source belong here. Candidate tag matches are generated locally for review and are never published automatically. event_aliases groups share one event source but expand to independent strict event-and-alias rules during the build. Anonymous stream games may be mapped only by an exact SHA-256 game-identity fingerprint, player slot, and expected character when a public bracket source verifies the set.",
+  "players": [
+    {
+      "id": "ampp",
+      "displayName": "Ampp",
+      "countryCode": "CA",
+      "active": true,
+      "sourceUrl": "https://liquipedia.net/smash/Ampp",
+      "notes": "Luigi player from Ontario with a public regional ranking and an evidence-backed archive set.",
+      "rankings": [
+        {
+          "series": "Southern Ontario",
+          "editionLabel": "Southern Ontario Spring 2025",
+          "year": 2025,
+          "rank": 8,
+          "sourceUrl": "https://liquipedia.net/smash/Ontario_Power_Rankings/Southern_Ontario/Melee"
+        }
+      ]
+    }
+  ],
   "overrides": [
     {
       "kind": "event_character",
@@ -19,6 +38,41 @@
       "resolution": "verified",
       "sourceUrl": "https://liquipedia.net/smash/The_Match:_The_Fight_For_Number_1",
       "notes": "The cited first-to-10 event identifies Cody Schwab as Fox."
+    },
+    {
+      "kind": "event_game_players",
+      "eventId": "goml-forever-2025",
+      "playerId": "ampp",
+      "resolution": "probable",
+      "sourceUrl": "https://www.ssbwiki.com/Tournament:Get_On_My_Level:_Forever",
+      "notes": "The cited tournament summary confirms Ampp lost to Ben after advancing from pool MC6. These five consecutive anonymous quad-stream replays form the matching 2-3 Luigi-Sheik set; each side is pinned by game-identity fingerprint, slot, and character rather than by a broad event rule.",
+      "games": [
+        {
+          "identitySha256": "13fc4bf8e228658fe2a805e8a079a2686589978150de9f971f0449308fa0c28a",
+          "slot": 0,
+          "characterId": 7
+        },
+        {
+          "identitySha256": "d367b7d689ce76c5b5e809491cfe7932071c03e75bc91e45621f1e8778de553f",
+          "slot": 0,
+          "characterId": 7
+        },
+        {
+          "identitySha256": "080314186ecf6602fe818251bd39d391dab93417e303aa28d26334838ce077dc",
+          "slot": 0,
+          "characterId": 7
+        },
+        {
+          "identitySha256": "25bc65047fb3456d47d6fd993ecc662a801b19607b5255dfde74bd83d1ead3e9",
+          "slot": 0,
+          "characterId": 7
+        },
+        {
+          "identitySha256": "256bb576f69e85edc226dfcdd86a16b2817c2b5e7e5bc7f8224491c08896d577",
+          "slot": 0,
+          "characterId": 7
+        }
+      ]
     },
     {
       "kind": "event_alias",

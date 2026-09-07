@@ -6,7 +6,7 @@
  * Raw replay bytes, paths, filenames, connect codes, hashed Slippi user ids,
  * and unresolved tags never enter the export. Anonymous games contribute only
  * to aggregate rollups. Per-game rows are emitted for conservative tournament
- * games only when at least one current/historical Top 100 player is resolved.
+ * games only when at least one publicly ranked player is resolved.
  */
 
 import { createHash } from "node:crypto";
@@ -223,26 +223,96 @@ for (const edition of liquipedia.editions) {
   }
 }
 
+// A small number of explicitly requested players may have public regional
+// rankings without a current or historical global Top 100 placement. Keep
+// their provenance in the same checked-in identity document as their replay
+// mappings, and label the ranking series in the UI so it cannot be mistaken
+// for a world rank.
+for (const player of identityDoc.players ?? []) {
+  if (!player.id || !player.displayName || playerKey(player.displayName) !== player.id) {
+    throw new Error(`Curated player needs a stable normalized id: ${player.displayName ?? player.id}`);
+  }
+  if (!player.sourceUrl) throw new Error(`Curated player needs a public source URL: ${player.id}`);
+  if (rankedPlayers.has(player.id)) throw new Error(`Curated player already exists in ranking history: ${player.id}`);
+  if (!Array.isArray(player.rankings) || player.rankings.length === 0) {
+    throw new Error(`Curated player needs at least one public ranking: ${player.id}`);
+  }
+  rankedPlayers.set(player.id, {
+    id: player.id,
+    display_name: player.displayName,
+    normalized_name: player.id,
+    liquipedia_url: player.sourceUrl,
+    country_code: player.countryCode ?? null,
+    active: player.active ?? true,
+    notes: player.notes ?? "Publicly ranked player with an evidence-backed archive identity mapping.",
+    published: false,
+  });
+  const normalizedAlias = playerKey(player.displayName);
+  aliases.set(`${player.id}|${normalizedAlias}`, {
+    player_id: player.id,
+    alias: player.displayName,
+    normalized_alias: normalizedAlias,
+    alias_kind: "liquipedia_name",
+    source_url: player.sourceUrl,
+    confidence: "verified",
+    published: false,
+  });
+  for (const ranking of player.rankings) {
+    if (!ranking.series || !ranking.editionLabel || !Number.isInteger(ranking.year)
+      || !Number.isInteger(ranking.rank) || ranking.rank < 1 || !ranking.sourceUrl) {
+      throw new Error(`Curated player has an invalid ranking: ${player.id}`);
+    }
+    rankings.push({
+      player_id: player.id,
+      ranking_series: ranking.series,
+      edition_label: ranking.editionLabel,
+      edition_year: ranking.year,
+      rank: ranking.rank,
+      source_url: ranking.sourceUrl,
+      published: false,
+    });
+  }
+}
+
 const characterIdentityOverrides = new Map();
 const aliasIdentityOverrides = new Map();
+const gamePlayerIdentityOverrides = new Map();
 // Most reviewed additions arrive as an event roster with one shared bracket
 // source. Keep that evidence grouped in the checked-in file, then expand it to
 // the same strict event+alias rules used by the resolver. A group is only a
 // compact authoring format; it does not weaken the per-alias publication gate.
 const identityOverrides = identityDoc.overrides.flatMap((override) => {
-  if (override.kind !== "event_aliases") return [override];
-  if (!Array.isArray(override.aliases) || override.aliases.length === 0) {
-    throw new Error(`event_aliases override needs aliases for ${override.eventId}`);
+  if (override.kind === "event_aliases") {
+    if (!Array.isArray(override.aliases) || override.aliases.length === 0) {
+      throw new Error(`event_aliases override needs aliases for ${override.eventId}`);
+    }
+    return override.aliases.map((alias) => ({
+      kind: "event_alias",
+      eventId: override.eventId,
+      observedAlias: alias.observedAlias,
+      playerId: alias.playerId,
+      resolution: override.resolution,
+      sourceUrl: override.sourceUrl,
+      notes: override.notes,
+    }));
   }
-  return override.aliases.map((alias) => ({
-    kind: "event_alias",
-    eventId: override.eventId,
-    observedAlias: alias.observedAlias,
-    playerId: alias.playerId,
-    resolution: override.resolution,
-    sourceUrl: override.sourceUrl,
-    notes: override.notes,
-  }));
+  if (override.kind === "event_game_players") {
+    if (!Array.isArray(override.games) || override.games.length === 0) {
+      throw new Error(`event_game_players override needs games for ${override.eventId}`);
+    }
+    return override.games.map((game) => ({
+      kind: "event_game_player",
+      eventId: override.eventId,
+      identitySha256: game.identitySha256,
+      slot: game.slot,
+      characterId: game.characterId,
+      playerId: override.playerId,
+      resolution: override.resolution,
+      sourceUrl: override.sourceUrl,
+      notes: override.notes,
+    }));
+  }
+  return [override];
 });
 for (const override of identityOverrides) {
   if (!eventById.has(override.eventId)) throw new Error(`Identity override has unknown event ${override.eventId}`);
@@ -268,6 +338,21 @@ for (const override of identityOverrides) {
     aliasIdentityOverrides.set(key, override);
     continue;
   }
+  if (override.kind === "event_game_player") {
+    if (!/^[a-f0-9]{64}$/.test(override.identitySha256)) {
+      throw new Error(`event_game_player override needs an identitySha256 for ${override.playerId}`);
+    }
+    if (!Number.isInteger(override.slot) || override.slot < 0 || override.slot > 3) {
+      throw new Error(`event_game_player override has an invalid slot for ${override.playerId}`);
+    }
+    if (!Number.isInteger(override.characterId)) {
+      throw new Error(`event_game_player override needs a characterId for ${override.playerId}`);
+    }
+    const key = `${override.eventId}|${override.identitySha256}|${override.slot}`;
+    if (gamePlayerIdentityOverrides.has(key)) throw new Error(`Duplicate identity override ${key}`);
+    gamePlayerIdentityOverrides.set(key, override);
+    continue;
+  }
   throw new Error(`Unsupported identity override kind ${override.kind}`);
 }
 
@@ -288,13 +373,21 @@ const candidateRankedIdentity = (player) => {
   return null;
 };
 
-const approvedRankedIdentity = (player, eventId) => {
+const matchedGamePlayerOverrideKeys = new Set();
+const approvedRankedIdentity = (player, eventId, rawGameKey, slot) => {
+  const gameIdentitySha256 = hash(rawGameKey);
+  const gamePlayerKey = `${eventId}|${gameIdentitySha256}|${slot}`;
+  const gamePlayerOverride = gamePlayerIdentityOverrides.get(gamePlayerKey);
+  if (gamePlayerOverride && player.characterId !== gamePlayerOverride.characterId) {
+    throw new Error(`Character drift for exact identity override ${gamePlayerKey}`);
+  }
+  if (gamePlayerOverride) matchedGamePlayerOverrideKeys.add(gamePlayerKey);
   const aliasOverride = [player.displayName, player.nametag]
     .map(strictAlias)
     .filter(Boolean)
     .map((alias) => aliasIdentityOverrides.get(`${eventId}|${alias}`))
     .find(Boolean);
-  const override = aliasOverride ?? characterIdentityOverrides.get(`${eventId}|${player.characterId}`);
+  const override = gamePlayerOverride ?? aliasOverride ?? characterIdentityOverrides.get(`${eventId}|${player.characterId}`);
   return override ? {
     playerId: override.playerId,
     resolution: override.resolution,
@@ -314,12 +407,16 @@ for (const [fileIndex, name] of resultFiles.entries()) {
   for (const record of payload.records) {
     if (!record.ok) continue;
     const key = record.identityKey ?? `${payload.bundle}/${record.file}`;
+    const identitySha256 = hash(key);
+    const exactIdentityEvidence = record.players.some((_player, slot) =>
+      gamePlayerIdentityOverrides.has(`${eventId}|${identitySha256}|${slot}`));
     const broadcastEvidence = BROADCAST_BUNDLE.test(payload.bundle) || BRACKET_PATH.test(record.file);
     const explicitFriendly = FRIENDLY_PATH.test(record.file);
     const existing = gamesByKey.get(key);
     if (existing) {
       duplicateFiles++;
       existing.broadcastEvidence ||= broadcastEvidence;
+      existing.exactIdentityEvidence ||= exactIdentityEvidence;
       existing.explicitFriendly &&= explicitFriendly;
       continue;
     }
@@ -335,6 +432,7 @@ for (const [fileIndex, name] of resultFiles.entries()) {
       rosterKey: rosterKeyFor(record, eventId),
       technicalExclusion: technicalExclusion(record),
       broadcastEvidence,
+      exactIdentityEvidence,
       explicitFriendly,
       hasTournamentSource: event.isTournament,
       tier: null,
@@ -436,26 +534,39 @@ if (manualMatchGames.length) {
   for (const game of manualMatchGames) game.setId = id;
 }
 
+const baseBuckets = { verifiedBracket: 0, probableBracket: 0, unclassifiedVenue: 0, excludedOrIncomplete: 0 };
 const buckets = { verifiedBracket: 0, probableBracket: 0, unclassifiedVenue: 0, excludedOrIncomplete: 0 };
+let identityPromotedGames = 0;
 for (const game of gamesByKey.values()) {
   if (game.technicalExclusion || !game.hasTournamentSource || game.explicitFriendly) {
-    game.tier = "excluded";
-    buckets.excludedOrIncomplete++;
+    game.baseTier = "excluded";
+    baseBuckets.excludedOrIncomplete++;
   } else if (VERIFIED_EVENTS.has(game.eventId)) {
-    game.tier = "verified";
-    buckets.verifiedBracket++;
+    game.baseTier = "verified";
+    baseBuckets.verifiedBracket++;
   } else if (game.broadcastEvidence || game.setId) {
-    game.tier = "probable";
-    buckets.probableBracket++;
+    game.baseTier = "probable";
+    baseBuckets.probableBracket++;
   } else {
-    game.tier = "unclassified";
+    game.baseTier = "unclassified";
+    baseBuckets.unclassifiedVenue++;
+  }
+  game.tier = game.baseTier;
+  if (game.baseTier === "unclassified" && game.exactIdentityEvidence) {
+    game.tier = "probable";
+    identityPromotedGames++;
+  }
+  if (game.tier === "excluded") buckets.excludedOrIncomplete++;
+  else if (game.tier === "verified") buckets.verifiedBracket++;
+  else if (game.tier === "probable") buckets.probableBracket++;
+  else {
     buckets.unclassifiedVenue++;
   }
 }
 
 const expectedBuckets = curation.uniqueGameBuckets;
 for (const [key, expected] of Object.entries(expectedBuckets)) {
-  if (buckets[key] !== expected) throw new Error(`Curation drift for ${key}: export=${buckets[key]} report=${expected}`);
+  if (baseBuckets[key] !== expected) throw new Error(`Curation drift for ${key}: export=${baseBuckets[key]} report=${expected}`);
 }
 if (replayFiles !== curation.replayFiles || parsedFiles !== curation.parsedFiles || failedFiles !== curation.failedFiles) {
   throw new Error("Replay-file totals drifted from archive-curation.json");
@@ -464,8 +575,8 @@ if (duplicateFiles !== curation.duplicateFiles || gamesByKey.size !== curation.u
   throw new Error("Deduplication totals drifted from archive-curation.json");
 }
 
-const resolveRankedIdentity = (player, eventId) => {
-  return approvedRankedIdentity(player, eventId);
+const resolveRankedIdentity = (player, eventId, rawGameKey, slot) => {
+  return approvedRankedIdentity(player, eventId, rawGameKey, slot);
 };
 
 const emptyMetrics = () => ({
@@ -627,7 +738,7 @@ for (const [fileIndex, name] of resultFiles.entries()) {
     if (!game || game.selectedRecord !== `${payload.bundle}\0${record.file}` || game.tier === "excluded") continue;
     selectedParsedGames++;
     const format = record.isTeams ? "doubles" : "singles";
-    const identities = record.players.map((player) => resolveRankedIdentity(player, eventId));
+    const identities = record.players.map((player, slot) => resolveRankedIdentity(player, eventId, rawKey, slot));
     const conservative = game.tier === "verified" || game.tier === "probable";
     for (const [slot, player] of record.players.entries()) {
       const opponent = !record.isTeams && record.players.length === 2 ? record.players[slot === 0 ? 1 : 0] : null;
@@ -742,6 +853,10 @@ for (const [fileIndex, name] of resultFiles.entries()) {
 }
 await gameWriter.close();
 await gamePlayerWriter.close();
+if (matchedGamePlayerOverrideKeys.size !== gamePlayerIdentityOverrides.size) {
+  const missing = [...gamePlayerIdentityOverrides.keys()].filter((key) => !matchedGamePlayerOverrideKeys.has(key));
+  throw new Error(`Exact identity overrides did not match selected games: ${missing.join(", ")}`);
+}
 
 const quantile = (sorted, q) => {
   if (!sorted.length) return null;
@@ -970,7 +1085,9 @@ const qa = {
     failedFiles,
     duplicateFiles,
     uniqueGames: gamesByKey.size,
-    curationBuckets: buckets,
+    curationBuckets: baseBuckets,
+    publishedBuckets: buckets,
+    identityPromotedGames,
   },
   privacy: {
     rawReplayBytesExported: false,
@@ -981,13 +1098,13 @@ const qa = {
     anonymousGamesAreAggregateOnly: true,
   },
   identity: {
-    eligibleTop100Players: rankedPlayers.size,
+    eligibleRankedPlayers: rankedPlayers.size,
     mappedPlayersWithGames: mappedPlayerIds.size,
     mappedGames,
     mappedPlayerSlots,
-    approvedOverrides: characterIdentityOverrides.size + aliasIdentityOverrides.size,
+    approvedOverrides: characterIdentityOverrides.size + aliasIdentityOverrides.size + gamePlayerIdentityOverrides.size,
     unresolvedCandidateEventPlayers: candidateMappings.size,
-    method: "Only explicit, publicly sourced overrides are published. Exact replay-tag matches are written to a local candidate report for bracket verification and never enter public rows automatically.",
+    method: "Only explicit, publicly sourced overrides are published. Exact replay-tag matches are written to a local candidate report for bracket verification and never enter public rows automatically. Bracket-verified anonymous stream games use a SHA-256 identity fingerprint plus player slot and expected character.",
   },
   timestamps: {
     omittedWithoutExplicitTimezone: omittedAmbiguousTimestamps,

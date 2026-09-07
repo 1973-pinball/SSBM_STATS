@@ -11,6 +11,7 @@ import { INCLUDED_STAGE_IDS } from "../lib/config";
 import { countNoun, num, pct, shortDate, winRateColor } from "../lib/format";
 import { charName, moveGroup, moveGroupLabel, stageName } from "../lib/melee";
 import {
+  archiveRankingLabel,
   fetchArchiveCommunityAtlasRows,
   fetchArchiveCommunityProOptions,
   fetchArchiveProAggregateAtlasRows,
@@ -128,7 +129,7 @@ const recentGames = (games: ResolvedGame[], count: number): ResolvedGame[] => ga
 function ProControl({ archive, onCharacterChange }: { archive: ArchiveAtlasState; onCharacterChange?: (characterId: number) => void }) {
   return (
     <label>
-      Named Top 100 player
+      Named ranked player
       <select
         value={archive.playerId ?? "none"}
         disabled={archive.pros.length === 0}
@@ -142,7 +143,7 @@ function ProControl({ archive, onCharacterChange }: { archive: ArchiveAtlasState
         <option value="none">No pro comparison</option>
         {archive.pros.map((player) => (
           <option key={player.id} value={player.id}>
-            {player.display_name} · {charName(player.primary_character_id)} · #{player.latest_ranking.rank} {player.latest_ranking.edition_year}
+            {player.display_name} · {charName(player.primary_character_id)} · {archiveRankingLabel(player.latest_ranking)}
           </option>
         ))}
       </select>
@@ -180,7 +181,7 @@ function ArchiveFrame({
         and {COMMUNITY_MIN_GAMES} distinct games for that breakdown, including opponents. Duplicate uploads count once.
         {" "}“Venue archive” includes usable event-associated games;
         “Tournament archive” includes only conservatively curated tournament games. Pro rows use only externally
-        resolved Top-100 identities. Your values are computed locally and are not uploaded by this view.
+        resolved publicly ranked identities. Your values are computed locally and are not uploaded by this view.
       </div>
       {archive.dataset && <div className="hint">
         Sources: <a href={archive.dataset.source_url} target="_blank" rel="noreferrer">{archive.dataset.source_label}</a> · derived snapshot {shortDate(archive.dataset.data_as_of)};

@@ -3,6 +3,7 @@ import { INCLUDED_STAGE_IDS } from "../lib/config";
 import { hoursLabel, int, num, pct, shortDate, winRateColor } from "../lib/format";
 import { charName, moveGroup, moveGroupLabel, stageName } from "../lib/melee";
 import {
+  archiveRankingLabel,
   fetchArchiveCatalog,
   fetchArchiveCommunityProOptions,
   fetchArchivePlayerEventAvailability,
@@ -279,7 +280,7 @@ export function TournamentArchive() {
           <h2>{scopeTitle}</h2>
           <p>
             Explore tournament and recurring-series results, execution, stages, and move choices. Named profiles appear
-            only where a current or historical Top 100 player can be linked to public tournament evidence.
+            only where a publicly ranked player can be linked to public tournament evidence.
           </p>
         </div>
         <div className="ta-mode" role="tablist" aria-label="Tournament archive scope">
@@ -302,7 +303,7 @@ export function TournamentArchive() {
         <label>Character<select value={characterId ?? "all"} onChange={(event) => { const value = event.target.value; setCharacterId(value === "all" ? null : Number(value)); setOpponentCharacterId(null); setStageId(null); }}><option value="all">All characters</option>{availableCharacters.map((id) => <option key={id} value={id}>{charName(id)}</option>)}</select></label>
         <label>Opponent<select value={opponentCharacterId ?? "all"} disabled={characterId === null || format === "doubles"} onChange={(event) => { setOpponentCharacterId(event.target.value === "all" ? null : Number(event.target.value)); setStageId(null); }}><option value="all">All opponents</option>{availableOpponents.map((id) => <option key={id} value={id}>{charName(id)}</option>)}</select></label>
         <label>Stage<select value={stageId ?? "all"} disabled={characterId === null} onChange={(event) => setStageId(event.target.value === "all" ? null : Number(event.target.value))}><option value="all">All legal stages</option>{INCLUDED_STAGE_IDS.map((id) => <option key={id} value={id}>{stageName(id)}</option>)}</select></label>
-        <label>Top 100 player<select value={playerId ?? "field"} disabled={pros.length === 0} onChange={(event) => { const next = event.target.value === "field" ? null : event.target.value; setPlayerId(next); setOpponentCharacterId(null); setStageId(null); if (next) { const player = pros.find((option) => option.id === next); setMode("event"); setEventId(""); setCharacterId(player?.primary_character_id ?? null); setPopulation("conservative"); } }}><option value="field">Tournament field</option>{pros.map((player) => <option key={player.id} value={player.id}>{player.display_name} · {charName(player.primary_character_id)} · #{player.latest_ranking.rank} {player.latest_ranking.edition_year}</option>)}</select></label>
+        <label>Ranked player<select value={playerId ?? "field"} disabled={pros.length === 0} onChange={(event) => { const next = event.target.value === "field" ? null : event.target.value; setPlayerId(next); setOpponentCharacterId(null); setStageId(null); if (next) { const player = pros.find((option) => option.id === next); setMode("event"); setEventId(""); setCharacterId(player?.primary_character_id ?? null); setPopulation("conservative"); } }}><option value="field">Tournament field</option>{pros.map((player) => <option key={player.id} value={player.id}>{player.display_name} · {charName(player.primary_character_id)} · {archiveRankingLabel(player.latest_ranking)}</option>)}</select></label>
         <div className="ta-filter-note">
           {playerId
             ? "Named-player views use conservatively curated games. Event lists show only events with published evidence-backed mappings for that pro; choosing an event selects their most-played character there."
@@ -526,7 +527,7 @@ function SourcesPanel({ catalog, selectedEvent, selectedSeries, seriesEditions, 
       <h2>Sources</h2>
       <ul>
         <li><a href={dataset.source_url} target="_blank" rel="noreferrer">{dataset.source_label}</a> — public replay archive</li>
-        <li><a href="https://liquipedia.net/smash/SSBMRank" target="_blank" rel="noreferrer">Liquipedia SSBMRank history</a> — pro roster and rankings, available under <a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noreferrer">CC BY-SA 3.0</a></li>
+        <li><a href="https://liquipedia.net/smash/SSBMRank" target="_blank" rel="noreferrer">Liquipedia rankings and player pages</a> — player roster and rankings, available under <a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noreferrer">CC BY-SA 3.0</a></li>
         {selectedSeries?.source_url && <li><a href={selectedSeries.source_url} target="_blank" rel="noreferrer">{selectedSeries.canonical_name}</a> — tournament-series reference</li>}
         {linkedEvents.map((event) => <li key={event.id}><a href={event.event_source_url!} target="_blank" rel="noreferrer">{tournamentLabel(event)}</a>{event.event_source_label ? ` — ${event.event_source_label}` : ""}</li>)}
       </ul>

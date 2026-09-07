@@ -150,6 +150,13 @@ export interface ArchiveProOption extends ArchivePlayer {
   best_rank: number;
 }
 
+export function archiveRankingLabel(ranking: ArchivePlayerRanking): string {
+  const series = ranking.ranking_series === "SSBMRank" || ranking.ranking_series === "MPGR"
+    ? ""
+    : `${ranking.ranking_series} `;
+  return `${series}#${ranking.rank} ${ranking.edition_year}`;
+}
+
 export interface ArchivePlayerEventAvailability {
   tournament_id: string;
   series_id: string | null;
@@ -472,7 +479,7 @@ export async function fetchArchiveCommunityBenchmarks(
   };
 }
 
-/** Top-100 identities with a published, global player rollup; private identity candidates never enter this list. */
+/** Publicly ranked identities with a published global player rollup; private identity candidates never enter this list. */
 export async function fetchArchiveCommunityProOptions(
   datasetId: string,
   format: ArchiveFormat = "singles",
@@ -557,7 +564,7 @@ export async function fetchArchiveCommunityAtlasRows(
   });
 }
 
-/** Global character, matchup, and stage rows for one safely resolved Top-100 player. */
+/** Global character, matchup, and stage rows for one safely resolved ranked player. */
 export async function fetchArchivePlayerAtlasRows(
   datasetId: string,
   playerId: string,
@@ -698,7 +705,7 @@ function aggregateCommunityCharacterRows(
 }
 
 /**
- * Aggregate every safely resolved Top-100 player for one or all characters.
+ * Aggregate every safely resolved ranked player for one or all characters.
  * This is a player-game sample: when two named pros face each other, both sides belong.
  * An explicit opponent selects that matchup (null selects all opponents).
  * Omit it to retain the full atlas for a character, or the overall row for all characters.
