@@ -66,7 +66,7 @@ export function RecordsCard({ games, teamGames }: { games: ResolvedGame[]; teamG
   // do not collapse onto the card's answer:
   //   - Favourite victim is most-wins-against; Sworn rival is most-played.
   //   - Best L-cancel day is a single day's peak; the card's "The hands" is a
-  //     rolling average over the last 100 games.
+  //     rolling average over the shared rolling window.
   //   - Longest game is the maximum; the card's Average match is the mean.
   const cells: Cell[] = [];
   if (r.worstLossStreak) {

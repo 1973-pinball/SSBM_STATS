@@ -830,12 +830,31 @@ begin
     -- Sources are informational; distinct participants and games gate cells.
     select 1::int as min_contributors, 25::int as min_players, 100::int as min_games
   ),
+  -- The growth card is an opt-in population counter, not a current-stats
+  -- benchmark counter. Keep it version-agnostic so a stats schema bump does not
+  -- make the public community appear to reset while users refresh locally.
+  active_contributions as (
+    select packs.user_id, entry.key as game_key
+    from public.game_record_packs packs
+    join public.community_consent consent on consent.user_id = packs.user_id
+      and consent.enabled and consent.consent_version = '2026-08-24'
+    cross join lateral jsonb_each(packs.records) entry
+    where coalesce((entry.value->>'isTeams')::boolean, false) = false
+      and jsonb_array_length(entry.value->'players') = 2
+      and not (entry.value ? 'parseError')
+      and entry.value->>'playedAt' is not null
+      and (entry.value->>'stageId')::int in (2, 3, 8, 28, 31, 32)
+      and 1 = (
+        select count(*)
+        from jsonb_array_elements(entry.value->'players') p
+        join public.user_codes c on c.user_id = packs.user_id and c.code = p->>'connectCode'
+      )
+  ),
   active as (
     select
-      (select count(distinct user_id)::int from public.community_game_sources) as contributors,
-      public.pub_bucket(coalesce(sum(game_count), 0), 500)::bigint as player_games
-    from public.community_user_rollups
-    where game_count > 0
+      count(distinct user_id)::int as contributors,
+      public.pub_bucket((2 * count(distinct game_key))::numeric, 500)::bigint as player_games
+    from active_contributions
   ),
   matchup_user as (
     select

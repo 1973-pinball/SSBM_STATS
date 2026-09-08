@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { ResolvedGame, ResolvedTeamGame } from "../lib/types";
-import { executionSummary, statCardData } from "../lib/stats";
+import { executionSummary, ROLLING_WINDOW, statCardData } from "../lib/stats";
 import { duration, hoursLabel, int, num, pct, shortDate } from "../lib/format";
 import { charName, stageName } from "../lib/melee";
 import { CardActions } from "./CardActions";
@@ -13,7 +13,7 @@ import { useCardExport } from "./useCardExport";
  */
 export function ShareCard({ games, teamGames }: { games: ResolvedGame[]; teamGames: ResolvedTeamGame[] }) {
   const d = useMemo(() => statCardData(games), [games]);
-  const hands = useMemo(() => executionSummary(games, 100), [games]);
+  const hands = useMemo(() => executionSummary(games, ROLLING_WINDOW), [games]);
   // Time on the sticks spans both formats, matching the Overview "Hours played"
   // KPI — every other figure on this card is singles-only, so the sub-line names
   // the doubles games rather than folding them into the games count.
@@ -132,8 +132,8 @@ export function ShareCard({ games, teamGames }: { games: ResolvedGame[]; teamGam
                 : "not enough games yet",
             )}
             {cell(
-              // The 100-game window is applied *after* the dashboard filters, so under a
-              // character filter this covers that character's last 100 — often the whole
+              // The rolling window is applied *after* the dashboard filters, so under a
+              // character filter this may cover the character's whole
               // history for a secondary. Report the real count or the cell reads as a
               // like-for-like comparison it isn't.
               `The hands (past ${hands.games.toLocaleString()} games)`,

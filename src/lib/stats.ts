@@ -39,7 +39,7 @@ function localWeekStart(date: Date): string {
  * every one of those figures is the final point of a chart plotting the same
  * quantity, and the two disagreeing on screen is a bug nobody would spot.
  */
-export const ROLLING_WINDOW = 100;
+export const ROLLING_WINDOW = 150;
 
 /**
  * Most points a per-game chart draws. The sliding-sum series cost O(1) per

@@ -116,6 +116,17 @@ try {
   await refresh();
   assert.equal(await sampleCount(), 0, "stale consent remains excluded");
 
+  await addUser(9, "LEGACY#9");
+  const legacy = game(player("LEGACY#9", 9, 10), player("FOX#9", 2, 30));
+  legacy.statsVersion = CURRENT_STATS_VERSION - 1;
+  await putGames(9, { legacy });
+  await refresh();
+  assert.equal(await sampleCount(), 0, "legacy stats remain out of current metric rollups");
+  assert.equal(await scalar("select contributor_count as value from public.community_snapshot"), 1,
+    "legacy opt-in contributors still count toward the growth milestone");
+  await consent(9, false);
+  await refresh();
+
   await addUser(5, "DELETE#5");
   await addUser(6, "KEEP#6");
   const shared = game(player("DELETE#5", 9, 10), player("KEEP#6", 2, 30));

@@ -29,6 +29,7 @@ const VIEWS: { id: CommunityView; label: string }[] = [
 ];
 
 const gameTypes = ["all", "ranked", "unranked", "direct", "offline"];
+const DEFAULT_GAMES_LOOKBACK = 150;
 
 const EMPTY_COMMUNITY_SNAPSHOT: CommunitySnapshot = {
   refreshedAt: "",
@@ -58,7 +59,7 @@ const selectCharacters = (snapshot: CommunitySnapshot): number[] =>
 
 export function Community({ games, isDemo, onOpenAccount }: Props) {
   const [view, setView] = useState<CommunityView>("atlas");
-  const [lookbackInput, setLookbackInput] = useState("100");
+  const [lookbackInput, setLookbackInput] = useState(String(DEFAULT_GAMES_LOOKBACK));
   const [snapshot, setSnapshot] = useState<CommunitySnapshot | null>(null);
   const [loading, setLoading] = useState(!isDemo);
   const [error, setError] = useState<string | null>(null);
@@ -197,7 +198,7 @@ interface LookbackProps {
 
 function normalizeGamesLookback(input: string): number {
   const value = Number(input);
-  return input.trim() !== "" && Number.isFinite(value) ? Math.max(1, Math.round(value)) : 100;
+  return input.trim() !== "" && Number.isFinite(value) ? Math.max(1, Math.round(value)) : DEFAULT_GAMES_LOOKBACK;
 }
 
 function GamesLookbackInput({ lookbackGames, lookbackInput, onLookbackInputChange }: LookbackProps) {
