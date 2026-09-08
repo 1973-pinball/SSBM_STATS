@@ -234,14 +234,16 @@ export async function runParsePipeline(
   // memory bandwidth still flattens before every logical core is busy. A
   // two-round, 240-game local benchmark of the final bounded parser measured
   // 44.7/52.5/54.8 games/s at 4/6/8 workers respectively, so eight is the
-  // measured ceiling rather than a guess at "all cores". A memory-safe import
-  // stays at three workers; removing the preview pass recovers far more time
-  // than the fourth worker was worth while keeping another parser heap out of
-  // the tab. Browsers that withhold `deviceMemory` remain conservative too.
+  // measured ceiling rather than a guess at "all cores". Large imports still
+  // skip the preview pass, but on machines that expose enough memory/core
+  // budget they can run wider than the old three-worker fallback. Browsers
+  // that withhold `deviceMemory` remain conservative.
   const cores = navigator.hardwareConcurrency || 4;
   const memoryGb = navigator.deviceMemory ?? 0;
   const hasMemory = memoryGb >= 8;
-  const workerCap = largeImport ? 3 : hasMemory && cores >= 8 ? 8 : hasMemory && cores >= 6 ? 6 : 4;
+  const workerCap = largeImport
+    ? hasMemory && cores >= 8 ? 6 : hasMemory && cores >= 6 ? 4 : 3
+    : hasMemory && cores >= 8 ? 8 : hasMemory && cores >= 6 ? 6 : 4;
   const workerCount = Math.max(1, Math.min(cores, workerCap));
   interface Slot {
     worker: Worker;

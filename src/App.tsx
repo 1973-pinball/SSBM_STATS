@@ -657,16 +657,15 @@ export default function App() {
               ? { failed: done.failed, unreadable: done.unreadable, deferred: done.deferred }
               : null,
           );
-          // Unlike startPipeline, a refresh builds its record state purely from
-          // streamed callbacks, so a delivery lost to a mid-run abort or a dead
-          // worker leaves games sitting in the cache that the dashboard never
-          // shows until the next reload. Reconcile against storage once, and
-          // only when this run actually parsed something — the auto-sync on
-          // every page load normally finds nothing and shouldn't pay for a
-          // full re-read plus the resolve+sort it invalidates.
+          // Unlike startPipeline, a refresh builds its record state from
+          // streamed callbacks. A schema repair can also leave stale cloud/cache
+          // copies in memory under a different file id, so replace state from
+          // the pruned cache once the repair lands. A page refresh already did
+          // this on startup; doing it here keeps the warning from sticking
+          // around until the user reloads.
           if (done && done.done > 0) {
-            const cached = await allRecords();
-            if (generation.current === gen) appendRecords(cached);
+            const cached = await pruneDuplicates(await allRecords());
+            if (generation.current === gen) setRecords(cached);
           }
         }
       } catch (err) {
@@ -721,8 +720,8 @@ export default function App() {
               : null,
           );
           if (done && done.done > 0) {
-            const cached = await allRecords();
-            if (generation.current === gen) appendRecords(cached);
+            const cached = await pruneDuplicates(await allRecords());
+            if (generation.current === gen) setRecords(cached);
           }
         }
       } catch (err) {
