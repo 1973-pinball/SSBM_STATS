@@ -195,10 +195,6 @@ begin
     and consent.enabled and consent.consent_version = '2026-08-24'
   cross join lateral jsonb_each(packs.records) entry
   where packs.user_id = target_user
-    and case
-      when (packs.versions->>entry.key) ~ '^[0-9]+$' then (packs.versions->>entry.key)::int
-      else 0
-    end >= 3
     and coalesce((entry.value->>'isTeams')::boolean, false) = false
     and jsonb_array_length(entry.value->'players') = 2
     and not (entry.value ? 'parseError')
@@ -356,10 +352,6 @@ contributed_games as not materialized (
     join public.community_game_sources source
       on source.user_id = packs.user_id and source.game_key = entry.key
     where packs.user_id = target_user
-      and case
-        when (packs.versions->>entry.key) ~ '^[0-9]+$' then (packs.versions->>entry.key)::int
-        else 0
-      end >= 3
       and not exists (
         select 1 from public.community_game_sources earlier
         where earlier.game_key = entry.key and earlier.user_id < target_user
@@ -446,7 +438,10 @@ base as materialized (
     coalesce((own_side->'actions'->>'wavelands')::numeric, 0) as action_wavelands,
     coalesce((own_side->'actions'->>'dashDances')::numeric, 0) as action_dash_dances,
     coalesce((own_side->'actions'->>'ledgeGrabs')::numeric, 0) as action_ledge_grabs,
-    coalesce((own_side->'actions'->>'crouchCancels')::numeric, 0) as action_crouch_cancels,
+    coalesce((own_side->'actions') ? 'crouchCancels', false) as has_crouch_cancels,
+    case when coalesce((own_side->'actions') ? 'crouchCancels', false)
+      then coalesce((own_side->'actions'->>'crouchCancels')::numeric, 0)
+    end as action_crouch_cancels,
     coalesce((own_side->'actions'->>'grabs')::numeric, 0) as action_grabs
   from eligible
 ),
@@ -482,6 +477,7 @@ windowed as materialized (
     b.action_wavelands,
     b.action_dash_dances,
     b.action_ledge_grabs,
+    b.has_crouch_cancels,
     b.action_crouch_cancels,
     b.action_grabs
   from base b
@@ -550,6 +546,7 @@ execution_rollup as (
     sum(action_wavelands) as action_wavelands,
     sum(action_dash_dances) as action_dash_dances,
     sum(action_ledge_grabs) as action_ledge_grabs,
+    count(*) filter (where has_crouch_cancels) as crouch_cancel_games,
     sum(action_crouch_cancels) as action_crouch_cancels,
     sum(action_grabs) as action_grabs
   from windowed
@@ -722,7 +719,7 @@ assembled as (
       'techAway', tech_away, 'techMissed', tech_missed,
       'techInPlaceCount', tech_in_place, 'techInCount', tech_in,
       'techAwayCount', tech_away,
-      'actionCounts', jsonb_build_object(
+      'actionCounts', jsonb_strip_nulls(jsonb_build_object(
         'rolls', action_rolls,
         'airDodges', action_air_dodges,
         'spotDodges', action_spot_dodges,
@@ -730,9 +727,9 @@ assembled as (
         'wavelands', action_wavelands,
         'dashDances', action_dash_dances,
         'ledgeGrabs', action_ledge_grabs,
-        'crouchCancels', action_crouch_cancels,
+        'crouchCancels', case when crouch_cancel_games = games then action_crouch_cancels end,
         'grabs', action_grabs
-      )
+      ))
     )) from execution_rollup), '[]'::jsonb),
     'moves', coalesce((select jsonb_agg(jsonb_build_object(
       'playerKeys', player_keys, 'uniqueGames', unique_games,
@@ -959,7 +956,10 @@ begin
       coalesce((j->'actionCounts'->>'wavelands')::numeric, 0) as action_wavelands,
       coalesce((j->'actionCounts'->>'dashDances')::numeric, 0) as action_dash_dances,
       coalesce((j->'actionCounts'->>'ledgeGrabs')::numeric, 0) as action_ledge_grabs,
-      coalesce((j->'actionCounts'->>'crouchCancels')::numeric, 0) as action_crouch_cancels,
+      coalesce(j->'actionCounts' ? 'crouchCancels', false) as has_crouch_cancels,
+      case when coalesce(j->'actionCounts' ? 'crouchCancels', false)
+        then coalesce((j->'actionCounts'->>'crouchCancels')::numeric, 0)
+      end as action_crouch_cancels,
       coalesce((j->'actionCounts'->>'grabs')::numeric, 0) as action_grabs
     from public.community_user_rollups r
     cross join lateral jsonb_array_elements(coalesce(r.payload->'execution', '[]'::jsonb)) j
@@ -998,6 +998,7 @@ begin
       sum(action_wavelands) as action_wavelands,
       sum(action_dash_dances) as action_dash_dances,
       sum(action_ledge_grabs) as action_ledge_grabs,
+      sum(games) filter (where has_crouch_cancels) as crouch_cancel_games,
       sum(action_crouch_cancels) as action_crouch_cancels,
       sum(action_grabs) as action_grabs
     from execution_user, params
@@ -1194,7 +1195,7 @@ begin
         'techInPlaceCount', tech_in_place_count,
         'techInCount', tech_in_count,
         'techAwayCount', tech_away_count,
-        'actionCounts', jsonb_build_object(
+        'actionCounts', jsonb_strip_nulls(jsonb_build_object(
           'rolls', action_rolls,
           'airDodges', action_air_dodges,
           'spotDodges', action_spot_dodges,
@@ -1202,9 +1203,9 @@ begin
           'wavelands', action_wavelands,
           'dashDances', action_dash_dances,
           'ledgeGrabs', action_ledge_grabs,
-          'crouchCancels', action_crouch_cancels,
+          'crouchCancels', case when crouch_cancel_games = games then action_crouch_cancels end,
           'grabs', action_grabs
-        )
+        ))
       ) order by character_id) from execution_rollup), '[]'::jsonb),
       'moves', coalesce((select jsonb_agg(jsonb_build_object(
         'lookbackDays', lookback_days,

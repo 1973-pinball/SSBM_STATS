@@ -116,16 +116,6 @@ try {
   await refresh();
   assert.equal(await sampleCount(), 0, "stale consent remains excluded");
 
-  await addUser(9, "LEGACY#9");
-  const legacy = game(player("LEGACY#9", 9, 10), player("FOX#9", 2, 30));
-  legacy.statsVersion = CURRENT_STATS_VERSION - 1;
-  await putGames(9, { legacy });
-  await refresh();
-  assert.equal(await sampleCount(), 0, "legacy stats remain out of current metric rollups");
-  assert.equal(await scalar("select contributor_count as value from public.community_snapshot"), 1,
-    "legacy opt-in contributors still count toward the growth milestone");
-  await consent(9, false);
-  await refresh();
 
   await addUser(5, "DELETE#5");
   await addUser(6, "KEEP#6");
@@ -154,6 +144,30 @@ try {
       assert.equal(rows.length, 0, message);
     }
   };
+  await addUser(9, "LEGACY#9");
+  const legacyCohort = Object.fromEntries(
+    Array.from({ length: 100 }, (_, i) => [`legacy-${i}`, game(
+      player("LEGACY#9", 9, 10), player(`LEGACYOPP#${i % 24}`, 2, 30),
+    )]),
+  );
+  for (const record of Object.values(legacyCohort)) {
+    record.statsVersion = CURRENT_STATS_VERSION - 1;
+    for (const side of record.players) delete side.actions.crouchCancels;
+  }
+  await putGames(9, legacyCohort);
+  await refresh();
+  assert.equal(await sampleCount(), 200, "legacy opt-in records still contribute existing metrics");
+  assert.equal(await scalar("select contributor_count as value from public.community_snapshot"), 1,
+    "legacy opt-in contributors still count toward the growth milestone");
+  data = await snapshot();
+  const legacyFoxExecution = data.execution.find((r) => r.characterId === 2 && r.lookbackDays === null);
+  assert.equal(legacyFoxExecution.actionCounts.rolls, 3000);
+  assert.equal(legacyFoxExecution.actionCounts.crouchCancels, undefined,
+    "missing crouch-cancel fields stay unavailable instead of becoming zeroes");
+  assert.equal(data.benchmarks.find((r) => r.characterId === 2).inputsPerMinute.p50, 130);
+  await consent(9, false);
+  await refresh();
+
   await putGames(7, cohort(100, 23));
   await refresh();
   await assertSuppressed("100 games with only 24 distinct players stay private");
