@@ -89,6 +89,7 @@ function mkActions(rand: () => number, minutes: number, tech: number): ActionCou
     wavelands: per(2 + tech * 4, 3),
     dashDances: per(12 + tech * 14, 10),
     ledgeGrabs: per(1.5, 2),
+    crouchCancels: per(0.2 + tech * 1.2, 1.2),
     grabs: per(2.5, 2.5),
   };
 }

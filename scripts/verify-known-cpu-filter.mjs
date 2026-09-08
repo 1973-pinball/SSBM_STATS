@@ -1,4 +1,4 @@
-/** Regression: known CPU filtering preserves the history restored by the rollback. */
+/** Regression: known CPU filtering plus cloud stat-version migration. */
 import assert from "node:assert/strict";
 import { File } from "node:buffer";
 import { encode } from "@shelacek/ubjson";
@@ -141,9 +141,10 @@ try {
     assert.equal(stats.resolveGames(merged, codes).length, 1);
   }
 
-  // A 482-game cache must recover older cloud games as well as CPU-release
-  // payloads. Exercise the real restore and sync code with in-memory storage.
-  const history = singles.map(({ rec }, i) => {
+  // Older CPU-release payloads remain visible when restored, but the new
+  // crouch-cancel schema must not persist them as current or treat them as
+  // syncable. Users with replay folders will reparse them locally.
+  const staleHistory = singles.map(({ rec }, i) => {
     const record = structuredClone(rec);
     record.statsVersion = i % 2 ? 2 : 1;
     if (record.statsVersion === 2) record.players.forEach((player) => { player.isCpu = false; });
@@ -151,21 +152,39 @@ try {
   });
   packs = [{
     bucket: 0,
-    records: Object.fromEntries(history.map((record) => [gameKey(record), record])),
-    versions: Object.fromEntries(history.map((record) => [gameKey(record), record.statsVersion])),
+    records: Object.fromEntries(staleHistory.map((record) => [gameKey(record), record])),
+    versions: Object.fromEntries(staleHistory.map((record) => [gameKey(record), record.statsVersion])),
     updated_at: "2026-09-04T12:00:00Z",
   }];
-  const restored = await cloud.restoreCloudRecords();
-  assert.equal(restored.length, 600);
-  assert.equal(persisted.length, 600, "both cloud versions must survive a reload");
+  const restoredStale = await cloud.restoreCloudRecords();
+  assert.equal(restoredStale.length, 600);
+  assert.equal(persisted.length, 0, "stale cloud versions must not be cached as current");
   persisted.length = 0;
-  const local = history.slice(0, 482);
+
+  const staleResult = await cloud.syncRecords(staleHistory.slice(0, 482), codes);
+  assert.equal(staleResult.pushed, 0);
+  assert.equal(staleResult.pulled.length, 0);
+
+  // A 482-game cache must still recover current cloud games. Exercise the real
+  // restore and sync code with in-memory storage.
+  const currentHistory = singles.map(({ rec }) => structuredClone(rec));
+  packs = [{
+    bucket: 0,
+    records: Object.fromEntries(currentHistory.map((record) => [gameKey(record), record])),
+    versions: Object.fromEntries(currentHistory.map((record) => [gameKey(record), record.statsVersion])),
+    updated_at: "2026-09-04T12:00:00Z",
+  }];
+  const restoredCurrent = await cloud.restoreCloudRecords();
+  assert.equal(restoredCurrent.length, 600);
+  assert.equal(persisted.length, 600, "current cloud versions must survive a reload");
+  persisted.length = 0;
+  const local = currentHistory.slice(0, 482);
   const result = await cloud.syncRecords(local, codes);
   assert.equal(result.pushed, 0);
   assert.equal(result.pulled.length, 118);
   assert.equal(persisted.length, 118);
   assert.equal(stats.resolveGames([...local, ...result.pulled], codes).length, 600);
-  console.log("Known CPU filtering passed: singles, teams, unknown/conflicting status, dedup, both cloud versions, and partial-cache recovery.");
+  console.log("Known CPU filtering passed: singles, teams, unknown/conflicting status, dedup, stale cloud migration, and partial-cache recovery.");
 } finally {
   await server.close();
   delete globalThis.__cpuRollbackDb;

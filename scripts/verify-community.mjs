@@ -6,6 +6,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
+const CURRENT_STATS_VERSION = 3;
 const { PGlite } = await import(process.env.PGLITE_MODULE ?? "@electric-sql/pglite");
 const db = new PGlite();
 const uuid = (n) => `00000000-0000-0000-0000-${String(n).padStart(12, "0")}`;
@@ -18,10 +19,11 @@ const player = (code, characterId, attempts) => ({
   connectCode: code, characterId, lCancelSuccess: attempts, lCancelFail: 0,
   techs: { inPlace: 1, toward: 1, away: 1, missed: 1 },
   inputsPerMinute: 100 + attempts, openingsPerKill: 2, damagePerOpening: 20,
-  actions: { rolls: attempts },
+  actions: { rolls: attempts, crouchCancels: attempts },
   moveStats: { "13": { attempts, landed: attempts, damage: 100, openings: 1, openingDmg: 100 } },
 });
 const game = (first, second, winnerIndex = 0) => ({
+  statsVersion: CURRENT_STATS_VERSION,
   playedAt: new Date().toISOString(), durationFrames: 7200, stageId: 31,
   gameType: "ranked", isTeams: false, players: [first, second], winnerIndex,
 });
@@ -31,8 +33,9 @@ async function addUser(n, code, enabled = true, version = "2026-08-24") {
   await db.query("insert into public.community_consent(user_id,enabled,consent_version) values ($1,$2,$3)", [uuid(n), enabled, version]);
 }
 async function putGames(n, records) {
-  await db.query(`insert into public.game_record_packs(user_id,records) values ($1,$2)
-    on conflict (user_id,bucket) do update set records=excluded.records`, [uuid(n), JSON.stringify(records)]);
+  const versions = Object.fromEntries(Object.entries(records).map(([key, record]) => [key, record.statsVersion ?? 0]));
+  await db.query(`insert into public.game_record_packs(user_id,records,versions) values ($1,$2,$3)
+    on conflict (user_id,bucket) do update set records=excluded.records, versions=excluded.versions`, [uuid(n), JSON.stringify(records), JSON.stringify(versions)]);
 }
 const consent = (n, enabled) => db.query("update public.community_consent set enabled=$2 where user_id=$1", [uuid(n), enabled]);
 
@@ -45,7 +48,7 @@ try {
     create table public.game_records (user_id uuid);
     create table public.game_record_packs (
       user_id uuid references auth.users(id) on delete cascade,
-      bucket smallint default 0, records jsonb, primary key(user_id,bucket)
+      bucket smallint default 0, records jsonb, versions jsonb default '{}'::jsonb, primary key(user_id,bucket)
     );
     create table public.user_codes (
       user_id uuid references auth.users(id) on delete cascade,
@@ -240,7 +243,9 @@ try {
   assert.equal(foxMove.contributors, 25, "opponents do not become contributors");
   assert.equal(foxMove.characterGames, 125);
   assert.equal(foxMove.attempts / foxMove.attemptGames, 30);
-  assert.equal(data.execution.find((r) => r.characterId === 2 && r.lookbackDays === null).actionCounts.rolls, 3750);
+  const foxExecution = data.execution.find((r) => r.characterId === 2 && r.lookbackDays === null);
+  assert.equal(foxExecution.actionCounts.rolls, 3750);
+  assert.equal(foxExecution.actionCounts.crouchCancels, 3750);
   assert.equal(data.matchups.find((r) => r.characterId === 2 && r.stageId === 0 && r.gameType === "all" && r.lookbackDays === null).winRate, 0);
   assert.equal(data.benchmarks.find((r) => r.characterId === 2).inputsPerMinute.p50, 130);
   for (const forbidden of ["connectCode", "user_id", "own_side", "game_key", "MAIN#", "OPP#"]) {

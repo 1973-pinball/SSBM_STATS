@@ -861,6 +861,7 @@ const ACTION_COLORS: Record<keyof ActionCounts, string> = {
   wavelands: "#6db3f2",
   dashDances: "#3fcf8e",
   ledgeGrabs: "#9adb4f",
+  crouchCancels: "#f0dc64",
   grabs: "#f2985e",
 };
 
@@ -901,7 +902,8 @@ function communityActionBenchmark(row: CommunityExecutionRow | null, key: string
   if (key === "techIn") return row.techInCount === null ? null : row.techInCount / row.games;
   if (key === "techAway") return row.techAwayCount === null ? null : row.techAwayCount / row.games;
   if (!(key in ACTION_COLORS) || !row.actionCounts) return null;
-  return row.actionCounts[key as keyof ActionCounts] / row.games;
+  const value = row.actionCounts[key as keyof ActionCounts];
+  return value === undefined ? null : value / row.games;
 }
 
 function archiveActionBenchmark(row: ArchiveRollup | null, key: string): number | null {

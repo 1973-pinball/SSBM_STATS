@@ -81,6 +81,7 @@ const EXECUTION_COMPARISON_METRICS: ExecutionComparisonMetric[] = [
   { key: "spot-dodges", label: "Spot dodges / min", format: "rate", action: "spotDodges" },
   { key: "air-dodges", label: "Air dodges / min", format: "rate", action: "airDodges" },
   { key: "ledge-grabs", label: "Ledge grabs / min", format: "rate", action: "ledgeGrabs" },
+  { key: "crouch-cancels", label: "Crouch cancels / min", format: "rate", action: "crouchCancels" },
   { key: "grabs", label: "Grabs / min", format: "rate", action: "grabs" },
 ];
 

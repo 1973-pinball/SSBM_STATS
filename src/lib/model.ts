@@ -55,6 +55,7 @@ export const WIN_MODEL_FEATURES: FeatureDef[] = [
   { key: "airDodges", label: "Air dodges / min", group: "execution", value: (g) => perMin(g.me.actions?.airDodges ?? 0, g) },
   { key: "spotDodges", label: "Spot dodges / min", group: "execution", value: (g) => perMin(g.me.actions?.spotDodges ?? 0, g) },
   { key: "ledgeGrabs", label: "Ledge grabs / min", group: "execution", value: (g) => perMin(g.me.actions?.ledgeGrabs ?? 0, g) },
+  { key: "crouchCancels", label: "Crouch cancels / min", group: "execution", value: (g) => perMin(g.me.actions?.crouchCancels ?? 0, g) },
   { key: "grabs", label: "Grab attempts / min", group: "execution", value: (g) => perMin(g.me.actions?.grabs ?? 0, g) },
   // --- Outcome-linked: partly mechanical consequences of winning, not habits ---
   { key: "dpo", label: "Damage / opening", group: "outcome", value: (g) => g.me.damagePerOpening },

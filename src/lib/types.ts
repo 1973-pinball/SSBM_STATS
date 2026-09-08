@@ -12,6 +12,7 @@ export interface ActionCounts {
   wavelands: number;
   dashDances: number;
   ledgeGrabs: number;
+  crouchCancels: number;
   grabs: number; // attempts (landed + whiffed); slippi-js can't isolate shield grabs
 }
 
@@ -23,6 +24,7 @@ export const ACTION_LABELS: { key: keyof ActionCounts; label: string }[] = [
   { key: "wavelands", label: "Wavelands" },
   { key: "dashDances", label: "Dash dances" },
   { key: "ledgeGrabs", label: "Ledge grabs" },
+  { key: "crouchCancels", label: "Crouch cancels" },
   { key: "grabs", label: "Grabs" },
 ];
 
@@ -85,7 +87,7 @@ export interface PlayerSide {
  * so identity can be chosen or changed after parsing without a re-parse.
  */
 export interface GameRecord {
-  /** Version of the full parsed-stat payload. Missing on records from before tech stats. */
+  /** Version of the full parsed-stat payload. Missing on older cached/cloud records. */
   statsVersion?: number;
   id: string; // path|size|mtime
   path: string;
@@ -138,16 +140,22 @@ export function hasFullStats(rec: GameRecord): boolean {
  * older cached/cloud record. The marker lives inside the cloud JSON payload,
  * so no Supabase schema migration is needed.
  */
-export const CURRENT_STATS_VERSION = 1;
+export const CURRENT_STATS_VERSION = 3;
 
 /** Only positive CPU evidence excludes a game; old records remain eligible. */
 export function hasKnownCpu(rec: GameRecord): boolean {
   return rec.players.some((p) => p.isCpu === true);
 }
 
-/** Older records have no `techs`; a real zero-attempt game has an all-zero object. */
+/** Older records can be full parses while still missing the newest execution fields. */
 export function hasCurrentStats(rec: GameRecord): boolean {
-  return hasFullStats(rec) && Array.isArray(rec.players) && rec.players.length > 0 && rec.players.every((p) => p.techs != null);
+  return (
+    hasFullStats(rec) &&
+    rec.statsVersion === CURRENT_STATS_VERSION &&
+    Array.isArray(rec.players) &&
+    rec.players.length > 0 &&
+    rec.players.every((p) => p.techs != null && p.actions?.crouchCancels !== undefined)
+  );
 }
 
 /**

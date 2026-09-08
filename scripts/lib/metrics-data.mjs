@@ -83,7 +83,11 @@ export const SECTIONS = [
       },
       {
         term: "Actions per game",
-        def: "Detected movement and defensive actions: rolls, air dodges, spot dodges, wavedashes, wavelands, dash dances, ledge grabs, grabs. High roll counts usually signal panic options; wavedash and dash-dance volume tracks movement-heavy play. Compare filters of differing length by the per-minute column.",
+        def: "Detected movement and defensive actions: rolls, air dodges, spot dodges, wavedashes, wavelands, dash dances, ledge grabs, crouch cancels, and grabs. High roll counts usually signal panic options; wavedash and dash-dance volume tracks movement-heavy play. Compare filters of differing length by the per-minute column.",
+      },
+      {
+        term: "Crouch cancels",
+        def: "Hit instances where your percent increased while your immediately previous frame was a crouch/squat state. This is a frame-derived defensive count, not proof that the crouch cancel escaped the whole punish.",
       },
       {
         term: "Grabs",

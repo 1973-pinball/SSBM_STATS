@@ -620,7 +620,7 @@ function emptyArchiveMetrics(): ArchiveMetrics {
       dashDances: 0,
       ledgeGrabs: 0,
       grabs: 0,
-    },
+    } as ActionCounts,
     playerBalanced: null,
     moves: null,
   };
@@ -644,8 +644,8 @@ function addArchiveMetrics(into: ArchiveMetrics, metrics: ArchiveMetrics): void 
   into.techMissed += metrics.techMissed;
   into.wallTechSuccess += metrics.wallTechSuccess ?? 0;
   into.wallTechMissed += metrics.wallTechMissed ?? 0;
-  for (const action of Object.keys(into.actions) as (keyof ActionCounts)[]) {
-    into.actions[action] += metrics.actions?.[action] ?? 0;
+  for (const action of Object.keys(metrics.actions ?? {}) as (keyof ActionCounts)[]) {
+    into.actions[action] = (into.actions[action] ?? 0) + (metrics.actions?.[action] ?? 0);
   }
   if (!metrics.moves) return;
   into.moves ??= {};

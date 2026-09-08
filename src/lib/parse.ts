@@ -11,6 +11,8 @@ import {
   Command,
   calcDamageTaken,
   didLoseStock,
+  isDamaged,
+  State,
 } from "@slippi/slippi-js";
 import type { FrameEntryType, FramesType, GameEndType, GameStartType, MetadataType } from "@slippi/slippi-js";
 import { CURRENT_STATS_VERSION } from "./types";
@@ -87,6 +89,7 @@ interface TeamsStats {
 }
 
 type SlippiActionCounts = ReturnType<ActionsComputer["fetch"]>[number];
+type PostFrameUpdate = NonNullable<FrameEntryType["players"][number]>["post"];
 
 const emptyTechCounts = (): TechCounts => ({
   inPlace: 0,
@@ -281,20 +284,67 @@ function applyAerialLC(acc: AerialLCAggregate, settings: GameStartType, players:
   });
 }
 
+interface CrouchCancelAggregate {
+  prevPost: Map<number, PostFrameUpdate | null>;
+  counts: Map<number, number>;
+}
+
+function createCrouchCancelAggregate(settings: GameStartType): CrouchCancelAggregate {
+  return {
+    prevPost: new Map(settings.players.map((p) => [p.playerIndex, null])),
+    counts: new Map(settings.players.map((p) => [p.playerIndex, 0])),
+  };
+}
+
+const isSquatState = (state: number | undefined): boolean =>
+  state !== undefined && state >= State.SQUAT_START && state <= State.SQUAT_END;
+
+function addCrouchCancelFrame(acc: CrouchCancelAggregate, settings: GameStartType, frame: FrameEntryType): void {
+  if (!frame.players) return;
+  for (const p of settings.players) {
+    const post = frame.players[p.playerIndex]?.post;
+    if (!post) continue;
+    const prevPost = acc.prevPost.get(p.playerIndex) ?? null;
+    const actionState = post.actionStateId;
+    const tookHit =
+      prevPost !== null &&
+      calcDamageTaken(post, prevPost) > 0 &&
+      actionState !== undefined &&
+      (isDamaged(actionState) || (post.hitlagRemaining ?? 0) > 0);
+    if (tookHit && isSquatState(prevPost.actionStateId)) {
+      acc.counts.set(p.playerIndex, (acc.counts.get(p.playerIndex) ?? 0) + 1);
+    }
+    acc.prevPost.set(p.playerIndex, post);
+  }
+}
+
+function computeCrouchCancelCounts(game: SlippiGame, settings: GameStartType, lastFrame: number): Map<number, number> {
+  const acc = createCrouchCancelAggregate(settings);
+  const frames = game.getFrames();
+  for (let fn = Frames.FIRST; fn <= lastFrame; fn++) {
+    const frame = frames[fn];
+    if (frame) addCrouchCancelFrame(acc, settings, frame);
+  }
+  return acc.counts;
+}
+
 class StreamingFrameSummary {
   private settings: GameStartType | null = null;
   private aerialLC: AerialLCAggregate | null = null;
+  private crouchCancels: CrouchCancelAggregate | null = null;
   private teams: TeamsAccumulator | null = null;
 
   setup(settings: GameStartType): void {
     this.settings = settings;
     this.aerialLC = createAerialLCAggregate(settings);
+    this.crouchCancels = createCrouchCancelAggregate(settings);
     this.teams = createTeamsAccumulator(settings);
   }
 
   process(frame: FrameEntryType, frames: FramesType): void {
     if (!this.settings) return;
     if (this.aerialLC) addAerialLCFrame(this.aerialLC, this.settings, frame);
+    if (this.crouchCancels) addCrouchCancelFrame(this.crouchCancels, this.settings, frame);
     if (this.teams) addTeamsFrame(this.teams, frame, frames);
   }
 
@@ -304,6 +354,10 @@ class StreamingFrameSummary {
 
   teamsStats(): TeamsStats | null {
     return this.teams ? finishTeamsAccumulator(this.teams) : null;
+  }
+
+  crouchCancelCounts(): Map<number, number> {
+    return this.crouchCancels?.counts ?? new Map();
   }
 }
 
@@ -323,6 +377,7 @@ interface StreamingFrameController {
   flush: () => void;
   applyAerialLC: (players: PlayerSide[]) => void;
   teamsStats: () => TeamsStats | null;
+  crouchCancelCounts: () => Map<number, number>;
 }
 
 function installStreamingFrameSummary(game: SlippiGame): StreamingFrameController | null {
@@ -403,6 +458,7 @@ function installStreamingFrameSummary(game: SlippiGame): StreamingFrameControlle
     flush,
     applyAerialLC: (players) => summary.applyAerialLC(players),
     teamsStats: () => summary.teamsStats(),
+    crouchCancelCounts: () => summary.crouchCancelCounts(),
   };
 }
 
@@ -582,6 +638,7 @@ function parseReplayWithMode(id: string, path: string, buf: ArrayBuffer, bounded
         wavelands: actions?.wavelandCount ?? 0,
         dashDances: actions?.dashDanceCount ?? 0,
         ledgeGrabs: actions?.ledgegrabCount ?? 0,
+        crouchCancels: 0,
         grabs: (actions?.grabCount?.success ?? 0) + (actions?.grabCount?.fail ?? 0),
       },
     };
@@ -697,6 +754,7 @@ function parseReplayWithMode(id: string, path: string, buf: ArrayBuffer, bounded
           wavelands: ac.wavelandCount ?? 0,
           dashDances: ac.dashDanceCount ?? 0,
           ledgeGrabs: ac.ledgegrabCount ?? 0,
+          crouchCancels: side.actions.crouchCancels,
           grabs: (ac.grabCount?.success ?? 0) + (ac.grabCount?.fail ?? 0),
         };
       }
@@ -704,6 +762,13 @@ function parseReplayWithMode(id: string, path: string, buf: ArrayBuffer, bounded
       side.inputsPerMinute = inputCount !== undefined && minutes > 0 ? inputCount / minutes : null;
     });
   }
+
+  const crouchCancelCounts = streaming
+    ? streaming.crouchCancelCounts()
+    : computeCrouchCancelCounts(game, settings, durationFrames);
+  settings.players.forEach((p, i) => {
+    players[i]!.actions.crouchCancels = crouchCancelCounts.get(p.playerIndex) ?? 0;
+  });
 
   const { winnerIndex, winnerTeamId } = decideWinner(settings, gameEnd, players, isTeams, durationFrames);
 
@@ -787,7 +852,7 @@ function buildHeaderRecord(
     lCancelFail: 0,
     grabSuccess: 0,
     techs: emptyTechCounts(),
-    actions: { rolls: 0, airDodges: 0, spotDodges: 0, wavedashes: 0, wavelands: 0, dashDances: 0, ledgeGrabs: 0, grabs: 0 },
+    actions: { rolls: 0, airDodges: 0, spotDodges: 0, wavedashes: 0, wavelands: 0, dashDances: 0, ledgeGrabs: 0, crouchCancels: 0, grabs: 0 },
   }));
 
   const { winnerIndex, winnerTeamId } = decideWinner(settings, gameEnd, players, isTeams, durationFrames);

@@ -287,6 +287,20 @@ class SsbmDb extends Dexie {
       seen: "id",
       kv: "key",
     });
+    // v16 added actions.crouchCancels, detected from frame-level hit events.
+    // Older rows cannot derive it from aggregate Slippi action counts, so clear
+    // cached payloads and let remembered folders re-parse with statsVersion 3.
+    this.version(16)
+      .stores({
+        games: "id, playedAt, stageId, gameType",
+        packs: "++id",
+        seen: "id",
+        kv: "key",
+      })
+      .upgrade(async (tx) => {
+        await tx.table("packs").clear();
+        await tx.table("seen").clear();
+      });
   }
 }
 

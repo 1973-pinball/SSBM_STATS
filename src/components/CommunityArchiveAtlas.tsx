@@ -586,7 +586,8 @@ function archiveActionPerGame(row: ArchiveRollup | null, key: keyof ActionCounts
 
 function communityActionPerGame(row: CommunityExecutionRow | undefined, key: keyof ActionCounts): number | null {
   if (!row || row.games <= 0 || !row.actionCounts) return null;
-  return row.actionCounts[key] / row.games;
+  const value = row.actionCounts[key];
+  return value === undefined ? null : value / row.games;
 }
 
 type ExecutionProfileField = "lCancel" | "groundTech" | "wallTech" | "ipm";

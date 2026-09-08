@@ -195,6 +195,10 @@ begin
     and consent.enabled and consent.consent_version = '2026-08-24'
   cross join lateral jsonb_each(packs.records) entry
   where packs.user_id = target_user
+    and case
+      when (packs.versions->>entry.key) ~ '^[0-9]+$' then (packs.versions->>entry.key)::int
+      else 0
+    end >= 3
     and coalesce((entry.value->>'isTeams')::boolean, false) = false
     and jsonb_array_length(entry.value->'players') = 2
     and not (entry.value ? 'parseError')
@@ -352,6 +356,10 @@ contributed_games as not materialized (
     join public.community_game_sources source
       on source.user_id = packs.user_id and source.game_key = entry.key
     where packs.user_id = target_user
+      and case
+        when (packs.versions->>entry.key) ~ '^[0-9]+$' then (packs.versions->>entry.key)::int
+        else 0
+      end >= 3
       and not exists (
         select 1 from public.community_game_sources earlier
         where earlier.game_key = entry.key and earlier.user_id < target_user
@@ -438,6 +446,7 @@ base as materialized (
     coalesce((own_side->'actions'->>'wavelands')::numeric, 0) as action_wavelands,
     coalesce((own_side->'actions'->>'dashDances')::numeric, 0) as action_dash_dances,
     coalesce((own_side->'actions'->>'ledgeGrabs')::numeric, 0) as action_ledge_grabs,
+    coalesce((own_side->'actions'->>'crouchCancels')::numeric, 0) as action_crouch_cancels,
     coalesce((own_side->'actions'->>'grabs')::numeric, 0) as action_grabs
   from eligible
 ),
@@ -473,6 +482,7 @@ windowed as materialized (
     b.action_wavelands,
     b.action_dash_dances,
     b.action_ledge_grabs,
+    b.action_crouch_cancels,
     b.action_grabs
   from base b
   cross join periods p
@@ -540,6 +550,7 @@ execution_rollup as (
     sum(action_wavelands) as action_wavelands,
     sum(action_dash_dances) as action_dash_dances,
     sum(action_ledge_grabs) as action_ledge_grabs,
+    sum(action_crouch_cancels) as action_crouch_cancels,
     sum(action_grabs) as action_grabs
   from windowed
   where has_techs and character_id between 0 and 25
@@ -719,6 +730,7 @@ assembled as (
         'wavelands', action_wavelands,
         'dashDances', action_dash_dances,
         'ledgeGrabs', action_ledge_grabs,
+        'crouchCancels', action_crouch_cancels,
         'grabs', action_grabs
       )
     )) from execution_rollup), '[]'::jsonb),
@@ -928,6 +940,7 @@ begin
       coalesce((j->'actionCounts'->>'wavelands')::numeric, 0) as action_wavelands,
       coalesce((j->'actionCounts'->>'dashDances')::numeric, 0) as action_dash_dances,
       coalesce((j->'actionCounts'->>'ledgeGrabs')::numeric, 0) as action_ledge_grabs,
+      coalesce((j->'actionCounts'->>'crouchCancels')::numeric, 0) as action_crouch_cancels,
       coalesce((j->'actionCounts'->>'grabs')::numeric, 0) as action_grabs
     from public.community_user_rollups r
     cross join lateral jsonb_array_elements(coalesce(r.payload->'execution', '[]'::jsonb)) j
@@ -966,6 +979,7 @@ begin
       sum(action_wavelands) as action_wavelands,
       sum(action_dash_dances) as action_dash_dances,
       sum(action_ledge_grabs) as action_ledge_grabs,
+      sum(action_crouch_cancels) as action_crouch_cancels,
       sum(action_grabs) as action_grabs
     from execution_user, params
     group by lookback_days, character_id, params.min_players, params.min_games
@@ -1169,6 +1183,7 @@ begin
           'wavelands', action_wavelands,
           'dashDances', action_dash_dances,
           'ledgeGrabs', action_ledge_grabs,
+          'crouchCancels', action_crouch_cancels,
           'grabs', action_grabs
         )
       ) order by character_id) from execution_rollup), '[]'::jsonb),

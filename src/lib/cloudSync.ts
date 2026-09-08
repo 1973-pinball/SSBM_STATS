@@ -28,11 +28,8 @@ const UTF8_ENCODER = new TextEncoder();
 const stampCurrentVersion = (rec: GameRecord): GameRecord =>
   rec.statsVersion === CURRENT_STATS_VERSION ? rec : { ...rec, statsVersion: CURRENT_STATS_VERSION };
 
-// The rolled-back CPU filter wrote v2 payloads; their existing execution
-// stats are compatible with v1. Restore both, including on a nonempty cache,
-// so rolling back cannot strand either generation of the user's history.
 const compatibleStatsVersion = (version: number | string | undefined): boolean =>
-  Number(version) === CURRENT_STATS_VERSION || Number(version) === 2;
+  Number(version) === CURRENT_STATS_VERSION;
 
 export interface SyncResult {
   pushed: number;
@@ -109,7 +106,7 @@ export async function restoreCloudRecords(
     const current = records.filter(hasCurrentStats);
     if (dedupeRecords(current).length !== current.length) await pruneDuplicates(current);
   }
-  // Pre-tech rows remain available in memory so the rest of the dashboard does
+  // Stale rows remain available in memory so the rest of the dashboard does
   // not vanish during migration, but they must not enter `seen`: the remembered
   // replay folder needs to regard those files as unparsed and replace them.
   return restored;
@@ -138,7 +135,7 @@ export function isSyncable(rec: GameRecord, myCodes: Set<string>): boolean {
   // content key — and because the preview is never written to the local cache,
   // nothing here would ever correct it back.
   if (!hasFullStats(rec)) return false;
-  // A pre-tech cloud row must never overwrite the current copy on another
+  // A stale cloud row must never overwrite the current copy on another
   // device. It becomes syncable only after that device reparses the replay.
   if (!hasCurrentStats(rec)) return false;
   return rec.players.some((p) => p.connectCode !== null && myCodes.has(p.connectCode));

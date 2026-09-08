@@ -151,7 +151,7 @@ const withLookback = <T extends { lookbackDays?: unknown }>(row: T): T & Communi
   lookbackDays: normalizeLookbackDays(row.lookbackDays),
 });
 
-const emptyActionCounts = (): ActionCounts => ({
+const emptyLegacyActionCounts = (): ActionCounts => ({
   rolls: 0,
   airDodges: 0,
   spotDodges: 0,
@@ -160,11 +160,19 @@ const emptyActionCounts = (): ActionCounts => ({
   dashDances: 0,
   ledgeGrabs: 0,
   grabs: 0,
+} as ActionCounts);
+
+const emptyActionCounts = (): ActionCounts => ({
+  ...emptyLegacyActionCounts(),
+  crouchCancels: 0,
+  grabs: 0,
 });
 
 const normalizeExecution = (row: CommunityExecutionRow): CommunityExecutionRow => ({
   ...withLookback(row),
-  actionCounts: row.actionCounts ? { ...emptyActionCounts(), ...row.actionCounts } : null,
+  actionCounts: row.actionCounts
+    ? { ...("crouchCancels" in row.actionCounts ? emptyActionCounts() : emptyLegacyActionCounts()), ...row.actionCounts }
+    : null,
   techInPlaceCount: row.techInPlaceCount === null || row.techInPlaceCount === undefined ? null : Number(row.techInPlaceCount),
   techInCount: row.techInCount === null || row.techInCount === undefined ? null : Number(row.techInCount),
   techAwayCount: row.techAwayCount === null || row.techAwayCount === undefined ? null : Number(row.techAwayCount),

@@ -59,6 +59,7 @@ const SOURCE_URL = "https://replays.nikki.sh/";
 const MIN_GAME_FRAMES = 30 * 60;
 const MAX_SET_GAMES = 10;
 const SET_GAP_MS = 30 * 60 * 1000;
+const ARCHIVE_STATS_VERSION = 3;
 const BROADCAST_BUNDLE = /-(?:main-stream|streams?|top-8|r2-offstream)\.(?:7z|zip)$/i;
 const BRACKET_PATH = /(?:^|[/\\ _-])(?:bracket|pools?|top[-_ ]?\d+|stream|broadcast)(?:$|[/\\ _-])/i;
 const FRIENDLY_PATH = /(?:^|[/\\ _-])(?:friendlies?|warm[-_ ]?ups?|hand[-_ ]?warmers?|casuals?)(?:$|[/\\ _-])/i;
@@ -605,6 +606,7 @@ const emptyMetrics = () => ({
     wavelands: 0,
     dashDances: 0,
     ledgeGrabs: 0,
+    crouchCancels: 0,
     grabs: 0,
   },
   playerBalanced: null,
@@ -640,7 +642,7 @@ const addRollup = (dimensions, record, player, slot, includeMoves) => {
       identified_player_count: dimensions.player_id ? 1 : null,
       player_balanced_sample_count: null,
       metrics: emptyMetrics(),
-      stats_version: 1,
+      stats_version: ARCHIVE_STATS_VERSION,
       published: false,
     };
     rollups.set(rollupKey, row);
@@ -800,7 +802,7 @@ for (const [fileIndex, name] of resultFiles.entries()) {
       winner_slot: record.isTeams ? null : record.winnerIndex,
       winner_team_id: record.isTeams ? record.winnerTeamId : null,
       curation_tier: game.tier,
-      stats_version: record.statsVersion ?? 1,
+      stats_version: record.statsVersion ?? ARCHIVE_STATS_VERSION,
       published: false,
     });
     for (const [slot, player] of record.players.entries()) {
