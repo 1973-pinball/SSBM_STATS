@@ -1,0 +1,609 @@
+{
+  "schemaVersion": 1,
+  "id": "offline-melee-majors-2018-2025-v1",
+  "scope": {
+    "startYear": 2018,
+    "endYear": 2025,
+    "offlineOnly": true,
+    "format": "singles",
+    "historicalCutoffExclusive": "2026-01-01T00:00:00Z"
+  },
+  "defaultDisposition": "unresolved",
+  "decisions": [
+    {
+      "majorName": "GENESIS X2",
+      "year": 2025,
+      "disposition": "included",
+      "reason": "API-verified Start.gg event is present in the current canonical historical dataset.",
+      "evidenceUrl": "https://www.start.gg/tournament/genesis-x2/event/melee-singles"
+    },
+    {
+      "majorName": "Battle of BC 7",
+      "year": 2025,
+      "disposition": "included",
+      "reason": "API-verified Start.gg event is present in the current canonical historical dataset.",
+      "evidenceUrl": "https://www.start.gg/tournament/battle-of-bc-7-6/event/main-event-melee-singles"
+    },
+    {
+      "majorName": "Get On My Level: Forever",
+      "year": 2025,
+      "disposition": "included",
+      "reason": "API-verified Start.gg event is present in the current canonical historical dataset.",
+      "evidenceUrl": "https://www.start.gg/tournament/get-on-my-level-forever-canadian-fighting-game-championships/event/super-smash-bros-melee-singles"
+    },
+    {
+      "majorName": "Supernova 2025",
+      "year": 2025,
+      "disposition": "included",
+      "reason": "API-verified Start.gg event is present in the current canonical historical dataset.",
+      "evidenceUrl": "https://www.start.gg/tournament/supernova-2025/event/melee-1v1-singles"
+    },
+    {
+      "majorName": "Riptide 2025",
+      "year": 2025,
+      "disposition": "included",
+      "reason": "API-verified Start.gg event is present in the current canonical historical dataset.",
+      "evidenceUrl": "https://www.start.gg/tournament/riptide-2025-4/event/melee-singles"
+    },
+    {
+      "majorName": "GENESIS X",
+      "year": 2024,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/genesis-x/event/melee-singles"
+    },
+    {
+      "majorName": "Collision 2024",
+      "year": 2024,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/collision-2024-6/event/melee-singles"
+    },
+    {
+      "majorName": "Battle of BC 6",
+      "year": 2024,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/battle-of-bc-6-7/event/melee-singles"
+    },
+    {
+      "majorName": "Pat's House 4",
+      "year": 2024,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/pat-s-house-4-2/event/melee-singles"
+    },
+    {
+      "majorName": "Get On My Level X",
+      "year": 2024,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/get-on-my-level-x-canadian-fighting-game-championships/event/super-smash-bros-melee-singles"
+    },
+    {
+      "majorName": "Tipped Off 15",
+      "year": 2024,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/tipped-off-15-connected-1/event/melee-singles"
+    },
+    {
+      "majorName": "Supernova 2024",
+      "year": 2024,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/supernova-2024/event/melee-1v1-singles"
+    },
+    {
+      "majorName": "Eggdog Invitational",
+      "year": 2024,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/eggdog-invitational/event/melee-singles"
+    },
+    {
+      "majorName": "Riptide 2024",
+      "year": 2024,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/riptide-2024-5/event/melee-singles"
+    },
+    {
+      "majorName": "Wavelength 2024",
+      "year": 2024,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/wavelength/event/melee-singles"
+    },
+    {
+      "majorName": "Luminosity Makes Moves Miami 2024",
+      "year": 2024,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/luminosity-makes-moves-miami-2024/event/melee-singles"
+    },
+    {
+      "majorName": "Don't Park on the Grass 2024",
+      "year": 2024,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/don-t-park-on-the-grass-2024/event/melee-singles"
+    },
+    {
+      "majorName": "Nounsvitational 2024",
+      "year": 2024,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/nounsvitational-2024/event/melee-singles"
+    },
+    {
+      "majorName": "GENESIS 6",
+      "year": 2019,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/genesis-6/event/melee-singles"
+    },
+    {
+      "majorName": "Pound 2019",
+      "year": 2019,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/pound-2019/event/melee-singles"
+    },
+    {
+      "majorName": "Get On My Level 2019",
+      "year": 2019,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/get-on-my-level-2019-canadian-fighting-game-championships-3/event/super-smash-bros-melee-singles"
+    },
+    {
+      "majorName": "Smash 'N' Splash 5",
+      "year": 2019,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/smash-n-splash-5/event/melee-singles-5-000-pot-bonus"
+    },
+    {
+      "majorName": "Smash Summit 8",
+      "year": 2019,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/smash-summit-8/event/melee-singles"
+    },
+    {
+      "majorName": "CEO 2019",
+      "year": 2019,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/ceo-2019-fighting-game-championships/event/super-smash-bros-melee-singles"
+    },
+    {
+      "majorName": "Low Tier City 7",
+      "year": 2019,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/low-tier-city-7/event/melee-1v1"
+    },
+    {
+      "majorName": "Super Smash Con 2019",
+      "year": 2019,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/super-smash-con-2019/event/melee-1v1-singles"
+    },
+    {
+      "majorName": "Shine 2019",
+      "year": 2019,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/shine-2019/event/melee-singles"
+    },
+    {
+      "majorName": "Mainstage",
+      "year": 2019,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/mainstage/event/melee-singles"
+    },
+    {
+      "majorName": "The Big House 9",
+      "year": 2019,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/the-big-house-9/event/melee-singles"
+    },
+    {
+      "majorName": "Mango's Birthday Bash",
+      "year": 2019,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/mango-s-birthday-bash-red-bull-adrenalan/event/melee-singles"
+    },
+    {
+      "majorName": "GENESIS 5",
+      "year": 2018,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/genesis-5/event/melee-singles"
+    },
+    {
+      "majorName": "Enthusiast Gaming Live Expo 2018",
+      "year": 2018,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/eglx-2018-smash/event/melee-singles-at-eglx-2018"
+    },
+    {
+      "majorName": "Full Bloom 4",
+      "year": 2018,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/full-bloom-4/event/melee-singles"
+    },
+    {
+      "majorName": "Smash Summit 6",
+      "year": 2018,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/smash-summit-6/event/melee-singles"
+    },
+    {
+      "majorName": "Get On My Level 2018",
+      "year": 2018,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/get-on-my-level-2018-canadian-smash-championships/event/super-smash-bros-melee-singles"
+    },
+    {
+      "majorName": "Smash 'N' Splash 4",
+      "year": 2018,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/smash-n-splash-4/event/melee-singles"
+    },
+    {
+      "majorName": "CEO 2018",
+      "year": 2018,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/ceo-2018-fighting-game-championships/event/super-smash-bros-melee"
+    },
+    {
+      "majorName": "Low Tier City 6",
+      "year": 2018,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/kumite-in-texas-low-tier-city-6/event/melee-singles"
+    },
+    {
+      "majorName": "EVO 2018",
+      "year": 2018,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/evo-2018/event/evo-2018-1"
+    },
+    {
+      "majorName": "Super Smash Con 2018",
+      "year": 2018,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/super-smash-con-2018/event/melee-1v1-singles"
+    },
+    {
+      "majorName": "Shine 2018",
+      "year": 2018,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/shine-2018/event/melee-singles"
+    },
+    {
+      "majorName": "The Big House 8",
+      "year": 2018,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/the-big-house-8/event/melee-singles"
+    },
+    {
+      "majorName": "GameTyrant Expo 2018",
+      "year": 2018,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/gametyrant-expo-2018/event/melee-singles"
+    },
+    {
+      "majorName": "Smash Summit 7",
+      "year": 2018,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/smash-summit-7/event/melee-singles"
+    },
+    {
+      "majorName": "GENESIS 7",
+      "year": 2020,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/genesis-7-1/event/melee-singles"
+    },
+    {
+      "majorName": "Smash Summit 9",
+      "year": 2020,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/smash-summit-9/event/melee-singles"
+    },
+    {
+      "majorName": "Smash Summit 11",
+      "year": 2021,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/smash-summit-11/event/melee-singles"
+    },
+    {
+      "majorName": "Riptide 2021",
+      "year": 2021,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/riptide-3/event/melee-singles"
+    },
+    {
+      "majorName": "SWT 2021 NA East Regional Finals",
+      "year": 2021,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/swt-na-east-melee-regional-finals/event/melee-singles"
+    },
+    {
+      "majorName": "Mainstage 2021",
+      "year": 2021,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/mainstage-2021/event/melee-singles"
+    },
+    {
+      "majorName": "Smash Summit 12",
+      "year": 2021,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/smash-summit-12-1/event/melee-singles"
+    },
+    {
+      "majorName": "SWT 2021 Melee Championship",
+      "year": 2021,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/the-smash-world-tour-championships/event/melee-championships"
+    },
+    {
+      "majorName": "GENESIS 8",
+      "year": 2022,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/genesis-8/event/melee-singles"
+    },
+    {
+      "majorName": "Pound 2022",
+      "year": 2022,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/pound-2022/event/melee-singles-2"
+    },
+    {
+      "majorName": "Smash Summit 13",
+      "year": 2022,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/smash-summit-13-1/event/melee-singles"
+    },
+    {
+      "majorName": "Battle of BC 4",
+      "year": 2022,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/battle-of-bc-4-2/event/melee-singles-bracket"
+    },
+    {
+      "majorName": "Get On My Level 2022",
+      "year": 2022,
+      "disposition": "source-ambiguous",
+      "reason": "Start.gg reports the event state as ACTIVE with 3 unresolved first-round sets and 493 standings for 504 entrants; excluded from the strict training corpus pending an authoritative completed source.",
+      "evidenceUrl": "https://www.start.gg/tournament/get-on-my-level-2022-canadian-fighting-game-championships-3/event/super-smash-bros-melee-singles"
+    },
+    {
+      "majorName": "Double Down 2022",
+      "year": 2022,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/double-down-2022/event/melee-singles-starts-saturday"
+    },
+    {
+      "majorName": "Super Smash Con 2022",
+      "year": 2022,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/super-smash-con-2022/event/melee-1v1-singles"
+    },
+    {
+      "majorName": "Shine 2022",
+      "year": 2022,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/shine-2022/event/melee-singles"
+    },
+    {
+      "majorName": "Riptide 2022",
+      "year": 2022,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/riptide-2022/event/melee-singles"
+    },
+    {
+      "majorName": "Lost Tech City 2022",
+      "year": 2022,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/lost-tech-city-2022/event/melee-1v1-5-000-pot-bonus-1"
+    },
+    {
+      "majorName": "The Big House 10",
+      "year": 2022,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/the-big-house-10/event/melee-singles"
+    },
+    {
+      "majorName": "Ludwig Smash Invitational",
+      "year": 2022,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/ludwig-smash-invitational/event/melee-singles-main-event"
+    },
+    {
+      "majorName": "Smash Summit 14",
+      "year": 2022,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/smash-summit-14-presented-by-coinbase/event/melee-singles"
+    },
+    {
+      "majorName": "Apex 2022",
+      "year": 2022,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/apex-2022/event/melee-singles-starts-friday"
+    },
+    {
+      "majorName": "Mainstage 2022",
+      "year": 2022,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/mainstage-2022/event/melee-singles"
+    },
+    {
+      "majorName": "Scuffed World Tour",
+      "year": 2022,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/scuffed-world-tour/event/melee-singles"
+    },
+    {
+      "majorName": "GENESIS 9",
+      "year": 2023,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/genesis-9-1/event/melee-singles"
+    },
+    {
+      "majorName": "Collision 2023",
+      "year": 2023,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/collision-2023-5/event/melee-singles"
+    },
+    {
+      "majorName": "MAJOR UPSET",
+      "year": 2023,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/major-upset/event/melee-singles-4500-prize-pool"
+    },
+    {
+      "majorName": "Battle of BC 5",
+      "year": 2023,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/battle-of-bc-5-5/event/melee-singles"
+    },
+    {
+      "majorName": "Tipped Off 14",
+      "year": 2023,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/tipped-off-14-resurgence/event/melee-singles"
+    },
+    {
+      "majorName": "Ludwig Ahgren Championship Series 5",
+      "year": 2023,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/ludwig-ahgren-championship-series-5-by-toyota-prius/event/melee-singles-main-event"
+    },
+    {
+      "majorName": "Fête 3: By the Sea",
+      "year": 2023,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/f-te-3-by-the-sea/event/melee-singles"
+    },
+    {
+      "majorName": "Get On My Level 2023",
+      "year": 2023,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/get-on-my-level-2023-canadian-fighting-game-championships/event/super-smash-bros-melee-singles"
+    },
+    {
+      "majorName": "Super Smash Con 2023",
+      "year": 2023,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/super-smash-con-2023/event/melee-1v1-singles"
+    },
+    {
+      "majorName": "Shine 2023",
+      "year": 2023,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/shine-2023-4/event/melee-singles"
+    },
+    {
+      "majorName": "Riptide 2023",
+      "year": 2023,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/riptide-2023-4/event/melee-singles"
+    },
+    {
+      "majorName": "The Big House 11",
+      "year": 2023,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/the-big-house-11/event/melee-singles"
+    },
+    {
+      "majorName": "Collision 2025",
+      "year": 2025,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/collision-2025-8/event/melee-singles"
+    },
+    {
+      "majorName": "Full House 2025",
+      "year": 2025,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/full-house-2025/event/main-bracket"
+    },
+    {
+      "majorName": "Nouns Bowl 2025",
+      "year": 2025,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/nouns-bowl-2025/event/melee-singles"
+    },
+    {
+      "majorName": "Nounsvitational Tokyo 2025",
+      "year": 2025,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/nounsvitational-2025-tokyo/event/melee-singles"
+    },
+    {
+      "majorName": "Tipped Off 16: Safari",
+      "year": 2025,
+      "disposition": "included",
+      "reason": "API-verified Start.gg bundle passed source-readiness validation.",
+      "evidenceUrl": "https://www.start.gg/tournament/tipped-off-16-safari/event/melee-singles"
+    }
+  ]
+}

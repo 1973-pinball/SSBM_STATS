@@ -7,6 +7,7 @@ import test from 'node:test';
 import {
   createStartggClient, downloadEvent, fetchEventMetadata, STARTGG_ENDPOINT,
 } from '../lib/forecast/startgg.mjs';
+import { isVettedStartggReceiptQuery } from '../lib/forecast/corpus-source-readiness.mjs';
 
 const TOKEN = 'forecast-unit-test-secret';
 const QUERY = 'query TestEvent($id: ID!) { event(id: $id) { id } }';
@@ -259,8 +260,8 @@ test('downloads every page in every connection and reproduces the full bundle of
   const client = clientAt(cacheDir, { fetchImpl: fixtureFetch(data, calls) });
   const bundle = await downloadEvent(client, SLUG, { perPage: 2 });
   assert.equal(createHash('sha256').update(JSON.stringify(bundle) + '\n').digest('hex'),
-    '6625513edd6ed5d05a52c26c9f2553eea69d13918a74787d4f8750cd9a099f94',
-    'Small-event source bytes must remain identical to the pre-sharding fixture');
+    '9ec7c0d4f56b2afb8686fdbe9ec69a459f4151a96e2234408f99b41ac5b745dc',
+    'Small-event source bytes must remain identical to the legacy-compatible fixture');
   assert.equal(bundle.schemaVersion, 1);
   assert.deepEqual(bundle.event, data.event);
   for (const field of ['entrants', 'sets', 'standings']) assert.deepEqual(bundle[field], data[field]);
@@ -268,8 +269,11 @@ test('downloads every page in every connection and reproduces the full bundle of
   assert.deepEqual(bundle.phaseGroups, data.phaseGroups.map(group => ({ ...group, phase: data.event.phases[0] })));
   assert.ok(bundle.sets.some(set => set.state !== 3), 'Unfinished sets preserved for bracket forecasting');
   assert.deepEqual(bundle.provenance.availableOptionalFields.slotPrerequisites, ['prereqId', 'prereqType', 'prereqPlacement']);
+  assert.deepEqual(bundle.provenance.availableOptionalFields.phaseGroupMetadata, ['bracketType', 'state', 'numRounds']);
   assert.equal(bundle.provenance.requests.length, calls.length);
   assert.equal(bundle.provenance.fetchedAt, '2026-09-04T12:00:00.000Z');
+  assert.ok(calls.every(call => isVettedStartggReceiptQuery(call.query, call.operation)),
+    'Every downloader query must remain inside the source-readiness contract');
   const paginated = calls.filter(call => call.variables.page);
   assert.equal(paginated.length, 10);
   for (const call of paginated) assert.equal(call.variables.perPage, 2);
@@ -281,6 +285,13 @@ test('downloads every page in every connection and reproduces the full bundle of
   assert.match(sets.query, /slots\(includeByes: true\)/);
   assert.match(sets.query, /prereqPlacement/);
   assert.doesNotMatch(sets.query, /prereqCondition/);
+  assert.match(sets.query, /phaseGroup \{ id displayIdentifier\s+bracketType\s+state\s+startAt\s+numRounds \}/);
+  const phaseGroups = calls.filter(call => call.operation === 'ForecastPhaseGroups');
+  assert.ok(phaseGroups.length > 0);
+  for (const call of phaseGroups) {
+    assert.match(call.query, /nodes \{ id displayIdentifier\s+bracketType\s+state\s+numRounds \}/);
+    assert.doesNotMatch(call.query, /startAt/);
+  }
   const offline = createStartggClient({ cacheDir, offline: true, fetchImpl: () => assert.fail('Offline fetch') });
   assert.deepEqual(await downloadEvent(offline, SLUG, { perPage: 2 }), bundle);
 });
@@ -401,6 +412,56 @@ test('unstable synthetic preview ordering falls back to one official phase group
   assert.equal(bundle.provenance.setPagination.eventTotal, data.sets.length);
   assert.deepEqual(calls.filter(call => call.operation === 'ForecastSetsByPhaseGroups')
     .map(call => call.variables.phaseGroupIds), [['301'], ['302'], ['303']]);
+});
+
+test('global STANDARD set overlap falls back to complete official phase-group shards and replays offline', async t => {
+  const cacheDir = await workspace(t);
+  const data = fixture();
+  const calls = [];
+  const options = { perPage: 2 };
+  const client = clientAt(cacheDir, { fetchImpl: fixtureFetch(data, calls, (connection, { field, variables }) => {
+    if (field === 'sets' && !variables.phaseGroupIds && variables.page === 2) {
+      connection.nodes[0] = { ...connection.nodes[0], id: data.sets[0].id };
+    }
+    return connection;
+  }) });
+  const bundle = await downloadEvent(client, SLUG, options);
+  assert.deepEqual(bundle.sets, data.sets);
+  assert.deepEqual(bundle.provenance.setPagination, {
+    strategy: 'phase-group-shards-global-order-v1', eventTotal: 3,
+    connectionRowLimit: 10000, initialShardGroupLimit: 32,
+    reason: 'unstable event-wide STANDARD ordering repeated a source set ID across pages',
+    shards: [{ phaseGroupIds: ['301', '302', '303'], total: 3 }],
+  });
+  assert.deepEqual(calls.filter(call => call.operation === 'ForecastSets').map(call => call.variables.page), [1, 2]);
+  assert.deepEqual(calls.filter(call => call.operation === 'ForecastSetsByPhaseGroups')
+    .map(call => [call.variables.phaseGroupIds, call.variables.page]), [
+    [['301', '302', '303'], 1], [['301', '302', '303'], 2],
+  ]);
+  const offline = createStartggClient({ cacheDir, offline: true, fetchImpl: () => assert.fail('Offline fetch') });
+  assert.deepEqual(await downloadEvent(offline, SLUG, options), bundle);
+});
+
+test('global overlap recovery still rejects a real duplicate across replacement phase-group shards', async t => {
+  const cacheDir = await workspace(t);
+  const data = fixture();
+  const original = data.sets[0];
+  data.phaseGroups = Array.from({ length: 35 }, (_, index) => ({ id: 301 + index, displayIdentifier: `A${index}` }));
+  data.sets = data.phaseGroups.map((group, index) => ({ ...original, id: 1001 + index, phaseGroup: group }));
+  const calls = [];
+  const client = clientAt(cacheDir, { fetchImpl: fixtureFetch(data, calls, (connection, { field, variables }) => {
+    if (field !== 'sets') return connection;
+    if (!variables.phaseGroupIds && variables.page === 2) {
+      connection.nodes[0] = { ...connection.nodes[0], id: data.sets[0].id };
+    }
+    if (variables.phaseGroupIds?.includes('333')) {
+      connection.nodes[0] = { ...connection.nodes[0], id: data.sets[0].id };
+    }
+    return connection;
+  }) });
+  await assert.rejects(downloadEvent(client, SLUG), { code: 'PAGINATION_DUPLICATE' });
+  assert.deepEqual(calls.filter(call => call.operation === 'ForecastSetsByPhaseGroups')
+    .map(call => [call.variables.phaseGroupIds.length, call.variables.page]), [[32, 1], [32, 2], [3, 1]]);
 });
 
 test('initial shards contain at most 32 official groups and reconcile all groups', async t => {

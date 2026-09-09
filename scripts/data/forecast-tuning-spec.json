@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "id": "nested-rolling-origin-24-v1",
+  "status": "frozen-exploratory",
+  "candidateCount": 24,
+  "policy": {
+    "outerMinTrainingEvents": 1,
+    "innerMinTrainingEvents": 5,
+    "innerMinCompletedFolds": 12,
+    "primaryObjective": "event-macro-log-loss",
+    "secondaryObjective": "event-macro-brier",
+    "selectionRule": "paired-one-standard-error-default-nearest",
+    "finalTieBreak": "candidate-id",
+    "warmup": "model-default",
+    "targetHoldout": "whole-event",
+    "outcomeRelease": "reported-event-end-and-latest-eligible-set-completion-strictly-before-next-cutoff",
+    "reportingOrientation": "forecast-side-v1",
+    "familySelection": false,
+    "productize": false
+  },
+  "evidenceModes": [
+    {
+      "id": "strict-seeds",
+      "allowHistoricalSeeds": false,
+      "label": "Reported-chronology retrospective with seeds observed before cutoff only"
+    },
+    {
+      "id": "availability-assumed",
+      "allowHistoricalSeeds": true,
+      "label": "Exploratory retrospective assuming historical initial seeds were available"
+    }
+  ],
+  "models": [
+    {
+      "id": "neutral",
+      "defaultCandidateId": "neutral-default",
+      "candidates": [
+        { "id": "neutral-default", "defaultDistance": 0, "options": {} }
+      ]
+    },
+    {
+      "id": "higher-seed",
+      "defaultCandidateId": "higher-seed-default",
+      "candidates": [
+        { "id": "higher-seed-default", "defaultDistance": 0, "options": {} }
+      ]
+    },
+    {
+      "id": "recency-elo",
+      "defaultCandidateId": "recency-elo-k32-h730",
+      "candidates": [
+        { "id": "recency-elo-k16-h365", "defaultDistance": 2, "options": { "k": 16, "scale": 400, "halfLifeDays": 365 } },
+        { "id": "recency-elo-k16-h730", "defaultDistance": 1, "options": { "k": 16, "scale": 400, "halfLifeDays": 730 } },
+        { "id": "recency-elo-k32-h365", "defaultDistance": 1, "options": { "k": 32, "scale": 400, "halfLifeDays": 365 } },
+        { "id": "recency-elo-k32-h730", "defaultDistance": 0, "options": { "k": 32, "scale": 400, "halfLifeDays": 730 } },
+        { "id": "recency-elo-k64-h365", "defaultDistance": 2, "options": { "k": 64, "scale": 400, "halfLifeDays": 365 } },
+        { "id": "recency-elo-k64-h730", "defaultDistance": 1, "options": { "k": 64, "scale": 400, "halfLifeDays": 730 } }
+      ]
+    },
+    {
+      "id": "glicko2",
+      "defaultCandidateId": "glicko2-rd350",
+      "candidates": [
+        { "id": "glicko2-rd200", "defaultDistance": 1, "options": { "initialRating": 1500, "initialRd": 200, "initialVolatility": 0.06, "ratingScale": 173.7178, "tau": 0.5, "convergenceTolerance": 0.000001, "maxIterations": 100 } },
+        { "id": "glicko2-rd350", "defaultDistance": 0, "options": { "initialRating": 1500, "initialRd": 350, "initialVolatility": 0.06, "ratingScale": 173.7178, "tau": 0.5, "convergenceTolerance": 0.000001, "maxIterations": 100 } },
+        { "id": "glicko2-rd500", "defaultDistance": 1, "options": { "initialRating": 1500, "initialRd": 500, "initialVolatility": 0.06, "ratingScale": 173.7178, "tau": 0.5, "convergenceTolerance": 0.000001, "maxIterations": 100 } }
+      ]
+    },
+    {
+      "id": "dynamic-bradley-terry",
+      "defaultCandidateId": "dynamic-bt-h365-r1",
+      "candidates": [
+        { "id": "dynamic-bt-h180-r1", "defaultDistance": 1, "options": { "halfLifeDays": 180, "ridge": 1, "maxIterations": 300, "tolerance": 1e-9 } },
+        { "id": "dynamic-bt-h180-r2", "defaultDistance": 2, "options": { "halfLifeDays": 180, "ridge": 2, "maxIterations": 300, "tolerance": 1e-9 } },
+        { "id": "dynamic-bt-h365-r1", "defaultDistance": 0, "options": { "halfLifeDays": 365, "ridge": 1, "maxIterations": 300, "tolerance": 1e-9 } },
+        { "id": "dynamic-bt-h365-r2", "defaultDistance": 1, "options": { "halfLifeDays": 365, "ridge": 2, "maxIterations": 300, "tolerance": 1e-9 } },
+        { "id": "dynamic-bt-h730-r1", "defaultDistance": 1, "options": { "halfLifeDays": 730, "ridge": 1, "maxIterations": 300, "tolerance": 1e-9 } },
+        { "id": "dynamic-bt-h730-r2", "defaultDistance": 2, "options": { "halfLifeDays": 730, "ridge": 2, "maxIterations": 300, "tolerance": 1e-9 } }
+      ]
+    },
+    {
+      "id": "regularized-bt-recent-form",
+      "defaultCandidateId": "regularized-bt-default",
+      "candidates": [
+        { "id": "regularized-bt-default", "defaultDistance": 0, "options": { "abilityL2": 2, "featureL2": 2, "maxIterations": 300, "tolerance": 1e-7, "formHalfLifeDays": 180, "formPrior": 6, "formRatingK": 24, "formRatingScale": 400 } },
+        { "id": "regularized-bt-ability-l2-1", "defaultDistance": 1, "options": { "abilityL2": 1, "featureL2": 2, "maxIterations": 300, "tolerance": 1e-7, "formHalfLifeDays": 180, "formPrior": 6, "formRatingK": 24, "formRatingScale": 400 } },
+        { "id": "regularized-bt-ability-l2-4", "defaultDistance": 1, "options": { "abilityL2": 4, "featureL2": 2, "maxIterations": 300, "tolerance": 1e-7, "formHalfLifeDays": 180, "formPrior": 6, "formRatingK": 24, "formRatingScale": 400 } },
+        { "id": "regularized-bt-feature-l2-1", "defaultDistance": 1, "options": { "abilityL2": 2, "featureL2": 1, "maxIterations": 300, "tolerance": 1e-7, "formHalfLifeDays": 180, "formPrior": 6, "formRatingK": 24, "formRatingScale": 400 } },
+        { "id": "regularized-bt-feature-l2-4", "defaultDistance": 1, "options": { "abilityL2": 2, "featureL2": 4, "maxIterations": 300, "tolerance": 1e-7, "formHalfLifeDays": 180, "formPrior": 6, "formRatingK": 24, "formRatingScale": 400 } },
+        { "id": "regularized-bt-form-half-life-90", "defaultDistance": 1, "options": { "abilityL2": 2, "featureL2": 2, "maxIterations": 300, "tolerance": 1e-7, "formHalfLifeDays": 90, "formPrior": 6, "formRatingK": 24, "formRatingScale": 400 } },
+        { "id": "regularized-bt-form-half-life-365", "defaultDistance": 1, "options": { "abilityL2": 2, "featureL2": 2, "maxIterations": 300, "tolerance": 1e-7, "formHalfLifeDays": 365, "formPrior": 6, "formRatingK": 24, "formRatingScale": 400 } }
+      ]
+    }
+  ],
+  "limitations": [
+    "The grid and model families were designed after inspecting 2018-2025 results, so nested historical estimates remain exploratory rather than confirmatory.",
+    "Strict-seed mode does not prove that historical outcome snapshots were available uncorrected at each cutoff.",
+    "Availability-assumed mode is not snapshot-safe and must never be described as an unbiased historical backtest.",
+    "Set-level target rows condition on realized matchups and do not constitute pre-event bracket forecasts."
+  ]
+}

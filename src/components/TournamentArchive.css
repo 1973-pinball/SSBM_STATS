@@ -1,11 +1,95 @@
+.ta-archive-disclosure {
+  display: block;
+  scroll-margin-top: 12px;
+}
+
+.ta-archive-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 86px;
+  list-style: none;
+  background:
+    radial-gradient(circle at 90% 10%, rgba(143, 127, 247, 0.13), transparent 34%),
+    var(--panel);
+  cursor: pointer;
+  user-select: none;
+}
+
+.ta-archive-summary::-webkit-details-marker { display: none; }
+
+.ta-archive-summary:hover { border-color: var(--accent-dim); }
+
+.ta-archive-summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ta-archive-summary h2 {
+  margin: 4px 0 2px;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 19px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.ta-archive-summary p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.ta-disclosure-action {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--bg-raised);
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ta-disclosure-open { display: none; }
+.ta-archive-disclosure[open] .ta-disclosure-closed { display: none; }
+.ta-archive-disclosure[open] .ta-disclosure-open { display: inline; }
+
+.ta-disclosure-chevron {
+  color: var(--accent);
+  font-size: 18px;
+  line-height: 1;
+  transition: transform 160ms ease;
+}
+
+.ta-archive-disclosure[open] .ta-disclosure-chevron { transform: rotate(180deg); }
+
+.ta-archive-content {
+  display: flow-root;
+  margin-top: 10px;
+}
+
+.ta-archive-explorer {
+  background:
+    radial-gradient(circle at 90% 10%, rgba(143, 127, 247, 0.13), transparent 34%),
+    var(--panel);
+}
+
 .ta-hero {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 24px;
-  background:
-    radial-gradient(circle at 90% 10%, rgba(143, 127, 247, 0.13), transparent 34%),
-    var(--panel);
+  background: transparent;
 }
 
 .ta-hero h2 {
@@ -46,6 +130,9 @@
   align-items: flex-end;
   gap: 9px;
   flex-wrap: wrap;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
 }
 
 .ta-filters label,
@@ -116,6 +203,8 @@
 .ta-unavailable { color: var(--muted); text-align: center; }
 
 @media (max-width: 700px) {
+  .ta-archive-summary { align-items: stretch; flex-direction: column; gap: 12px; }
+  .ta-disclosure-action { align-self: stretch; min-height: 44px; }
   .ta-hero { flex-direction: column; }
   .ta-mode { align-self: stretch; }
   .ta-mode button { flex: 1; min-height: 40px; }

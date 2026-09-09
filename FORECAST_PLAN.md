@@ -1,6 +1,6 @@
 # Tournament Forecast Research Plan
 
-> Status: **in progress — six-model diagnostics, the refreshable Riptide pairwise report, and a bundled website seed-scenario explorer are complete**. Historical tournament backtests and a validated full-field simulator are not complete. Research sources and full reports stay local; only the reviewed public-data derivative is bundled into the app. Do not upload forecast data or model output to Supabase until chronological out-of-sample results show that the system is useful.
+> Status: **in progress — the strict 2018–2025 historical corpus, source and identity audits, six-model suite, 24-configuration nested out-of-sample tuning, reviewed double-elimination pilot, Riptide path explorer, and public six-model backtest visualization are complete**. Snapshot-safe historical title validation, a generic probabilistic full-field simulator, and automatic public refresh remain open. Research sources and full reports stay local; only reviewed aggregate or public-data derivatives may be bundled into the app. Do not upload forecast data or model output to Supabase until tournament-level validation supports productization.
 
 ## Goal
 
@@ -52,7 +52,7 @@ Start.gg ingestion will require a developer token stored locally in an ignored `
    - Performance against the neutral and seed baselines
 
 7. **Historical major backtests**
-   Forecast each historical major using only information available before that event. Record predicted winner probabilities, top-eight probabilities, calibration, and realized outcomes.
+   Exercise the tournament simulator against reviewed historical brackets and retain the retrospective-source caveat. Immutable pre-event snapshots are optional follow-on evidence if confirmatory title-odds claims are later required.
 
 8. **Upcoming-event simulator**
    Support two forecast modes:
@@ -70,6 +70,10 @@ Start.gg ingestion will require a developer token stored locally in an ignored `
 
 - Every historical prediction must use a strict pre-event cutoff.
 - Model selection must be based on chronological out-of-sample performance, not training fit.
+- Hyperparameters must be selected only inside earlier inner whole-event folds;
+  outer target events may score a frozen choice but may never choose it.
+- Keep proven pre-event seed evidence separate from explicitly availability-
+  assumed sensitivity results. Never merge or relabel the latter as snapshot-safe.
 - Seeds are a strong real-world baseline and must be included in every comparison.
 - Report uncertainty and calibration, not only the most likely winner.
 - More complex features stay out unless they improve leakage-safe out-of-sample results.
@@ -77,25 +81,18 @@ Start.gg ingestion will require a developer token stored locally in an ignored `
 
 ## Expected storage
 
-The first pass should contain tens of thousands of sets and a few thousand player/entrant rows. A compact local dataset is expected to be roughly **10–50 MB**, with a future indexed Postgres/Supabase version likely remaining **under 100 MB**. These are planning estimates; the storage report will replace them with measured figures after ingestion.
+The strict 84-event canonical JSON is **379,603,382 bytes**. After the expanded
+evaluation, tuning checkpoints, retained local cache, raw evidence, historical
+generations, reports, and target-event work total **2,813,648,522 logical
+bytes**. The measured value
+replaces the original 10–50 MB planning guess; an ordinary GitHub blob cannot
+hold the canonical file.
 
-Initial measurement: the full canonical Riptide 2025 snapshot is **3,649,255 bytes**
-for 1,719 bracket rows, 489 entrants, 609 seeds and provenance. This includes
-excluded bracket rows; cache/raw copies and model output are separate. The
-original multi-event and Postgres estimates were unvalidated planning guesses,
-not storage limits. The latest five-event canonical snapshot is **48,117,350
-bytes**, and retained local research files total **256,432,778 logical bytes**
-(including cache, raw responses, older snapshots and reports). Hypothetical
-database capacity scenarios with a 30% operating allowance span **81,448,141 to
-148,466,074 bytes**; these are assumption-based budgets, not measured Postgres
-sizes or confidence bounds. After the six-model reports and an unverified
-upcoming-event source snapshot, retained local research files total **267,115,628
-logical bytes**; the current 1×/1.5×/2× hypothetical database budgets are
-**83,514,164**, **118,029,517** and **152,598,119 bytes**. The original
-under-100-MB guess is not a safe cap. After the complete Riptide preview bundle
-and refreshable matchup artifacts, retained local files total **296,338,685
-logical bytes**; the hypothetical database budgets are unchanged because the
-unfinished target bundle is not part of the historical schema projection.
+Assumption-based database scenarios, including one 74,891-row prediction run
+and a separate 30% allowance, are **687,367,783**, **973,927,220**, and
+**1,260,507,956 bytes** for the 1×/1.5×/2× payload cases. These are planning
+budgets, not measured PostgreSQL sizes or confidence bounds. No schema,
+connection, or upload has been created.
 
 ## Deliverables before broader productization
 
@@ -117,30 +114,72 @@ scripts/forecast.mjs; see [setup and methodology](docs/forecast-research.md).
 
 ### Roadmap status — 2026-09-09
 
-The local pipeline is verified on multiple 2025 majors. This does not mean
-completed all-major coverage or evidence of forecasting usefulness.
+The registry, acquisition, canonical dataset, source-readiness gate, and
+identity/outcome audit are complete for the selected 2018–2025 scope. This is
+not all-years coverage: 85 of the broader registry's 211 offline majors are
+mapped, and one scoped event is quarantined rather than trained on.
 
 | # | Item | Status | Remaining acceptance work |
 |---|---|---|---|
-| 1 | Major registry | In progress: 5 API-verified majors | Expand coverage of 211 offline majors; 16 online rows retained/excluded |
-| 2 | Start.gg downloader | Implemented; five historical events plus a complete 2,773-row Riptide 2026 observed-response bundle | Expand source coverage; preserve fail-closed completeness and preview-shard checks |
-| 3 | Canonical local dataset | Five-event historical snapshot saved: 4,502 players, 8,208 eligible sets; upcoming event retained separately | Expand historical source coverage; do not mix unfinished target rows into training |
-| 4 | Cleaning and identity resolution | Five-event audit complete; current Riptide report resolves 565 public identities with zero invalid source rows | Continue source audits; exact simulator must validate opaque cross-phase routing |
-| 5 | Model suite | Six of six planned models implemented and compared | Broader data, nested training-only tuning, uncertainty and selection decision |
-| 6 | Evaluation framework | Core implemented: four chronological holdouts, 6,244 test sets and calibration charts | Event-cluster uncertainty and selection criteria |
-| 7 | Historical major backtests | Tournament-level backtests not started; set-level diagnostic framework implemented | Historical title/top-eight forecasts and tournament probability evaluation |
-| 8 | Upcoming-event simulator | In progress: 216 refreshable pairwise forecasts plus a bundled deterministic Top-16/Top-8 seed-scenario explorer | Provisional full-field and exact double-elimination title/top-eight simulation; graph/reset validation |
-| 9 | Local comparison report | Six-model comparison, stable Riptide matchup Markdown, and a website tournament/model path explorer saved | Add reviewed tournaments and website refresh flow; complete historical tournament forecasts and the final proceed/revise/stop recommendation |
-| 10 | Storage report | Refreshed: 296,338,685 local logical bytes; projection report complete | Refresh as data grows; scenarios remain unvalidated until a schema is measured |
+| 1 | Major registry | Complete for 2018–2025: all 85 selected offline singles majors are API-verified (14/12/2/6/16/12/13/10 by year); 16 online events are retained and excluded | Broader optional expansion remains 85 of 211 offline majors mapped |
+| 2 | Start.gg downloader | Complete for scope: all 85 acquired with hash-checked provenance; 84 ready and one quarantined | Continue fail-closed refresh support as upstream data changes |
+| 3 | Canonical local dataset | Complete: strict 84-event dataset with 18,421 players, 44,022 entrants, and 77,270 eligible sets | Keep future generations contract- and source-gated |
+| 4 | Cleaning and identity resolution | Complete for accepted corpus: zero structural conflicts and all 84 winner/runner-up outcomes reconciled, including 10 advisory corroborations | Do not turn tag history into model identity joins; route audits belong to simulator work |
+| 5 | Model suite | Complete: six of six planned models and a frozen 24-configuration tuning grid implemented | Repair regularized-BT convergence before considering a wider grid |
+| 6 | Evaluation framework | Complete for set-level tuning: 83 chronological outer folds, inner-only selection, 74,891 predictions, calibration, coverage, and paired event-cluster uncertainty | Tournament-level metrics remain Roadmap item 7 |
+| 7 | Historical major backtests | Complete for the accepted retrospective scope: engine and Scuffed pipeline pilot pass; strict mode has zero snapshot-valid historical targets and that limitation is accepted | Optional only: add pre-event snapshots if confirmatory title-odds claims are later required |
+| 8 | Upcoming-event simulator | Reviewed DE pilot, pairwise forecasts, and deterministic Riptide seed-scenario explorer exist | Generic event registry, probabilistic full-field simulation, multi-phase routing, title/Top-8 odds, and live refresh |
+| 9 | Local comparison report | In progress: compact tuning report and public six-model backtest visualization complete; current decision is revise before productizing | Final family selection after simulator expansion; then rebuild reviewed website forecasts |
+| 10 | Storage report | Complete after tuning: 379,603,382-byte dataset and 2,813,648,522 retained local bytes | Validate against a real schema only if a cloud design is later approved |
+
+### 2018–2025 corpus expansion checkpoint — accepted dataset
+
+- The tracked cohort is every bundled offline Melee singles major dated from
+  2018 through 2025: **85 events**, with yearly counts **14, 12, 2, 6, 16, 12,
+  13, and 10**. All 85 have exact API-verified Start.gg mappings. The registry
+  also retains **16 online events** from this period as explicit exclusions;
+  they are never eligible for the offline training corpus.
+- `scripts/data/forecast-corpus-contract.json` freezes the scope and requires a
+  reviewed terminal disposition for each event. `npm run forecast -- corpus`
+  writes content-addressed contract, canonical-coverage, and source-readiness
+  reports. `npm run forecast -- corpus --strict-corpus` fails until every event
+  has a reviewed disposition and every included source is ready.
+- `npm run forecast -- normalize --corpus` normalizes only the contract cohort;
+  `npm run forecast -- normalize --strict-corpus` additionally enforces complete
+  contract and included-source readiness. The accepted contract contains 84
+  included events, one source-ambiguous event (GOML 2022), and zero unresolved
+  decisions. Both strict corpus commands pass.
+- Source readiness independently validates file type and path, SHA-256 digest,
+  JSON shape, source IDs, reconciled connection counts, completed-event state,
+  pagination/request provenance, and registry mapping. Fewer standings than
+  entrants are recorded for review rather than treated as fabricated missing
+  rows; impossible counts and duplicate or foreign entrant references fail.
+- Two legacy Start.gg failures now have narrow, auditable recoveries. For EVO
+  2018, the API advertises `PhaseGroup.startAt` but errors when it is resolved
+  through the official phase-group connection, so that collection omits only
+  the unreliable field while nested set phase-group metadata retains it. For
+  CEO 2018, unstable event-wide `STANDARD` ordering repeated a set ID across
+  pages, so the downloader replaced the collection with complete, disjoint
+  official phase-group shards and still enforces membership, totals, and
+  uniqueness. A true duplicate or incomplete shard union remains fatal.
+- Normalization writes a hash-addressed advisory historical-outcome report. Of
+  84 events, 74 match directly and 10 retain raw review signals that are fully
+  corroborated through authoritative IDs, event-local aliases, or a validated
+  championship-final path. There are zero unresolved outcome pairs. The audit
+  never assigns or merges identities and never changes training eligibility.
 
 ### Milestone 1 — local data foundation
 
-- CLI commands: registry, map, download, normalize, status.
+- CLI commands: registry, corpus, map, download, normalize, evaluate,
+  bracket-report, storage, and status. Bulk acquisition uses
+  `download --all-mapped`; corpus review uses `corpus [--strict-corpus]` and
+  `normalize --corpus` or `normalize --strict-corpus`.
 - Local token file is ignored; cache and output live only under ignored .forecast/.
 - Downloaded queries and completed bundles are hash-checked; offline repeats are reproducible.
 - Canonical identities use public source IDs, never tag matching; excluded sets remain auditable.
-- Initial registry was generated from 227 bundled majors: 211 offline and 16 excluded online.
-- One Riptide 2025 event URL is recorded as a candidate, not a verified source mapping.
+- The registry was generated from 227 bundled majors: 211 offline and 16
+  excluded online. The selected 2018–2025 offline cohort contains 85 events,
+  all API-verified, with yearly counts 14/12/2/6/16/12/13/10.
 - Credential-free tests and CI wiring cover cache, pagination, registry, cleaning and CLI integration.
 - No forecast data or model output uploaded. No predictive usefulness claimed.
 
@@ -380,3 +419,82 @@ completed all-major coverage or evidence of forecasting usefulness.
 - The production build and all **163** credential-free forecast tests pass.
   Desktop and phone-sized browser checks confirm that model changes redraw the
   downstream path; the local page logged no runtime errors.
+
+### Milestone 8 — strict 2018–2025 corpus and expanded model evidence
+
+- All 85 scoped offline majors have API-verified mappings and downloaded source
+  bundles. The contract includes 84 and quarantines GOML 2022 as
+  `source-ambiguous`; it has zero unresolved decisions. Eggdog Invitational and
+  Nounsvitational 2024 use their separate championship-stage events rather than
+  the incomplete preliminary events first discovered.
+- The strict canonical dataset is
+  `e21eb6bf8d91b295b875ab11959e1beddae937d7816e5c7da1a2f13db3f6371d`:
+  84 events, 18,421 players, 20,578 aliases, 44,022 entrants, 58,318 seeds,
+  196,820 source set rows, 77,270 eligible sets, and 44,001 standings. Both
+  strict corpus commands pass with authenticated source provenance.
+- Dataset structure has zero duplicate/conflicting set rows, event conflicts,
+  entrant conflicts, invalid seeds, or invalid standings. One anonymous entrant
+  has no set rows, and one duplicated registration has only DQ outcomes.
+- The outcome report preserves ten review signals—six Cody Schwab/iBDW tag-
+  history cases, three Zain homonyms, and malformed Summit 14 standings—but
+  corroborates all of them through authoritative IDs and constrained source
+  evidence. All 84 events reconcile and none of this advisory evidence changes
+  model input.
+- Eighty-three rolling whole-event folds produce 74,891 held-out set forecasts.
+  Regularized Bradley–Terry + seed + recent form leads with 76.45% accuracy,
+  0.1576 Brier, 0.4753 log loss, and 0.8511 AUC. A deterministic paired
+  10,000-replicate event-cluster bootstrap makes it the only model whose 95%
+  descriptive intervals favor it over higher seed on accuracy, Brier, and log
+  loss. This is not yet tournament-title validation or automatic selection.
+- The updated evaluation run is
+  `6541f6da58ca5bb2975ae9b3668ac518b6ff541fb0469f311429c5b854573249`.
+  The updated storage report is
+  `d9803b5aa29781bf0147a7409af547d1d66de70ec4fa87c1a989c11744e4c7f2`.
+  The later bracket and tuning milestones below raised retained local research
+  state to **2,813,648,522 logical bytes**; no data or model output was uploaded.
+
+### Milestone 9 — historical double-elimination backtest pilot
+
+- A leakage-safe tournament-backtest engine now holds out an entire target
+  event, audits its double-elimination graph, freezes pairwise predictions, and
+  can score probabilistic title and Top-8 outcomes when a qualifying pre-event
+  bracket snapshot exists.
+- Scuffed World Tour 2022's reviewed 16-player, single-phase graph exercises the
+  pipeline end to end. It is an exploratory reconstruction, not confirmatory
+  evidence: its available bracket and seed data were observed after the event.
+- Strict snapshot gating therefore admits **zero historical target events**.
+  No title-calibration result or tournament-level model ranking is claimed. The
+  owner accepts this retrospective limitation for the current scope, so Roadmap
+  item 7 is complete without making a confirmatory title-odds claim.
+
+### Milestone 10 — nested tuning and public comparison evidence
+
+- The frozen 24-configuration grid was evaluated with nested chronological
+  whole-event validation: inner earlier-event folds select hyperparameters and
+  83 outer folds score 74,891 held-out sets. The strict tuning run is
+  `194fcc586f1e95a984fa0f1e5e54abe01143d11b21bb599a0b4e3aa6a0a135d4`;
+  the explicitly availability-assumed seed sensitivity run is
+  `3f6d9ef3b13becea3501df2afab2783bc94f42412d6edd05948563afb4a31115`.
+- Stable strict selections are Elo `K=64`, 730-day window (67/67 mature
+  selections); Glicko-2 initial `RD=500` (67/67); and dynamic Bradley–Terry
+  730-day window with ridge `1` (66/67). Their tuned event-macro log loss is
+  **0.5823**, **0.5525**, and **0.5936**, respectively, and each improves on its
+  frozen default with paired event-cluster intervals excluding zero.
+- Regularized Bradley–Terry selected ability L2 `1` in all 30 mature folds where
+  optimization was available, but 37 mature selection folds were unavailable
+  and six outer forecasts required neutral fallback. Its strict tuning gain is
+  not reliable enough to widen the grid or select the family. Under the
+  non-snapshot-safe seed sensitivity it reaches **0.5085 log loss / 0.1689
+  Brier**, but the tuning delta itself is unclear and the lift is chiefly seed
+  availability, not evidence that would be valid in strict history.
+- A sanitized aggregate evidence bundle now drives the Tournament Predictions
+  UI's six-model comparison, strict/sensitivity toggle, metric ranking, coverage,
+  tuning notes, and selected settings. It contains no row-level identities and
+  remains explicitly retrospective rather than a tournament-title backtest.
+- Retained local research state is **2,813,648,522 logical bytes**. No model
+  family has been selected for product use; the decision remains **revise**.
+- Next priorities, in order, are optimizer reliability, a generic manual
+  upcoming-event registry, complete route and full-field simulator support with
+  live refresh, an explicit model-family decision, and only then an automatic
+  sanitized public feed. Pre-event snapshot collection is optional rather than
+  a release blocker.

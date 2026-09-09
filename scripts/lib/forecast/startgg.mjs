@@ -452,7 +452,12 @@ export async function downloadEvent(client, eventSlug, {
   const slotType = setFields.get('slots')?.name;
   if (!slotType) fail('Start.gg Set slots schema is incomplete.', 'SCHEMA');
   const slotFields = await schema(slotType);
-  const groupSelection = `id displayIdentifier ${scalars(groupFields, ['bracketType', 'state', 'startAt', 'numRounds', 'firstRoundTime', 'groupTypeId'])}`;
+  const setPhaseGroupSelection = `id displayIdentifier ${scalars(groupFields, ['bracketType', 'state', 'startAt', 'numRounds', 'firstRoundTime', 'groupTypeId'])}`;
+  // Legacy events can expose PhaseGroup.startAt in introspection while every
+  // row errors when the field is resolved through the phaseGroups connection.
+  // Keep it in the nested Set.phaseGroup selection, where it remains useful,
+  // but do not claim or request it for the official phase-group collection.
+  const officialPhaseGroupSelection = `id displayIdentifier ${scalars(groupFields, ['bracketType', 'state', 'numRounds', 'firstRoundTime', 'groupTypeId'])}`;
 
   const entrantsQuery = `query ForecastEntrants($eventId: ID!, $page: Int!, $perPage: Int!) {
     event(id: $eventId) { id entrants(query: { page: $page perPage: $perPage }) {
@@ -468,7 +473,7 @@ export async function downloadEvent(client, eventSlug, {
         ${scalars(setFields, ['startAt', 'startedAt', 'completedAt', 'createdAt', 'updatedAt', 'displayScore', 'identifier', 'lPlacement', 'wPlacement'])}
         ${setFields.has('winnerProgressionSeed') ? 'winnerProgressionSeed { id }' : ''}
         ${setFields.has('loserProgressionSeed') ? 'loserProgressionSeed { id }' : ''}
-        phaseGroup { ${groupSelection} }
+        phaseGroup { ${setPhaseGroupSelection} }
         slots(includeByes: true) {
           id ${scalars(slotFields, ['slotIndex', 'prereqId', 'prereqType', 'prereqPlacement', 'prereqCondition'])}
           entrant { id name }
@@ -499,7 +504,7 @@ export async function downloadEvent(client, eventSlug, {
   const groupsQuery = `query ForecastPhaseGroups($phaseId: ID!, $page: Int!, $perPage: Int!) {
     phase(id: $phaseId) { id phaseGroups(query: { page: $page perPage: $perPage }) {
       pageInfo { total totalPages }
-      nodes { ${groupSelection} }
+      nodes { ${officialPhaseGroupSelection} }
     } }
   }`;
   const pageOptions = { perPage, maxPages, onProgress };
@@ -540,14 +545,23 @@ export async function downloadEvent(client, eventSlug, {
       },
     });
   } catch (error) {
-    if (error?.code !== 'PAGINATION_PREVIEW_ORDER' || !Number.isSafeInteger(observedSetTotal)) throw error;
-    const initialShardGroupLimit = 1;
+    const previewOrder = error?.code === 'PAGINATION_PREVIEW_ORDER';
+    // A duplicate below the source cap came from the ordinary event-wide
+    // connection. Duplicates raised after an oversized event has already
+    // entered paginateSetShards must remain fatal.
+    const globalOrderOverlap = error?.code === 'PAGINATION_DUPLICATE'
+      && Number.isSafeInteger(observedSetTotal) && observedSetTotal <= setPaginationLimit;
+    if ((!previewOrder && !globalOrderOverlap) || !Number.isSafeInteger(observedSetTotal)) throw error;
+    const initialShardGroupLimit = previewOrder ? 1 : PHASE_GROUP_SHARD_SIZE;
     const result = await paginateSetShards(request, shardSetsQuery, event.id,
       await officialPhaseGroups(), observedSetTotal, pageOptions, setPaginationLimit, initialShardGroupLimit);
     setPagination = {
-      strategy: 'phase-group-shards-preview-order-v1', eventTotal: observedSetTotal,
+      strategy: previewOrder ? 'phase-group-shards-preview-order-v1' : 'phase-group-shards-global-order-v1',
+      eventTotal: observedSetTotal,
       connectionRowLimit: setPaginationLimit, initialShardGroupLimit,
-      reason: 'unstable event-wide ordering of synthetic preview set IDs',
+      reason: previewOrder
+        ? 'unstable event-wide ordering of synthetic preview set IDs'
+        : 'unstable event-wide STANDARD ordering repeated a source set ID across pages',
       shards: result.leaves,
     };
     sets = result.sets;
@@ -574,7 +588,7 @@ export async function downloadEvent(client, eventSlug, {
         setTimestamps: ['startAt', 'startedAt', 'completedAt', 'createdAt', 'updatedAt'].filter(name => setFields.has(name)),
         slotPrerequisites: ['prereqId', 'prereqType', 'prereqPlacement', 'prereqCondition'].filter(name => slotFields.has(name)),
         progressionSeeds: ['winnerProgressionSeed', 'loserProgressionSeed'].filter(name => setFields.has(name)),
-        phaseGroupMetadata: ['bracketType', 'state', 'startAt', 'numRounds', 'firstRoundTime', 'groupTypeId'].filter(name => groupFields.has(name)),
+        phaseGroupMetadata: ['bracketType', 'state', 'numRounds', 'firstRoundTime', 'groupTypeId'].filter(name => groupFields.has(name)),
         teamRosterSize: Object.hasOwn(event, 'teamRosterSize'),
       },
     },

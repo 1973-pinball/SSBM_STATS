@@ -69,6 +69,16 @@ test("CLI source-to-dataset run is deterministic, local-only, and preserves qual
   assert.equal(data.events[0].major.name, "Riptide 2025");
   assert.equal(data.seeds[0].usableAsPreEventFeature, null);
   assert.equal(data.standings[0].usableAsPreEventFeature, false);
+  assert.match(manifest.outcomeReconciliation.report,
+    /^datasets\/[a-f0-9]{64}\/outcome-reconciliation-[a-f0-9]{64}\.json$/);
+  const outcomeBody = await readFile(path.join(root, manifest.outcomeReconciliation.report), "utf8");
+  const outcome = JSON.parse(outcomeBody);
+  assert.equal(digest(outcomeBody), manifest.outcomeReconciliation.sha256);
+  assert.equal(outcome.datasetSha256, manifest.sha256);
+  assert.equal(outcome.advisoryOnly, true);
+  assert.equal(outcome.counts.mismatches, 2);
+  assert.equal(outcome.counts.reviewEvents, 1);
+  assert.equal(data.sets[0].eligible, true, "outcome review signals must not alter training eligibility");
   assert.equal(manifest.uploads, false);
   assert.equal(manifest.sha256, digest(await readFile(path.join(root, manifest.dataset), "utf8")));
   assert.equal(run(["normalize", "--root", root]).status, 0);

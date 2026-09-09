@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "historical-major-backtest-route-pilot-v1",
+  "scope": "single-event-pipeline-validation",
+  "events": [
+    {
+      "eventId": "startgg:event:831001",
+      "disposition": "included",
+      "fieldSize": 16,
+      "initialPhaseId": "1267068",
+      "phaseGroupId": "1943259",
+      "grandFinalSetId": "startgg:set:55237180",
+      "resetRule": "if-lower-side-wins-grand-final",
+      "structuralSha256": "b86b13b30f5a746873525c4f64f6301972d8463bf0c1d044c95ee1cb90888df6"
+    }
+  ]
+}

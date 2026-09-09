@@ -2,7 +2,7 @@
   "name": "ssbm-stats",
   "private": true,
   "license": "MIT",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "type": "module",
   "engines": {
     "node": "22.x"
@@ -19,6 +19,7 @@
     "forecast": "node scripts/forecast.mjs",
     "forecast:riptide": "node scripts/forecast.mjs bracket-report --event tournament/riptide-2026-4/event/melee-singles --refresh",
     "predictions:build": "node scripts/build-site-predictions.mjs",
+    "predictions:backtest-data": "node scripts/build-tournament-backtest-data.mjs",
     "test:forecast": "node --test scripts/forecast-tests/*.test.mjs",
     "lint": "oxlint",
     "preview": "vite preview",

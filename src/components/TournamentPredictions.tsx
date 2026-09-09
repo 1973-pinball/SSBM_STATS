@@ -1,11 +1,19 @@
 import { useMemo, useState, type CSSProperties } from "react";
 import { pct, shortDate } from "../lib/format";
 import { TOURNAMENT_PREDICTIONS } from "../lib/tournamentPredictionData";
+import { TOURNAMENT_PREDICTION_BACKTEST } from "../lib/tournamentPredictionBacktestData";
 import type {
   TournamentPrediction,
   TournamentPredictionMatch,
+  TournamentPredictionModelId,
   TournamentPredictionPlayer,
 } from "../lib/tournamentPredictionData.types";
+import type {
+  TournamentPredictionBacktestEvidenceModeId,
+  TournamentPredictionBacktestMetrics,
+  TournamentPredictionBacktestModel,
+  TournamentPredictionSelectedSetting,
+} from "../lib/tournamentPredictionBacktestData.types";
 import "./TournamentPredictions.css";
 
 const TOP16_PATHS = [
@@ -33,12 +41,178 @@ const TOP8_POSITIONS: Record<string, CSSProperties> = {
   "GF-RESET": { left: 930, top: 260 },
 };
 
+type BacktestMetric = keyof TournamentPredictionBacktestMetrics;
+
+const BACKTEST_METRICS: readonly {
+  id: BacktestMetric;
+  label: string;
+  lowerIsBetter: boolean;
+}[] = [
+  { id: "logLoss", label: "Log loss", lowerIsBetter: true },
+  { id: "brier", label: "Brier", lowerIsBetter: true },
+  { id: "accuracy", label: "Accuracy", lowerIsBetter: false },
+  { id: "auc", label: "AUC", lowerIsBetter: false },
+];
+
 function indexMatches(matches: readonly TournamentPredictionMatch[]) {
   return new Map(matches.map((match) => [match.id, match]));
 }
 
 function playerName(players: ReadonlyMap<string, TournamentPredictionPlayer>, id: string): string {
   return players.get(id)?.name ?? "Unknown player";
+}
+
+function formatBacktestMetric(metric: BacktestMetric, value: number): string {
+  return metric === "accuracy" || metric === "auc" ? pct(value, 1) : value.toFixed(3);
+}
+
+function backtestBarValue(metric: BacktestMetric, value: number): number {
+  const lift = metric === "logLoss"
+    ? 1 - value / Math.log(2)
+    : metric === "brier"
+      ? 1 - value / 0.25
+      : (value - 0.5) / 0.5;
+  return Math.max(0, Math.min(1, lift));
+}
+
+function settingOption(setting: TournamentPredictionSelectedSetting, key: string): number | null {
+  const value = setting.options[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function settingLabel(model: TournamentPredictionBacktestModel, setting: TournamentPredictionSelectedSetting): string {
+  if (setting.isDefault) return "frozen default";
+  if (model.id === "recency-elo") {
+    return `K=${settingOption(setting, "k") ?? "?"} · ${settingOption(setting, "halfLifeDays") ?? "?"}d half-life`;
+  }
+  if (model.id === "glicko2") return `initial RD=${settingOption(setting, "initialRd") ?? "?"}`;
+  if (model.id === "dynamic-bradley-terry") {
+    return `${settingOption(setting, "halfLifeDays") ?? "?"}d half-life · ridge=${settingOption(setting, "ridge") ?? "?"}`;
+  }
+  if (setting.candidateId.includes("ability-l2")) return `ability L2=${settingOption(setting, "abilityL2") ?? "?"}`;
+  if (setting.candidateId.includes("feature-l2")) return `feature L2=${settingOption(setting, "featureL2") ?? "?"}`;
+  if (setting.candidateId.includes("form-half-life")) return `form half-life=${settingOption(setting, "formHalfLifeDays") ?? "?"}d`;
+  return setting.candidateId;
+}
+
+function selectedSettingsLabel(model: TournamentPredictionBacktestModel): string {
+  const tuned = model.tuning.selectedSettings.filter((setting) => !setting.isDefault);
+  if (!tuned.length) return model.tuning.matureEvents > 0 ? "Default retained" : "Fixed baseline";
+  return tuned.slice(0, 2)
+    .map((setting) => `${settingLabel(model, setting)} · ${setting.count} folds`)
+    .join(" / ");
+}
+
+function hasClearTuningGain(model: TournamentPredictionBacktestModel): boolean {
+  const logLoss = model.tuning.versusDefault.logLoss.interval95;
+  const brier = model.tuning.versusDefault.brier.interval95;
+  return logLoss !== null && brier !== null && logLoss.upper < 0 && brier.upper < 0;
+}
+
+function BacktestComparison({
+  evidenceModeId,
+  selectedModelId,
+  onEvidenceModeChange,
+  onSelectModel,
+}: {
+  evidenceModeId: TournamentPredictionBacktestEvidenceModeId;
+  selectedModelId: TournamentPredictionModelId;
+  onEvidenceModeChange: (mode: TournamentPredictionBacktestEvidenceModeId) => void;
+  onSelectModel: (model: TournamentPredictionModelId) => void;
+}) {
+  const [metric, setMetric] = useState<BacktestMetric>("logLoss");
+  const evidenceMode = TOURNAMENT_PREDICTION_BACKTEST.modes.find((mode) => mode.id === evidenceModeId)
+    ?? TOURNAMENT_PREDICTION_BACKTEST.modes[0]!;
+  const metricConfig = BACKTEST_METRICS.find((option) => option.id === metric) ?? BACKTEST_METRICS[0]!;
+  const models = [...evidenceMode.models].sort((a, b) => {
+    const difference = a.eventMacro[metric] - b.eventMacro[metric];
+    return (metricConfig.lowerIsBetter ? difference : -difference) || a.name.localeCompare(b.name);
+  });
+
+  return (
+    <section className="tp-backtest" aria-labelledby="tp-backtest-title">
+      <div className="tp-backtest-heading">
+        <div>
+          <div className="eyebrow">83-event out-of-sample test</div>
+          <h3 id="tp-backtest-title">Six-model comparison</h3>
+          <p>Whole tournaments are held out. Bar length shows improvement over neutral; select a model row to redraw the bracket.</p>
+        </div>
+        <div className="tp-backtest-modes" aria-label="Historical evidence mode">
+          {TOURNAMENT_PREDICTION_BACKTEST.modes.map((mode) => (
+            <button
+              type="button"
+              key={mode.id}
+              className={`${mode.id === evidenceMode.id ? "active" : ""}${mode.id === "availability-assumed" ? " assumed" : ""}`}
+              aria-pressed={mode.id === evidenceMode.id}
+              title={mode.description}
+              onClick={() => onEvidenceModeChange(mode.id)}
+            >
+              {mode.id === "strict-seeds" ? "Strict history" : "Seed sensitivity"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="tp-backtest-toolbar">
+        <div className="tp-backtest-metrics" aria-label="Comparison metric">
+          {BACKTEST_METRICS.map((option) => (
+            <button
+              type="button"
+              key={option.id}
+              className={option.id === metric ? "active" : ""}
+              aria-pressed={option.id === metric}
+              onClick={() => setMetric(option.id)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <span>{metricConfig.lowerIsBetter ? "Lower is better" : "Higher is better"}</span>
+      </div>
+
+      <div className="tp-backtest-chart" role="list" aria-label={`${metricConfig.label} ranking for all six models`}>
+        {models.map((result, index) => {
+          const selected = result.id === selectedModelId;
+          const tuned = result.tuning.matureEvents > 0;
+          const clearGain = hasClearTuningGain(result);
+          const tuningStatus = !tuned ? "Fixed" : clearGain ? "Tuning gain" : "No clear gain";
+          const settings = selectedSettingsLabel(result);
+          const value = result.eventMacro[metric];
+          return (
+            <div className={`tp-backtest-row${selected ? " selected" : ""}`} role="listitem" key={result.id}>
+              <button
+                type="button"
+                className="tp-backtest-model"
+                aria-pressed={selected}
+                onClick={() => onSelectModel(result.id)}
+              >
+                <span className="tp-backtest-rank">{index + 1}</span>
+                <span><b>{result.name}</b><small>{settings}</small></span>
+              </button>
+              <div className="tp-backtest-bar" aria-hidden="true">
+                <span style={{ width: `${backtestBarValue(metric, value) * 100}%` }} />
+              </div>
+              <strong>{formatBacktestMetric(metric, value)}</strong>
+              <span className={`tp-tuning-status ${clearGain ? "gain" : tuned ? "unclear" : "fixed"}`}>{tuningStatus}</span>
+              <small className="tp-backtest-coverage">
+                {pct(result.pooledCoverage, 0)} coverage
+                {result.tuning.fallbackEvents > 0 ? ` · ${result.tuning.fallbackEvents} neutral fallback${result.tuning.fallbackEvents === 1 ? "" : "s"}` : ""}
+              </small>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="tp-backtest-note" id="tp-backtest-note">
+        <b>Retrospective, not snapshot-verified.</b> {evidenceMode.description}. These are set-level results conditional on realized matchups, not bracket, Top-8, or title-odds backtests. Hyperparameters are selected only from earlier inner folds; no model family is automatically selected.
+      </div>
+      <div className="tp-backtest-meta">
+        <span>{TOURNAMENT_PREDICTION_BACKTEST.coverage.events} held-out events</span>
+        <span>{TOURNAMENT_PREDICTION_BACKTEST.coverage.sets.toLocaleString()} held-out sets</span>
+        <span>Event-macro scoring</span>
+      </div>
+    </section>
+  );
 }
 
 function BracketMatch({
@@ -195,10 +369,14 @@ export function TournamentPredictions() {
   const initialTournament = tournaments[0];
   const [tournamentId, setTournamentId] = useState(initialTournament?.id ?? "");
   const [modelId, setModelId] = useState(initialTournament?.defaultModelId ?? "");
+  const [evidenceModeId, setEvidenceModeId] = useState<TournamentPredictionBacktestEvidenceModeId>("strict-seeds");
   const tournament = tournaments.find((item) => item.id === tournamentId) ?? initialTournament;
   const model = tournament?.models.find((item) => item.id === modelId)
     ?? tournament?.models.find((item) => item.id === tournament.defaultModelId)
     ?? tournament?.models[0];
+  const evidenceMode = TOURNAMENT_PREDICTION_BACKTEST.modes.find((mode) => mode.id === evidenceModeId)
+    ?? TOURNAMENT_PREDICTION_BACKTEST.modes[0]!;
+  const modelEvidence = evidenceMode.models.find((item) => item.id === model?.id);
   const players = useMemo(() => new Map((tournament?.players ?? []).map((player) => [player.id, player])), [tournament]);
   const matches = useMemo(() => indexMatches(model?.matches ?? []), [model]);
   if (!tournament || !model) return null;
@@ -212,7 +390,7 @@ export function TournamentPredictions() {
       <div className="tp-heading">
         <div>
           <div className="eyebrow">Experimental · public tournament data</div>
-          <h2 id="tp-title">Predictions</h2>
+          <h2 id="tp-title">Tournament Predictions</h2>
           <p>Choose a tournament and model to redraw the projected matchup path.</p>
         </div>
         <div className="tp-controls">
@@ -238,11 +416,11 @@ export function TournamentPredictions() {
       </div>
 
       <div className="tp-model-strip" id="tp-model-explanation">
-        <div><b>{model.shortName}</b><span>{model.explanation} Held-out scores below use unseen events; lower is better.</span></div>
-        <dl aria-label="Held-out evaluation; lower Brier score and log loss are better">
-          <div><dt>Held-out Brier</dt><dd>{model.heldOut.brier.toFixed(3)}</dd></div>
-          <div><dt>Log loss</dt><dd>{model.heldOut.logLoss.toFixed(3)}</dd></div>
-          <div><dt>Test sets</dt><dd>{model.heldOut.predictions.toLocaleString()}</dd></div>
+        <div><b>{model.shortName}</b><span>{model.explanation} The scores follow the evidence mode selected in the comparison below.</span></div>
+        <dl aria-label={`${evidenceMode.label} out-of-sample evaluation; lower Brier score and log loss are better`}>
+          <div><dt>OOS Brier</dt><dd>{(modelEvidence?.eventMacro.brier ?? model.heldOut.brier).toFixed(3)}</dd></div>
+          <div><dt>OOS log loss</dt><dd>{(modelEvidence?.eventMacro.logLoss ?? model.heldOut.logLoss).toFixed(3)}</dd></div>
+          <div><dt>Test sets</dt><dd>{(modelEvidence?.outerSets ?? model.heldOut.predictions).toLocaleString()}</dd></div>
         </dl>
       </div>
 
@@ -268,6 +446,13 @@ export function TournamentPredictions() {
         <span>{tournament.training.events} training events · {tournament.training.sets.toLocaleString()} sets</span>
         <a href={tournament.sourceUrl} target="_blank" rel="noreferrer">Start.gg source</a>
       </div>
+
+      <BacktestComparison
+        evidenceModeId={evidenceMode.id}
+        selectedModelId={model.id}
+        onEvidenceModeChange={setEvidenceModeId}
+        onSelectModel={setModelId}
+      />
     </section>
   );
 }

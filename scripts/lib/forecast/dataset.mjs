@@ -131,7 +131,7 @@ export function normalizeEvents(bundles) {
           if (!alias) {
             alias = {
               id: `startgg:alias:${digest(aliasKey)}`, playerId: identity.id,
-              tag: identity.tag, comparisonTag: comparisonTag(identity.tag),
+              tag: identity.tag, comparisonTag: normalizeComparisonTag(identity.tag),
               source: { system: 'start.gg', participantIds: [], provenanceIds: [] },
               eventIds: [], entrantIds: [],
             };
@@ -407,7 +407,7 @@ function score(value) { return typeof value === 'number' && Number.isSafeInteger
 function timestamp(value) { return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null; }
 function observedAt(value) { const milliseconds = typeof value === 'string' ? Date.parse(value) : NaN; return Number.isFinite(milliseconds) ? milliseconds / 1000 : null; }
 function rows(value) { return Array.isArray(value) ? value : Array.isArray(value?.nodes) ? value.nodes : []; }
-function comparisonTag(value) { return value.normalize('NFKC').toLowerCase().trim(); }
+export function normalizeComparisonTag(value) { return value.normalize('NFKC').toLowerCase().trim(); }
 function append(map, key, value) { if (!map.has(key)) map.set(key, []); map.get(key).push(value); }
 function compare(a, b) { return a < b ? -1 : a > b ? 1 : 0; }
 function byId(a, b) { return compare(a.id, b.id); }

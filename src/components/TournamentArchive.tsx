@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { INCLUDED_STAGE_IDS } from "../lib/config";
 import { hoursLabel, int, num, pct, shortDate, winRateColor } from "../lib/format";
 import { charName, moveGroup, moveGroupLabel, stageName } from "../lib/melee";
@@ -84,6 +84,26 @@ function groupedMoves(metrics: ArchiveMetrics | null, gameCount: number): MoveRo
 
 const tournamentLabel = (tournament: ArchiveTournament): string =>
   tournament.year === null ? tournament.canonical_name : `${tournament.canonical_name} (${tournament.year})`;
+
+function PublicArchiveDisclosure({ children }: { children: ReactNode }) {
+  return (
+    <details className="ta-archive-disclosure" id="public-replay-archive">
+      <summary className="panel ta-archive-summary">
+        <div>
+          <div className="eyebrow">Optional public dataset</div>
+          <h2>Public replay archive</h2>
+          <p>Tournament field, ranked-player, matchup, stage, and move-level stats.</p>
+        </div>
+        <span className="ta-disclosure-action">
+          <span className="ta-disclosure-closed">Expand archive</span>
+          <span className="ta-disclosure-open">Collapse archive</span>
+          <span className="ta-disclosure-chevron" aria-hidden="true">⌄</span>
+        </span>
+      </summary>
+      <div className="ta-archive-content">{children}</div>
+    </details>
+  );
+}
 
 export function TournamentArchive() {
   const [catalog, setCatalog] = useState<ArchiveCatalog>(EMPTY_CATALOG);
@@ -253,10 +273,10 @@ export function TournamentArchive() {
     ? tournamentLabel(selectedEvent)
     : selectedSeries?.canonical_name ?? "Tournament archive";
 
-  if (catalogLoading) return <><TournamentPredictions /><div className="empty-note">Loading public tournament archive…</div></>;
-  if (catalogError) return <><TournamentPredictions /><ArchiveUnavailable message={catalogError} /></>;
+  if (catalogLoading) return <><TournamentPredictions /><PublicArchiveDisclosure><div className="empty-note">Loading public tournament archive…</div></PublicArchiveDisclosure></>;
+  if (catalogError) return <><TournamentPredictions /><PublicArchiveDisclosure><ArchiveUnavailable message={catalogError} /></PublicArchiveDisclosure></>;
   if (!catalog.dataset || catalog.tournaments.length === 0) {
-    return <><TournamentPredictions /><ArchiveUnavailable message="No public tournament dataset has been published yet." /></>;
+    return <><TournamentPredictions /><PublicArchiveDisclosure><ArchiveUnavailable message="No public tournament dataset has been published yet." /></PublicArchiveDisclosure></>;
   }
 
   const lCancelAttempts = (selected?.metrics.lCancelSuccess ?? 0) + (selected?.metrics.lCancelFail ?? 0);
@@ -266,44 +286,47 @@ export function TournamentArchive() {
     <>
       <TournamentPredictions />
 
-      <section className="panel ta-hero">
-        <div>
-          <div className="eyebrow">Public replay archive</div>
-          <h2>{scopeTitle}</h2>
-          <p>
-            Explore tournament and recurring-series results, execution, stages, and move choices. Named profiles appear
-            only where a publicly ranked player can be linked to public tournament evidence.
-          </p>
-        </div>
-        <div className="ta-mode" role="tablist" aria-label="Tournament archive scope">
-          <button className={mode === "series" ? "active" : ""} role="tab" aria-selected={mode === "series"} onClick={() => { setMode("series"); setPlayerId(null); }}>Series</button>
-          <button className={mode === "event" ? "active" : ""} role="tab" aria-selected={mode === "event"} onClick={() => { setMode("event"); setPlayerId(null); }}>Event</button>
-        </div>
-      </section>
+      <PublicArchiveDisclosure>
+        <section className="panel ta-archive-explorer" aria-label="Public replay archive explorer">
+          <div className="ta-hero">
+            <div>
+              <div className="eyebrow">Archive scope</div>
+              <h2>{scopeTitle}</h2>
+              <p>
+                Explore tournament and recurring-series results, execution, stages, and move choices. Named profiles appear
+                only where a publicly ranked player can be linked to public tournament evidence.
+              </p>
+            </div>
+            <div className="ta-mode" role="group" aria-label="Tournament archive scope">
+              <button className={mode === "series" ? "active" : ""} aria-pressed={mode === "series"} onClick={() => { setMode("series"); setPlayerId(null); }}>Series</button>
+              <button className={mode === "event" ? "active" : ""} aria-pressed={mode === "event"} onClick={() => { setMode("event"); setPlayerId(null); }}>Event</button>
+            </div>
+          </div>
 
-      <section className="panel ta-filters" aria-label="Tournament archive filters">
-        {mode === "series" ? (
-          <>
-            <label>Series<select value={seriesId} onChange={(event) => { setSeriesId(event.target.value); setEditionId(""); setPlayerId(null); }}>{catalog.series.map((series) => <option key={series.id} value={series.id}>{series.canonical_name}</option>)}</select></label>
-            <label>Edition<select value={editionId} onChange={(event) => { setEditionId(event.target.value); setPlayerId(null); }}><option value="">All editions</option>{seriesEditions.map((tournament) => <option key={tournament.id} value={tournament.id}>{tournamentLabel(tournament)}</option>)}</select></label>
-          </>
-        ) : (
-          <label>Event<select value={eventId} disabled={playerId !== null && playerAvailability?.playerId !== playerId} onChange={(event) => { const nextEvent = event.target.value; setEventId(nextEvent); if (playerId) setCharacterId(primaryCharacterForEvent(nextEvent)); setOpponentCharacterId(null); setStageId(null); }}>{availableEvents.map((tournament) => <option key={tournament.id} value={tournament.id}>{tournamentLabel(tournament)}</option>)}</select></label>
-        )}
-        <label>Sample<select value={population} disabled={playerId !== null} onChange={(event) => setPopulation(event.target.value as ArchivePopulation)}><option value="conservative">Tournament benchmark</option><option value="broad">Venue benchmark</option></select></label>
-        <label>Format<select value={format} onChange={(event) => { setFormat(event.target.value as ArchiveFormat); setPlayerId(null); }}><option value="singles">Singles</option><option value="doubles">Doubles</option></select></label>
-        <label>Character<select value={characterId ?? "all"} onChange={(event) => { const value = event.target.value; setCharacterId(value === "all" ? null : Number(value)); setOpponentCharacterId(null); setStageId(null); }}><option value="all">All characters</option>{availableCharacters.map((id) => <option key={id} value={id}>{charName(id)}</option>)}</select></label>
-        <label>Opponent<select value={opponentCharacterId ?? "all"} disabled={characterId === null || format === "doubles"} onChange={(event) => { setOpponentCharacterId(event.target.value === "all" ? null : Number(event.target.value)); setStageId(null); }}><option value="all">All opponents</option>{availableOpponents.map((id) => <option key={id} value={id}>{charName(id)}</option>)}</select></label>
-        <label>Stage<select value={stageId ?? "all"} disabled={characterId === null} onChange={(event) => setStageId(event.target.value === "all" ? null : Number(event.target.value))}><option value="all">All legal stages</option>{INCLUDED_STAGE_IDS.map((id) => <option key={id} value={id}>{stageName(id)}</option>)}</select></label>
-        <label>Ranked player<select value={playerId ?? "field"} disabled={pros.length === 0} onChange={(event) => { const next = event.target.value === "field" ? null : event.target.value; setPlayerId(next); setOpponentCharacterId(null); setStageId(null); if (next) { const player = pros.find((option) => option.id === next); setMode("event"); setEventId(""); setCharacterId(player?.primary_character_id ?? null); setPopulation("conservative"); } }}><option value="field">Tournament field</option>{pros.map((player) => <option key={player.id} value={player.id}>{player.display_name} · {charName(player.primary_character_id)} · {archiveRankingLabel(player.latest_ranking)}</option>)}</select></label>
-        <div className="ta-filter-note">
-          {playerId
-            ? "Named-player views use conservatively curated games. Event lists show only events with published evidence-backed mappings for that pro; choosing an event selects their most-played character there."
-            : population === "broad"
-              ? "Venue benchmark includes technically usable event-associated games, including games not tied to a bracket set."
-              : "Tournament benchmark includes only verified or probable tournament-set games. Choose a named pro to narrow Events and Character automatically."}
-        </div>
-      </section>
+          <div className="ta-filters" role="group" aria-label="Tournament archive filters">
+            {mode === "series" ? (
+              <>
+                <label>Series<select value={seriesId} onChange={(event) => { setSeriesId(event.target.value); setEditionId(""); setPlayerId(null); }}>{catalog.series.map((series) => <option key={series.id} value={series.id}>{series.canonical_name}</option>)}</select></label>
+                <label>Edition<select value={editionId} onChange={(event) => { setEditionId(event.target.value); setPlayerId(null); }}><option value="">All editions</option>{seriesEditions.map((tournament) => <option key={tournament.id} value={tournament.id}>{tournamentLabel(tournament)}</option>)}</select></label>
+              </>
+            ) : (
+              <label>Event<select value={eventId} disabled={playerId !== null && playerAvailability?.playerId !== playerId} onChange={(event) => { const nextEvent = event.target.value; setEventId(nextEvent); if (playerId) setCharacterId(primaryCharacterForEvent(nextEvent)); setOpponentCharacterId(null); setStageId(null); }}>{availableEvents.map((tournament) => <option key={tournament.id} value={tournament.id}>{tournamentLabel(tournament)}</option>)}</select></label>
+            )}
+            <label>Sample<select value={population} disabled={playerId !== null} onChange={(event) => setPopulation(event.target.value as ArchivePopulation)}><option value="conservative">Tournament benchmark</option><option value="broad">Venue benchmark</option></select></label>
+            <label>Format<select value={format} onChange={(event) => { setFormat(event.target.value as ArchiveFormat); setPlayerId(null); }}><option value="singles">Singles</option><option value="doubles">Doubles</option></select></label>
+            <label>Character<select value={characterId ?? "all"} onChange={(event) => { const value = event.target.value; setCharacterId(value === "all" ? null : Number(value)); setOpponentCharacterId(null); setStageId(null); }}><option value="all">All characters</option>{availableCharacters.map((id) => <option key={id} value={id}>{charName(id)}</option>)}</select></label>
+            <label>Opponent<select value={opponentCharacterId ?? "all"} disabled={characterId === null || format === "doubles"} onChange={(event) => { setOpponentCharacterId(event.target.value === "all" ? null : Number(event.target.value)); setStageId(null); }}><option value="all">All opponents</option>{availableOpponents.map((id) => <option key={id} value={id}>{charName(id)}</option>)}</select></label>
+            <label>Stage<select value={stageId ?? "all"} disabled={characterId === null} onChange={(event) => setStageId(event.target.value === "all" ? null : Number(event.target.value))}><option value="all">All legal stages</option>{INCLUDED_STAGE_IDS.map((id) => <option key={id} value={id}>{stageName(id)}</option>)}</select></label>
+            <label>Ranked player<select value={playerId ?? "field"} disabled={pros.length === 0} onChange={(event) => { const next = event.target.value === "field" ? null : event.target.value; setPlayerId(next); setOpponentCharacterId(null); setStageId(null); if (next) { const player = pros.find((option) => option.id === next); setMode("event"); setEventId(""); setCharacterId(player?.primary_character_id ?? null); setPopulation("conservative"); } }}><option value="field">Tournament field</option>{pros.map((player) => <option key={player.id} value={player.id}>{player.display_name} · {charName(player.primary_character_id)} · {archiveRankingLabel(player.latest_ranking)}</option>)}</select></label>
+            <div className="ta-filter-note">
+              {playerId
+                ? "Named-player views use conservatively curated games. Event lists show only events with published evidence-backed mappings for that pro; choosing an event selects their most-played character there."
+                : population === "broad"
+                  ? "Venue benchmark includes technically usable event-associated games, including games not tied to a bracket set."
+                  : "Tournament benchmark includes only verified or probable tournament-set games. Choose a named pro to narrow Events and Character automatically."}
+            </div>
+          </div>
+        </section>
 
       {dataLoading ? <div className="empty-note">Loading tournament statistics…</div> : dataError ? <ArchiveUnavailable message={dataError} /> : !selected ? (
         <div className="empty-note">No published data matches this combination of filters.</div>
@@ -336,7 +359,8 @@ export function TournamentArchive() {
           <MovePanel row={selected} />
         </>
       )}
-      <SourcesPanel catalog={catalog} selectedEvent={selectedEvent} selectedSeries={selectedSeries} seriesEditions={seriesEditions} population={population} />
+        <SourcesPanel catalog={catalog} selectedEvent={selectedEvent} selectedSeries={selectedSeries} seriesEditions={seriesEditions} population={population} />
+      </PublicArchiveDisclosure>
     </>
   );
 }

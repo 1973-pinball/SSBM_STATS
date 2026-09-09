@@ -85,7 +85,7 @@ const TABS: { id: Tab; label: string }[] = [
 
 
   { id: "community", label: "Community" },
-  { id: "tournaments", label: "Tournaments" },
+  { id: "tournaments", label: "Tournament Predictions" },
   { id: "liquipedia", label: "Liquipedia" },
 ];
 
@@ -1244,6 +1244,7 @@ export default function App() {
                   <button
                     key={t.id}
                     role="tab"
+                    aria-label={t.label}
                     tabIndex={tab === t.id ? 0 : -1}
                     aria-selected={tab === t.id}
                     // aria-disabled rather than the disabled attribute: Chrome
@@ -1251,11 +1252,13 @@ export default function App() {
                     // why the tab will not open would never be read.
                     aria-disabled={pending || undefined}
                     title={pending ? PENDING_TAB_HINT : undefined}
-                    className={tab === t.id ? "active" : ""}
+                    className={`${tab === t.id ? "active" : ""}${t.id === "tournaments" ? " tab-label-wrap" : ""}`}
                     onKeyDown={moveTabFocus}
                     onClick={() => { if (!pending) selectTab(t.id); }}
                   >
-                    {t.label}
+                    {t.id === "tournaments"
+                      ? <span aria-hidden="true">Tournament<br />Predictions</span>
+                      : t.label}
                   </button>
                 );
               })}

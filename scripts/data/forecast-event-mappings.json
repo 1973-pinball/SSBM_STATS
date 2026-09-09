@@ -50,6 +50,806 @@
       "tournamentId": "777707",
       "evidenceUrl": "https://www.start.gg/tournament/supernova-2025/event/melee-1v1-singles/brackets/1940608/2849852/",
       "notes": "API-verified 2026-09-04: Supernova 2025, Melee - 1v1 Singles, offline, August 7–10, 2025. Event ID and tournament ID checked against official metadata."
+    },
+    {
+      "majorName": "GENESIS X",
+      "year": 2024,
+      "eventSlug": "tournament/genesis-x/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "985241",
+      "tournamentId": "517161",
+      "evidenceUrl": "https://www.start.gg/tournament/genesis-x/event/melee-singles",
+      "notes": "API-verified 2026-09-09: GENESIS X, Melee Singles, offline, February 16–18, 2024 tournament dates and 1,544 singles entrants agree."
+    },
+    {
+      "majorName": "Collision 2024",
+      "year": 2024,
+      "eventSlug": "tournament/collision-2024-6/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "944473",
+      "tournamentId": "568148",
+      "evidenceUrl": "https://www.start.gg/tournament/collision-2024-6/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Collision 2024, Melee Singles, offline, March 15–17, 2024 tournament dates and 494 singles entrants agree."
+    },
+    {
+      "majorName": "Battle of BC 6",
+      "year": 2024,
+      "eventSlug": "tournament/battle-of-bc-6-7/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "999586",
+      "tournamentId": "593513",
+      "evidenceUrl": "https://www.start.gg/tournament/battle-of-bc-6-7/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Battle of BC 6, Melee Singles, offline, March 29–31, 2024 tournament dates and 398 singles entrants agree."
+    },
+    {
+      "majorName": "Pat's House 4",
+      "year": 2024,
+      "eventSlug": "tournament/pat-s-house-4-2/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "1038365",
+      "tournamentId": "614387",
+      "evidenceUrl": "https://www.start.gg/tournament/pat-s-house-4-2/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Pat's House 4, Melee Singles, offline, April 27–28, 2024 tournament dates and 307 singles entrants agree."
+    },
+    {
+      "majorName": "Get On My Level X",
+      "year": 2024,
+      "eventSlug": "tournament/get-on-my-level-x-canadian-fighting-game-championships/event/super-smash-bros-melee-singles",
+      "confidence": "verified",
+      "eventId": "948372",
+      "tournamentId": "570293",
+      "evidenceUrl": "https://www.start.gg/tournament/get-on-my-level-x-canadian-fighting-game-championships/event/super-smash-bros-melee-singles",
+      "notes": "Reviewed API mapping 2026-09-09: official title 'Get On My Level X - Canadian Fighting Game Championships' adds a descriptive suffix to the bundled title. Melee singles, offline status, May 17–19, 2024 dates and 770 singles entrants agree."
+    },
+    {
+      "majorName": "Tipped Off 15",
+      "year": 2024,
+      "eventSlug": "tournament/tipped-off-15-connected-1/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "1024594",
+      "tournamentId": "610992",
+      "evidenceUrl": "https://www.start.gg/tournament/tipped-off-15-connected-1/event/melee-singles",
+      "notes": "Reviewed API mapping 2026-09-09: official title 'Tipped Off 15: Connected' adds the edition subtitle to the bundled title. Melee singles, offline status, June 15–16, 2024 dates and 513 singles entrants agree."
+    },
+    {
+      "majorName": "Supernova 2024",
+      "year": 2024,
+      "eventSlug": "tournament/supernova-2024/event/melee-1v1-singles",
+      "confidence": "verified",
+      "eventId": "1139035",
+      "tournamentId": "669570",
+      "evidenceUrl": "https://www.start.gg/tournament/supernova-2024/event/melee-1v1-singles",
+      "notes": "API-verified 2026-09-09: Supernova 2024, Melee - 1v1 Singles, offline, August 8–11, 2024 tournament dates and 905 singles entrants agree."
+    },
+    {
+      "majorName": "Eggdog Invitational",
+      "year": 2024,
+      "eventSlug": "tournament/eggdog-invitational/event/final-bracket-sunday",
+      "confidence": "verified",
+      "eventId": "1206359",
+      "tournamentId": "663815",
+      "evidenceUrl": "https://www.start.gg/tournament/eggdog-invitational/event/final-bracket-sunday",
+      "notes": "API-verified 2026-09-09 by enumerating the official tournament events: Final Bracket (Sunday), event 1206359, is the 16-player completed championship stage won by Cody Schwab. The separate Melee Singles event contains preliminary challenge matches and is not the championship source."
+    },
+    {
+      "majorName": "Riptide 2024",
+      "year": 2024,
+      "eventSlug": "tournament/riptide-2024-5/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "1068593",
+      "tournamentId": "633528",
+      "evidenceUrl": "https://www.start.gg/tournament/riptide-2024-5/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Riptide 2024, Melee Singles, offline, September 6–8, 2024 tournament dates and 601 singles entrants agree."
+    },
+    {
+      "majorName": "Wavelength 2024",
+      "year": 2024,
+      "eventSlug": "tournament/wavelength/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "1163672",
+      "tournamentId": "677926",
+      "evidenceUrl": "https://www.start.gg/tournament/wavelength/event/melee-singles",
+      "notes": "Reviewed API mapping 2026-09-09: official title 'Wavelength' omits the bundled year suffix. Melee singles, offline status, October 5–6, 2024 dates, champion Zain and runner-up Aklo, and 330 singles entrants agree."
+    },
+    {
+      "majorName": "Luminosity Makes Moves Miami 2024",
+      "year": 2024,
+      "eventSlug": "tournament/luminosity-makes-moves-miami-2024/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "1151660",
+      "tournamentId": "676239",
+      "evidenceUrl": "https://www.start.gg/tournament/luminosity-makes-moves-miami-2024/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Luminosity Makes Moves Miami 2024, Melee Singles, offline, November 1–3, 2024 tournament dates and 168 singles entrants agree."
+    },
+    {
+      "majorName": "Don't Park on the Grass 2024",
+      "year": 2024,
+      "eventSlug": "tournament/don-t-park-on-the-grass-2024/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "1103262",
+      "tournamentId": "651013",
+      "evidenceUrl": "https://www.start.gg/tournament/don-t-park-on-the-grass-2024/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Don't Park on the Grass 2024, Melee Singles, offline, November 16–17, 2024 tournament dates and 888 singles entrants agree."
+    },
+    {
+      "majorName": "Nounsvitational 2024",
+      "year": 2024,
+      "eventSlug": "tournament/nounsvitational-2024/event/melee-top-16",
+      "confidence": "verified",
+      "eventId": "1274967",
+      "tournamentId": "713345",
+      "evidenceUrl": "https://www.start.gg/tournament/nounsvitational-2024/event/melee-top-16",
+      "notes": "API-verified 2026-09-09 by enumerating the official tournament events: Melee Top 16, event 1274967, is the completed championship stage. The separate Melee Singles event contains only the two day-one round robins and omits the finals."
+    },
+    {
+      "majorName": "GENESIS 6",
+      "year": 2019,
+      "eventSlug": "tournament/genesis-6/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "119796",
+      "tournamentId": "55815",
+      "evidenceUrl": "https://www.start.gg/tournament/genesis-6/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Genesis 6, Melee Singles, offline, February 1–3, 2019 tournament dates and 1,113 singles entrants agree."
+    },
+    {
+      "majorName": "Pound 2019",
+      "year": 2019,
+      "eventSlug": "tournament/pound-2019/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "273790",
+      "tournamentId": "118319",
+      "evidenceUrl": "https://www.start.gg/tournament/pound-2019/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Pound 2019, Melee Singles, offline, April 19–21, 2019 tournament dates and 451 singles entrants agree."
+    },
+    {
+      "majorName": "Get On My Level 2019",
+      "year": 2019,
+      "eventSlug": "tournament/get-on-my-level-2019-canadian-fighting-game-championships-3/event/super-smash-bros-melee-singles",
+      "confidence": "verified",
+      "eventId": "297421",
+      "tournamentId": "129556",
+      "evidenceUrl": "https://www.start.gg/tournament/get-on-my-level-2019-canadian-fighting-game-championships-3/event/super-smash-bros-melee-singles",
+      "notes": "Reviewed API mapping 2026-09-09: official title 'Get On My Level 2019 Canadian Fighting Game Championships' adds a descriptive suffix to the bundled title. Melee singles, offline status, May 17–19, 2019 dates and 420 singles entrants agree."
+    },
+    {
+      "majorName": "Smash 'N' Splash 5",
+      "year": 2019,
+      "eventSlug": "tournament/smash-n-splash-5/event/melee-singles-5-000-pot-bonus",
+      "confidence": "verified",
+      "eventId": "158786",
+      "tournamentId": "72577",
+      "evidenceUrl": "https://www.start.gg/tournament/smash-n-splash-5/event/melee-singles-5-000-pot-bonus",
+      "notes": "API-verified 2026-09-09: Smash'N'Splash 5, Melee Singles, offline, May 31–June 2, 2019 tournament dates and 838 singles entrants agree. The exact event slug retains its advertised pot-bonus suffix."
+    },
+    {
+      "majorName": "Smash Summit 8",
+      "year": 2019,
+      "eventSlug": "tournament/smash-summit-8/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "352177",
+      "tournamentId": "128721",
+      "evidenceUrl": "https://www.start.gg/tournament/smash-summit-8/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Smash Summit 8, Melee Singles, offline, June 13–16, 2019 tournament dates agree."
+    },
+    {
+      "majorName": "CEO 2019",
+      "year": 2019,
+      "eventSlug": "tournament/ceo-2019-fighting-game-championships/event/super-smash-bros-melee-singles",
+      "confidence": "verified",
+      "eventId": "316136",
+      "tournamentId": "132419",
+      "evidenceUrl": "https://www.start.gg/tournament/ceo-2019-fighting-game-championships/event/super-smash-bros-melee-singles",
+      "notes": "Reviewed API mapping 2026-09-09: official title 'CEO 2019 Fighting Game Championships' adds a descriptive suffix to the bundled title. Melee singles, offline status, June 28–30, 2019 dates and 329 singles entrants agree."
+    },
+    {
+      "majorName": "Low Tier City 7",
+      "year": 2019,
+      "eventSlug": "tournament/low-tier-city-7/event/melee-1v1",
+      "confidence": "verified",
+      "eventId": "298453",
+      "tournamentId": "125239",
+      "evidenceUrl": "https://www.start.gg/tournament/low-tier-city-7/event/melee-1v1",
+      "notes": "API-verified 2026-09-09: Low Tier City 7, Melee 1v1, offline, July 12–14, 2019 tournament dates and 303 singles entrants agree."
+    },
+    {
+      "majorName": "Super Smash Con 2019",
+      "year": 2019,
+      "eventSlug": "tournament/super-smash-con-2019/event/melee-1v1-singles",
+      "confidence": "verified",
+      "eventId": "317251",
+      "tournamentId": "137702",
+      "evidenceUrl": "https://www.start.gg/tournament/super-smash-con-2019/event/melee-1v1-singles",
+      "notes": "API-verified 2026-09-09: Super Smash Con 2019, Melee - 1v1 Singles, offline, August 8–11, 2019 tournament dates and 853 singles entrants agree."
+    },
+    {
+      "majorName": "Shine 2019",
+      "year": 2019,
+      "eventSlug": "tournament/shine-2019/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "316805",
+      "tournamentId": "135479",
+      "evidenceUrl": "https://www.start.gg/tournament/shine-2019/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Shine 2019, Melee Singles, offline, August 23–25, 2019 tournament dates and 661 singles entrants agree."
+    },
+    {
+      "majorName": "Mainstage",
+      "year": 2019,
+      "eventSlug": "tournament/mainstage/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "337810",
+      "tournamentId": "145536",
+      "evidenceUrl": "https://www.start.gg/tournament/mainstage/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Mainstage, Melee Singles, offline, September 20–22, 2019 tournament dates and 289 singles entrants agree."
+    },
+    {
+      "majorName": "The Big House 9",
+      "year": 2019,
+      "eventSlug": "tournament/the-big-house-9/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "360333",
+      "tournamentId": "156036",
+      "evidenceUrl": "https://www.start.gg/tournament/the-big-house-9/event/melee-singles",
+      "notes": "API-verified 2026-09-09: The Big House 9, Melee Singles, offline, October 4–6, 2019 tournament dates and 909 singles entrants agree."
+    },
+    {
+      "majorName": "Mango's Birthday Bash",
+      "year": 2019,
+      "eventSlug": "tournament/mango-s-birthday-bash-red-bull-adrenalan/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "414999",
+      "tournamentId": "181730",
+      "evidenceUrl": "https://www.start.gg/tournament/mango-s-birthday-bash-red-bull-adrenalan/event/melee-singles",
+      "notes": "Reviewed API mapping 2026-09-09: official title 'Mango's Birthday Bash @ Red Bull AdrenaLAN' adds the venue/brand suffix to the bundled title. Melee singles, offline status, December 7–8, 2019 dates and 228 singles entrants agree."
+    },
+    {
+      "majorName": "GENESIS 5",
+      "year": 2018,
+      "eventSlug": "tournament/genesis-5/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "40311",
+      "tournamentId": "13299",
+      "evidenceUrl": "https://www.start.gg/tournament/genesis-5/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Genesis 5, Melee Singles, offline, January 19–21, 2018 tournament dates and 1,365 singles registrations agree."
+    },
+    {
+      "majorName": "Enthusiast Gaming Live Expo 2018",
+      "year": 2018,
+      "eventSlug": "tournament/eglx-2018-smash/event/melee-singles-at-eglx-2018",
+      "confidence": "verified",
+      "eventId": "70882",
+      "tournamentId": "28460",
+      "evidenceUrl": "https://www.start.gg/tournament/eglx-2018-smash/event/melee-singles-at-eglx-2018",
+      "notes": "Reviewed API mapping 2026-09-09: official title 'EGLX 2018 - Smash' abbreviates the bundled title. The exact Melee singles bracket, offline status, March 9–11, 2018 dates, champion Hungrybox and runner-up Plup agree. Start.gg reports 181 registrations while Liquipedia reports 180 players; the discrepancy is retained for the dataset quality audit."
+    },
+    {
+      "majorName": "Full Bloom 4",
+      "year": 2018,
+      "eventSlug": "tournament/full-bloom-4/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "53674",
+      "tournamentId": "17369",
+      "evidenceUrl": "https://www.start.gg/tournament/full-bloom-4/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Full Bloom 4, Melee Singles, offline, March 24–25, 2018 tournament dates and 354 singles entrants agree."
+    },
+    {
+      "majorName": "Smash Summit 6",
+      "year": 2018,
+      "eventSlug": "tournament/smash-summit-6/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "93783",
+      "tournamentId": "41534",
+      "evidenceUrl": "https://www.start.gg/tournament/smash-summit-6/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Smash Summit 6, Melee Singles, offline, May 3–6, 2018 tournament dates and 16 singles entrants agree."
+    },
+    {
+      "majorName": "Get On My Level 2018",
+      "year": 2018,
+      "eventSlug": "tournament/get-on-my-level-2018-canadian-smash-championships/event/super-smash-bros-melee-singles",
+      "confidence": "verified",
+      "eventId": "72885",
+      "tournamentId": "31197",
+      "evidenceUrl": "https://www.start.gg/tournament/get-on-my-level-2018-canadian-smash-championships/event/super-smash-bros-melee-singles",
+      "notes": "Reviewed API mapping 2026-09-09: official title 'Get On My Level 2018 - Canadian Smash Championships' adds a descriptive suffix to the bundled title. Melee singles, offline status, May 18–20, 2018 dates and 449 singles entrants agree."
+    },
+    {
+      "majorName": "Smash 'N' Splash 4",
+      "year": 2018,
+      "eventSlug": "tournament/smash-n-splash-4/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "63191",
+      "tournamentId": "25452",
+      "evidenceUrl": "https://www.start.gg/tournament/smash-n-splash-4/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Smash'N'Splash 4, Melee Singles, offline, June 1–3, 2018 tournament dates and 924 singles entrants agree."
+    },
+    {
+      "majorName": "CEO 2018",
+      "year": 2018,
+      "eventSlug": "tournament/ceo-2018-fighting-game-championships/event/super-smash-bros-melee",
+      "confidence": "verified",
+      "eventId": "76408",
+      "tournamentId": "32843",
+      "evidenceUrl": "https://www.start.gg/tournament/ceo-2018-fighting-game-championships/event/super-smash-bros-melee",
+      "notes": "Reviewed API mapping 2026-09-09: official title 'CEO 2018 Fighting Game Championships' adds a descriptive suffix to the bundled title. Melee singles, offline status, June 29–July 1, 2018 dates and 440 singles entrants agree."
+    },
+    {
+      "majorName": "Low Tier City 6",
+      "year": 2018,
+      "eventSlug": "tournament/kumite-in-texas-low-tier-city-6/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "92048",
+      "tournamentId": "31351",
+      "evidenceUrl": "https://www.start.gg/tournament/kumite-in-texas-low-tier-city-6/event/melee-singles",
+      "notes": "Reviewed API mapping 2026-09-09: official title 'Kumite in Texas / Low Tier City 6' adds the co-located event name to the bundled title. Melee singles, offline status, July 27–29, 2018 dates and 346 singles entrants agree."
+    },
+    {
+      "majorName": "EVO 2018",
+      "year": 2018,
+      "eventSlug": "tournament/evo-2018/event/evo-2018-1",
+      "confidence": "verified",
+      "eventId": "82591",
+      "tournamentId": "36179",
+      "evidenceUrl": "https://www.start.gg/tournament/evo-2018/event/evo-2018-1",
+      "notes": "API-verified 2026-09-09: Evo 2018, Super Smash Bros. Melee singles, offline, August 3–5, 2018 tournament dates and 1,353 singles entrants agree. The opaque event slug is preserved exactly as issued by Start.gg."
+    },
+    {
+      "majorName": "Super Smash Con 2018",
+      "year": 2018,
+      "eventSlug": "tournament/super-smash-con-2018/event/melee-1v1-singles",
+      "confidence": "verified",
+      "eventId": "99481",
+      "tournamentId": "47561",
+      "evidenceUrl": "https://www.start.gg/tournament/super-smash-con-2018/event/melee-1v1-singles",
+      "notes": "API-verified 2026-09-09: Super Smash Con 2018, Melee 1v1 Singles, offline, August 9–12, 2018 tournament dates and 1,053 singles entrants agree."
+    },
+    {
+      "majorName": "Shine 2018",
+      "year": 2018,
+      "eventSlug": "tournament/shine-2018/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "78790",
+      "tournamentId": "30686",
+      "evidenceUrl": "https://www.start.gg/tournament/shine-2018/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Shine 2018, Melee Singles, offline, August 24–26, 2018 tournament dates and 904 singles entrants agree."
+    },
+    {
+      "majorName": "The Big House 8",
+      "year": 2018,
+      "eventSlug": "tournament/the-big-house-8/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "122648",
+      "tournamentId": "57391",
+      "evidenceUrl": "https://www.start.gg/tournament/the-big-house-8/event/melee-singles",
+      "notes": "API-verified 2026-09-09: The Big House 8, Melee Singles, offline, October 5–7, 2018 tournament dates and 1,032 singles entrants agree."
+    },
+    {
+      "majorName": "GameTyrant Expo 2018",
+      "year": 2018,
+      "eventSlug": "tournament/gametyrant-expo-2018/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "119060",
+      "tournamentId": "55188",
+      "evidenceUrl": "https://www.start.gg/tournament/gametyrant-expo-2018/event/melee-singles",
+      "notes": "API-verified 2026-09-09: GameTyrant Expo 2018, Melee Singles, offline, November 2–4, 2018 tournament dates and 163 singles entrants agree."
+    },
+    {
+      "majorName": "Smash Summit 7",
+      "year": 2018,
+      "eventSlug": "tournament/smash-summit-7/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "204728",
+      "tournamentId": "84422",
+      "evidenceUrl": "https://www.start.gg/tournament/smash-summit-7/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Smash Summit 7, Melee Singles, offline, November 15–18, 2018 tournament dates and 16 singles entrants agree."
+    },
+    {
+      "majorName": "GENESIS 7",
+      "year": 2020,
+      "eventSlug": "tournament/genesis-7-1/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "342224",
+      "tournamentId": "147701",
+      "evidenceUrl": "https://www.start.gg/tournament/genesis-7-1/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Genesis 7, Melee Singles, offline, January 24–26, 2020 tournament dates and 1,111 singles entrants agree."
+    },
+    {
+      "majorName": "Smash Summit 9",
+      "year": 2020,
+      "eventSlug": "tournament/smash-summit-9/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "426781",
+      "tournamentId": "187489",
+      "evidenceUrl": "https://www.start.gg/tournament/smash-summit-9/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Smash Summit 9, Melee Singles, offline, February 13–16, 2020 tournament dates and 18 singles entrants agree."
+    },
+    {
+      "majorName": "Smash Summit 11",
+      "year": 2021,
+      "eventSlug": "tournament/smash-summit-11/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "596002",
+      "tournamentId": "288094",
+      "evidenceUrl": "https://www.start.gg/tournament/smash-summit-11/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Smash Summit 11, Melee Singles, offline, July 15–18, 2021 tournament dates and 16 singles entrants agree."
+    },
+    {
+      "majorName": "Riptide 2021",
+      "year": 2021,
+      "eventSlug": "tournament/riptide-3/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "573828",
+      "tournamentId": "287133",
+      "evidenceUrl": "https://www.start.gg/tournament/riptide-3/event/melee-singles",
+      "notes": "Reviewed API mapping 2026-09-09: official title 'Riptide' omits the bundled year suffix. Melee singles, offline status, September 10–12, 2021 dates and 738 singles entrants agree."
+    },
+    {
+      "majorName": "SWT 2021 NA East Regional Finals",
+      "year": 2021,
+      "eventSlug": "tournament/swt-na-east-melee-regional-finals/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "554630",
+      "tournamentId": "272754",
+      "evidenceUrl": "https://www.start.gg/tournament/swt-na-east-melee-regional-finals/event/melee-singles",
+      "notes": "Reviewed API mapping 2026-09-09: official title 'SWT: NA East Melee Regional Finals' expresses the same 2021 circuit and region as the bundled title. Melee singles, offline status, October 30–31, 2021 dates and 16 singles entrants agree."
+    },
+    {
+      "majorName": "Mainstage 2021",
+      "year": 2021,
+      "eventSlug": "tournament/mainstage-2021/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "584741",
+      "tournamentId": "208283",
+      "evidenceUrl": "https://www.start.gg/tournament/mainstage-2021/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Mainstage 2021, Melee Singles, offline, November 12–14, 2021 tournament dates and 559 singles entrants agree."
+    },
+    {
+      "majorName": "Smash Summit 12",
+      "year": 2021,
+      "eventSlug": "tournament/smash-summit-12-1/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "635845",
+      "tournamentId": "322704",
+      "evidenceUrl": "https://www.start.gg/tournament/smash-summit-12-1/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Smash Summit 12, Melee Singles, offline, December 9–12, 2021 tournament dates and 16 singles entrants agree."
+    },
+    {
+      "majorName": "SWT 2021 Melee Championship",
+      "year": 2021,
+      "eventSlug": "tournament/the-smash-world-tour-championships/event/melee-championships",
+      "confidence": "verified",
+      "eventId": "644621",
+      "tournamentId": "324242",
+      "evidenceUrl": "https://www.start.gg/tournament/the-smash-world-tour-championships/event/melee-championships",
+      "notes": "Reviewed API mapping 2026-09-09: official tournament title 'The Smash World Tour Championships' and event title 'Melee Championships' correspond to the bundled circuit-specific title. Offline status, December 17–19, 2021 dates and 40 singles entrants agree."
+    },
+    {
+      "majorName": "GENESIS 8",
+      "year": 2022,
+      "eventSlug": "tournament/genesis-8/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "400200",
+      "tournamentId": "174838",
+      "evidenceUrl": "https://www.start.gg/tournament/genesis-8/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Genesis 8, Melee Singles, offline, April 15–17, 2022 tournament dates and 1,553 singles entrants agree."
+    },
+    {
+      "majorName": "Pound 2022",
+      "year": 2022,
+      "eventSlug": "tournament/pound-2022/event/melee-singles-2",
+      "confidence": "verified",
+      "eventId": "679049",
+      "tournamentId": "419719",
+      "evidenceUrl": "https://www.start.gg/tournament/pound-2022/event/melee-singles-2",
+      "notes": "API-verified 2026-09-09: Pound 2022, Melee Singles, offline, April 22–24, 2022 tournament dates and 284 singles entrants agree. The exact event slug's numeric suffix is preserved."
+    },
+    {
+      "majorName": "Smash Summit 13",
+      "year": 2022,
+      "eventSlug": "tournament/smash-summit-13-1/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "721901",
+      "tournamentId": "429320",
+      "evidenceUrl": "https://www.start.gg/tournament/smash-summit-13-1/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Smash Summit 13, Melee Singles, offline, May 12–15, 2022 tournament dates and 16 singles entrants agree."
+    },
+    {
+      "majorName": "Battle of BC 4",
+      "year": 2022,
+      "eventSlug": "tournament/battle-of-bc-4-2/event/melee-singles-bracket",
+      "confidence": "verified",
+      "eventId": "684275",
+      "tournamentId": "422988",
+      "evidenceUrl": "https://www.start.gg/tournament/battle-of-bc-4-2/event/melee-singles-bracket",
+      "notes": "API-verified 2026-09-09: Battle of BC 4, Melee Singles Bracket, offline, June 10–12, 2022 tournament dates and 281 singles entrants agree."
+    },
+    {
+      "majorName": "Get On My Level 2022",
+      "year": 2022,
+      "eventSlug": "tournament/get-on-my-level-2022-canadian-fighting-game-championships-3/event/super-smash-bros-melee-singles",
+      "confidence": "verified",
+      "eventId": "690635",
+      "tournamentId": "426621",
+      "evidenceUrl": "https://www.start.gg/tournament/get-on-my-level-2022-canadian-fighting-game-championships-3/event/super-smash-bros-melee-singles",
+      "notes": "Reviewed API mapping 2026-09-09: official title 'Get On My Level 2022 - Canadian Fighting Game Championships' adds a descriptive suffix to the bundled title. Melee singles, offline status, July 1–3, 2022 dates and 504 singles entrants agree."
+    },
+    {
+      "majorName": "Double Down 2022",
+      "year": 2022,
+      "eventSlug": "tournament/double-down-2022/event/melee-singles-starts-saturday",
+      "confidence": "verified",
+      "eventId": "657298",
+      "tournamentId": "337348",
+      "evidenceUrl": "https://www.start.gg/tournament/double-down-2022/event/melee-singles-starts-saturday",
+      "notes": "API-verified 2026-09-09: Double Down 2022, Melee Singles (STARTS SATURDAY), offline, July 8–10, 2022 tournament dates and 368 singles entrants agree."
+    },
+    {
+      "majorName": "Super Smash Con 2022",
+      "year": 2022,
+      "eventSlug": "tournament/super-smash-con-2022/event/melee-1v1-singles",
+      "confidence": "verified",
+      "eventId": "637610",
+      "tournamentId": "326786",
+      "evidenceUrl": "https://www.start.gg/tournament/super-smash-con-2022/event/melee-1v1-singles",
+      "notes": "API-verified 2026-09-09: Super Smash Con 2022, Melee - 1v1 Singles, offline, August 11–14, 2022 tournament dates and 713 singles entrants agree."
+    },
+    {
+      "majorName": "Shine 2022",
+      "year": 2022,
+      "eventSlug": "tournament/shine-2022/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "630208",
+      "tournamentId": "322380",
+      "evidenceUrl": "https://www.start.gg/tournament/shine-2022/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Shine 2022, Melee Singles, offline, August 26–28, 2022 tournament dates and 475 singles entrants agree."
+    },
+    {
+      "majorName": "Riptide 2022",
+      "year": 2022,
+      "eventSlug": "tournament/riptide-2022/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "700420",
+      "tournamentId": "432368",
+      "evidenceUrl": "https://www.start.gg/tournament/riptide-2022/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Riptide 2022, Melee Singles, offline, September 9–11, 2022 tournament dates and 449 singles entrants agree."
+    },
+    {
+      "majorName": "Lost Tech City 2022",
+      "year": 2022,
+      "eventSlug": "tournament/lost-tech-city-2022/event/melee-1v1-5-000-pot-bonus-1",
+      "confidence": "verified",
+      "eventId": "719950",
+      "tournamentId": "427955",
+      "evidenceUrl": "https://www.start.gg/tournament/lost-tech-city-2022/event/melee-1v1-5-000-pot-bonus-1",
+      "notes": "API-verified 2026-09-09: Lost Tech City 2022, MELEE 1V1 [$5,000 POT BONUS], offline, September 30–October 2, 2022 tournament dates and 154 singles entrants agree."
+    },
+    {
+      "majorName": "The Big House 10",
+      "year": 2022,
+      "eventSlug": "tournament/the-big-house-10/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "634112",
+      "tournamentId": "324764",
+      "evidenceUrl": "https://www.start.gg/tournament/the-big-house-10/event/melee-singles",
+      "notes": "API-verified 2026-09-09: The Big House 10, Melee Singles, offline, October 7–9, 2022 tournament dates and 982 singles entrants agree."
+    },
+    {
+      "majorName": "Ludwig Smash Invitational",
+      "year": 2022,
+      "eventSlug": "tournament/ludwig-smash-invitational/event/melee-singles-main-event",
+      "confidence": "verified",
+      "eventId": "772879",
+      "tournamentId": "470949",
+      "evidenceUrl": "https://www.start.gg/tournament/ludwig-smash-invitational/event/melee-singles-main-event",
+      "notes": "API-verified 2026-09-09: Ludwig Smash Invitational, Melee Singles (Main Event), offline, October 21–23, 2022 tournament dates and 32 singles entrants agree. The main-event slug deliberately excludes the separate qualifier."
+    },
+    {
+      "majorName": "Smash Summit 14",
+      "year": 2022,
+      "eventSlug": "tournament/smash-summit-14-presented-by-coinbase/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "792141",
+      "tournamentId": "465282",
+      "evidenceUrl": "https://www.start.gg/tournament/smash-summit-14-presented-by-coinbase/event/melee-singles",
+      "notes": "Reviewed API mapping 2026-09-09: official title 'Smash Summit 14 Presented by Coinbase' adds a sponsor suffix to the bundled title. Melee singles, offline status, November 3–6, 2022 dates and 16 singles entrants agree."
+    },
+    {
+      "majorName": "Apex 2022",
+      "year": 2022,
+      "eventSlug": "tournament/apex-2022/event/melee-singles-starts-friday",
+      "confidence": "verified",
+      "eventId": "692989",
+      "tournamentId": "427951",
+      "evidenceUrl": "https://www.start.gg/tournament/apex-2022/event/melee-singles-starts-friday",
+      "notes": "API-verified 2026-09-09: Apex 2022, Melee Singles [STARTS FRIDAY], offline, November 18–20, 2022 tournament dates and 461 singles entrants agree."
+    },
+    {
+      "majorName": "Mainstage 2022",
+      "year": 2022,
+      "eventSlug": "tournament/mainstage-2022/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "719555",
+      "tournamentId": "440915",
+      "evidenceUrl": "https://www.start.gg/tournament/mainstage-2022/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Mainstage 2022, Melee Singles, offline, December 2–4, 2022 tournament dates and 389 singles entrants agree."
+    },
+    {
+      "majorName": "Scuffed World Tour",
+      "year": 2022,
+      "eventSlug": "tournament/scuffed-world-tour/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "831001",
+      "tournamentId": "505607",
+      "evidenceUrl": "https://www.start.gg/tournament/scuffed-world-tour/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Scuffed World Tour, Melee Singles, offline, December 18, 2022 tournament date and 16 singles entrants agree."
+    },
+    {
+      "majorName": "GENESIS 9",
+      "year": 2023,
+      "eventSlug": "tournament/genesis-9-1/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "769490",
+      "tournamentId": "438800",
+      "evidenceUrl": "https://www.start.gg/tournament/genesis-9-1/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Genesis 9, Melee Singles, offline, January 20–22, 2023 tournament dates and 1,253 singles entrants agree."
+    },
+    {
+      "majorName": "Collision 2023",
+      "year": 2023,
+      "eventSlug": "tournament/collision-2023-5/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "790934",
+      "tournamentId": "483646",
+      "evidenceUrl": "https://www.start.gg/tournament/collision-2023-5/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Collision 2023, Melee Singles, offline, March 10–12, 2023 tournament dates and 494 singles entrants agree."
+    },
+    {
+      "majorName": "MAJOR UPSET",
+      "year": 2023,
+      "eventSlug": "tournament/major-upset/event/melee-singles-4500-prize-pool",
+      "confidence": "verified",
+      "eventId": "816678",
+      "tournamentId": "490822",
+      "evidenceUrl": "https://www.start.gg/tournament/major-upset/event/melee-singles-4500-prize-pool",
+      "notes": "API-verified 2026-09-09: MAJOR UPSET, Melee Singles ($4500 Prize Pool), offline, April 1–2, 2023 tournament dates and 385 singles entrants agree."
+    },
+    {
+      "majorName": "Battle of BC 5",
+      "year": 2023,
+      "eventSlug": "tournament/battle-of-bc-5-5/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "829440",
+      "tournamentId": "503180",
+      "evidenceUrl": "https://www.start.gg/tournament/battle-of-bc-5-5/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Battle of BC 5, Melee Singles, offline, May 19–21, 2023 tournament dates and 409 singles entrants agree."
+    },
+    {
+      "majorName": "Tipped Off 14",
+      "year": 2023,
+      "eventSlug": "tournament/tipped-off-14-resurgence/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "840690",
+      "tournamentId": "511041",
+      "evidenceUrl": "https://www.start.gg/tournament/tipped-off-14-resurgence/event/melee-singles",
+      "notes": "Reviewed API mapping 2026-09-09: official title 'Tipped Off 14: Resurgence' adds the edition subtitle to the bundled title. Melee singles, offline status, June 3–4, 2023 dates and 344 singles entrants agree."
+    },
+    {
+      "majorName": "Ludwig Ahgren Championship Series 5",
+      "year": 2023,
+      "eventSlug": "tournament/ludwig-ahgren-championship-series-5-by-toyota-prius/event/melee-singles-main-event",
+      "confidence": "verified",
+      "eventId": "943079",
+      "tournamentId": "555228",
+      "evidenceUrl": "https://www.start.gg/tournament/ludwig-ahgren-championship-series-5-by-toyota-prius/event/melee-singles-main-event",
+      "notes": "Reviewed API mapping 2026-09-09: official title 'Ludwig Ahgren Championship Series 5 by Toyota Prius' adds a sponsor suffix to the bundled title. The offline Melee Singles (Main Event), July 7–9, 2023 dates and 16 entrants agree; the separate open qualifier is excluded."
+    },
+    {
+      "majorName": "Fête 3: By the Sea",
+      "year": 2023,
+      "eventSlug": "tournament/f-te-3-by-the-sea/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "801732",
+      "tournamentId": "477558",
+      "evidenceUrl": "https://www.start.gg/tournament/f-te-3-by-the-sea/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Fête 3: By the Sea, Melee Singles, offline, July 14–16, 2023 tournament dates and 409 singles entrants agree. The source slug transliterates the accented title as 'f-te'."
+    },
+    {
+      "majorName": "Get On My Level 2023",
+      "year": 2023,
+      "eventSlug": "tournament/get-on-my-level-2023-canadian-fighting-game-championships/event/super-smash-bros-melee-singles",
+      "confidence": "verified",
+      "eventId": "835044",
+      "tournamentId": "507907",
+      "evidenceUrl": "https://www.start.gg/tournament/get-on-my-level-2023-canadian-fighting-game-championships/event/super-smash-bros-melee-singles",
+      "notes": "Reviewed API mapping 2026-09-09: official title 'Get On My Level 2023 - Canadian Fighting Game Championships' adds a descriptive suffix to the bundled title. Melee singles, offline status, July 21–23, 2023 dates and 782 singles entrants agree."
+    },
+    {
+      "majorName": "Super Smash Con 2023",
+      "year": 2023,
+      "eventSlug": "tournament/super-smash-con-2023/event/melee-1v1-singles",
+      "confidence": "verified",
+      "eventId": "766827",
+      "tournamentId": "470565",
+      "evidenceUrl": "https://www.start.gg/tournament/super-smash-con-2023/event/melee-1v1-singles",
+      "notes": "API-verified 2026-09-09: Super Smash Con 2023, Melee - 1v1 Singles, offline, August 10–13, 2023 tournament dates and 860 singles entrants agree."
+    },
+    {
+      "majorName": "Shine 2023",
+      "year": 2023,
+      "eventSlug": "tournament/shine-2023-4/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "894087",
+      "tournamentId": "540064",
+      "evidenceUrl": "https://www.start.gg/tournament/shine-2023-4/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Shine 2023, Melee Singles, offline, August 25–27, 2023 tournament dates and 683 singles entrants agree."
+    },
+    {
+      "majorName": "Riptide 2023",
+      "year": 2023,
+      "eventSlug": "tournament/riptide-2023-4/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "857899",
+      "tournamentId": "520405",
+      "evidenceUrl": "https://www.start.gg/tournament/riptide-2023-4/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Riptide 2023, Melee Singles, offline, September 8–10, 2023 tournament dates and 477 singles entrants agree."
+    },
+    {
+      "majorName": "The Big House 11",
+      "year": 2023,
+      "eventSlug": "tournament/the-big-house-11/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "909751",
+      "tournamentId": "548572",
+      "evidenceUrl": "https://www.start.gg/tournament/the-big-house-11/event/melee-singles",
+      "notes": "API-verified 2026-09-09: The Big House 11, Melee Singles, offline, October 20–22, 2023 tournament dates and 1,011 singles entrants agree."
+    },
+    {
+      "majorName": "Collision 2025",
+      "year": 2025,
+      "eventSlug": "tournament/collision-2025-8/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "1298171",
+      "tournamentId": "750278",
+      "evidenceUrl": "https://www.start.gg/tournament/collision-2025-8/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Collision 2025, Melee Singles, offline, August 22–24, 2025 tournament dates, event ID and tournament ID agree."
+    },
+    {
+      "majorName": "Full House 2025",
+      "year": 2025,
+      "eventSlug": "tournament/full-house-2025/event/main-bracket",
+      "confidence": "verified",
+      "eventId": "1310561",
+      "tournamentId": "753316",
+      "evidenceUrl": "https://www.start.gg/tournament/full-house-2025/event/main-bracket",
+      "notes": "API-verified 2026-09-09: Full House 2025, Main Bracket, offline Melee singles, May 16–18, 2025 tournament dates, event ID and tournament ID agree."
+    },
+    {
+      "majorName": "Nouns Bowl 2025",
+      "year": 2025,
+      "eventSlug": "tournament/nouns-bowl-2025/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "1293979",
+      "tournamentId": "748147",
+      "evidenceUrl": "https://www.start.gg/tournament/nouns-bowl-2025/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Nouns Bowl 2025, Melee Singles, offline, April 26–27, 2025 tournament dates, event ID and tournament ID agree."
+    },
+    {
+      "majorName": "Nounsvitational Tokyo 2025",
+      "year": 2025,
+      "eventSlug": "tournament/nounsvitational-2025-tokyo/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "1505665",
+      "tournamentId": "852604",
+      "evidenceUrl": "https://www.start.gg/tournament/nounsvitational-2025-tokyo/event/melee-singles",
+      "notes": "Reviewed API mapping 2026-09-09: Start.gg title 'Nounsvitational 2025 Tokyo' reorders the bundled title 'Nounsvitational Tokyo 2025'. The offline Melee singles event, December 5–7, 2025 dates, event ID and tournament ID agree."
+    },
+    {
+      "majorName": "Tipped Off 16: Safari",
+      "year": 2025,
+      "eventSlug": "tournament/tipped-off-16-safari/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "1302306",
+      "tournamentId": "752305",
+      "evidenceUrl": "https://www.start.gg/tournament/tipped-off-16-safari/event/melee-singles",
+      "notes": "API-verified 2026-09-09: Tipped Off 16: Safari, Melee Singles, offline, June 7–8, 2025 tournament dates, event ID and tournament ID agree."
     }
   ]
 }

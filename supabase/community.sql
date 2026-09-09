@@ -195,6 +195,10 @@ begin
     and consent.enabled and consent.consent_version = '2026-08-24'
   cross join lateral jsonb_each(packs.records) entry
   where packs.user_id = target_user
+    and case
+      when (packs.versions->>entry.key) ~ '^[0-9]+$' then (packs.versions->>entry.key)::int
+      else 0
+    end >= 3
     and coalesce((entry.value->>'isTeams')::boolean, false) = false
     and jsonb_array_length(entry.value->'players') = 2
     and not (entry.value ? 'parseError')
@@ -352,6 +356,10 @@ contributed_games as not materialized (
     join public.community_game_sources source
       on source.user_id = packs.user_id and source.game_key = entry.key
     where packs.user_id = target_user
+      and case
+        when (packs.versions->>entry.key) ~ '^[0-9]+$' then (packs.versions->>entry.key)::int
+        else 0
+      end >= 3
       and not exists (
         select 1 from public.community_game_sources earlier
         where earlier.game_key = entry.key and earlier.user_id < target_user

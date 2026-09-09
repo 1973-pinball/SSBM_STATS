@@ -4,8 +4,8 @@ import { compareBasicModels, comparisonMarkdown, swapReportingSides } from "../l
 import { fitBasicModels, initialSeedIndex, actualResult } from "../lib/forecast/baselines.mjs";
 import { chronologicalFolds, scorePredictions } from "../lib/forecast/evaluation.mjs";
 
-function fixture() {
-  const events = [1, 2, 3].map((i) => ({
+function fixture(eventCount = 3) {
+  const events = Array.from({ length: eventCount }, (_, index) => index + 1).map((i) => ({
     id: "e" + i, name: "Fixture " + i, eligible: true,
     chronology: { reportedEventStartAt: i * 100 + 20, reportedTournamentStartAt: i * 100,
       reportedEventEndAt: i * 100 + 80, reportedTournamentEndAt: i * 100 + 90 },
@@ -41,8 +41,47 @@ test("comparison holds out each event, emits all metrics and remains experimenta
   assert.equal(report.outOfSample.models[0].scores.brier, 0.25);
   assert.equal(report.outOfSample.models[0].scores.accuracy, 0.5);
   assert.equal(report.outOfSample.models[0].scores.calibration.length, 10);
-  assert.match(comparisonMarkdown(report), /not validated for product use/i);
-  assert.match(comparisonMarkdown(report), /Retrospective in-sample/);
+  const uncertainty = report.outOfSample.uncertainty;
+  assert.equal(uncertainty.baselineModelId, "higher-seed");
+  assert.equal(uncertainty.targetEvents, 2);
+  assert.equal(uncertainty.targetSets, predictions.length);
+  assert.equal(uncertainty.method.name, "paired-event-cluster-percentile-bootstrap");
+  assert.equal(uncertainty.method.replicates, 10_000);
+  assert.deepEqual(uncertainty.method.quantiles, [0.025, 0.975]);
+  assert.deepEqual(uncertainty.method.prng, {
+    algorithm: "mulberry32", seed: 0x5eedc0de, seedHex: "0x5eedc0de", fixed: true, tuned: false,
+  });
+  assert.deepEqual(uncertainty.models.map((model) => model.id), report.outOfSample.models.map((model) => model.id));
+  const baseline = report.outOfSample.models.find((model) => model.id === "higher-seed");
+  for (const comparison of uncertainty.models) {
+    const model = report.outOfSample.models.find((row) => row.id === comparison.id);
+    for (const metric of ["accuracy", "brier", "logLoss"]) {
+      assert.ok(Math.abs(comparison.differences[metric].estimate
+        - (model.scores[metric] - baseline.scores[metric])) < 1e-12);
+    }
+  }
+  const baselineComparison = uncertainty.models.find((model) => model.id === "higher-seed");
+  for (const metric of ["accuracy", "brier", "logLoss"]) {
+    assert.deepEqual(baselineComparison.differences[metric], {
+      estimate: 0,
+      interval95: { lower: 0, upper: 0 },
+      betterWhen: metric === "accuracy" ? "positive" : "negative",
+    });
+  }
+  assert.deepEqual(uncertainty.selectionDiagnostic.candidateModelIds, []);
+  assert.equal(uncertainty.selectionDiagnostic.status, "insufficient-event-clusters");
+  assert.equal(uncertainty.selectionDiagnostic.automaticSelection, false);
+  assert.equal(uncertainty.selectionDiagnostic.selectedModel, null);
+  const markdown = comparisonMarkdown(report);
+  assert.match(markdown, /not validated for product use/i);
+  assert.match(markdown, /Retrospective in-sample/);
+  assert.match(markdown, /Paired event-cluster uncertainty/);
+  assert.match(markdown, /10,000 fixed-seed percentile replicates/);
+  assert.match(markdown, /descriptive event-cluster bootstrap intervals, not proof/i);
+  assert.match(markdown, /No model is selected or productized automatically/);
+  const legacyReportShape = { ...report, outOfSample: { ...report.outOfSample } };
+  delete legacyReportShape.outOfSample.uncertainty;
+  assert.doesNotThrow(() => comparisonMarkdown(legacyReportShape));
 });
 
 test("future outcomes cannot change earlier predictions; reordering cannot change the report", () => {
@@ -53,6 +92,27 @@ test("future outcomes cannot change earlier predictions; reordering cannot chang
   d.sets[2].winnerPlayerId = "a";
   const changed = compareBasicModels(d);
   assert.deepEqual(changed.predictions.map((p) => p.models), first.predictions.map((p) => p.models));
+});
+
+test("conservative paired diagnostic requires enough event clusters and never selects automatically", () => {
+  const { report } = compareBasicModels(fixture(6));
+  const uncertainty = report.outOfSample.uncertainty;
+  assert.equal(uncertainty.targetEvents, 5);
+  assert.equal(uncertainty.selectionDiagnostic.minimumEventClusters, 5);
+  assert.notEqual(uncertainty.selectionDiagnostic.status, "insufficient-event-clusters");
+  assert.equal(uncertainty.selectionDiagnostic.automaticSelection, false);
+  assert.equal(uncertainty.selectionDiagnostic.selectedModel, null);
+  assert.equal(report.productize, false);
+  assert.equal(report.selectedModel, null);
+  for (const id of uncertainty.selectionDiagnostic.candidateModelIds) {
+    assert.notEqual(id, "higher-seed");
+    const comparison = uncertainty.models.find((model) => model.id === id);
+    assert.ok(comparison.differences.accuracy.interval95.lower > 0);
+    assert.ok(comparison.differences.brier.interval95.upper < 0);
+    assert.ok(comparison.differences.logLoss.interval95.upper < 0);
+  }
+  assert.match(uncertainty.selectionDiagnostic.limitation, /no multiplicity adjustment/i);
+  assert.match(uncertainty.selectionDiagnostic.limitation, /not a confirmatory superiority test/i);
 });
 
 test("strict seed mode has no historical coverage and one-event input refuses fake validation", () => {

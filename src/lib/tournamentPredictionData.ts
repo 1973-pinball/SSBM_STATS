@@ -123,8 +123,8 @@ export const TOURNAMENT_PREDICTIONS = {
         {
           "id": "regularized-bt-recent-form",
           "name": "Regularized Bradley-Terry + seed + recent form",
-          "shortName": "Regularized BT + seed + form — best so far",
-          "explanation": "Uses categorical player IDs, initial seeds, and pre-event recent form. It has the best current held-out Brier score and log loss, but its high estimates are overconfident and characters are not included.",
+          "shortName": "Regularized BT + seed + form",
+          "explanation": "Uses categorical player IDs, initial seeds, and pre-event recent form. Historical seed value is shown only in the separate seed sensitivity; character is not included and optimizer reliability still needs work.",
           "recommended": true,
           "heldOut": {
             "predictions": 6244,
@@ -3054,7 +3054,7 @@ export const TOURNAMENT_PREDICTIONS = {
         "Later opponents are inferred by advancing each model's local favorite; percentages are raw conditional set estimates, not title odds or confidence intervals.",
         "Start.gg still labels this event CREATED, and entrants or routing can change after the snapshot.",
         "Five selected 2025 majors supply the training data; historical seed availability is assumed.",
-        "Character is not a feature, and the recommended model is overconfident at the high end in held-out data."
+        "Character is not a feature, and historical seed value is supported only by the separately labeled sensitivity."
       ]
     }
   ]

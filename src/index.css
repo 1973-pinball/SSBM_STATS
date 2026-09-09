@@ -952,6 +952,13 @@ tr.clickable:focus-visible { outline: 2px solid var(--accent); outline-offset: -
   background: var(--panel);
   border-bottom: 2px solid var(--accent);
 }
+.tabs button.tab-label-wrap {
+  max-width: 112px;
+  padding-block: 5px;
+  line-height: 1.15;
+  text-align: center;
+  white-space: normal;
+}
 /* Waiting on the parse, not broken: progress rather than not-allowed, and the
    hover border is suppressed so the tab stops reading as something to press.
    Keyed on aria-disabled because the tabs never use the disabled attribute —

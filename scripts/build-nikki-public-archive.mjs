@@ -68,6 +68,16 @@ const hash = (value) => createHash("sha256").update(value).digest("hex");
 const publicGameKey = (key) => hash(`nikki-public-game-v1:${DATASET_ID}:${key}`);
 const tournamentId = (eventId) => `${DATASET_ID}:${eventId}`;
 const publicSetId = (eventId, seed) => `${DATASET_ID}:${eventId}:${hash(`nikki-public-set-v1:${eventId}:${seed}`).slice(0, 24)}`;
+const assertCurrentStats = (record, bundle) => {
+  const hasCrouchCancels = record.players.every((player) =>
+    Number.isInteger(player.actions?.crouchCancels) && player.actions.crouchCancels >= 0);
+  if (record.statsVersion !== ARCHIVE_STATS_VERSION || !hasCrouchCancels) {
+    throw new Error(
+      `${bundle}/${record.file} has archive stats v${record.statsVersion ?? "unknown"} without current `
+      + `crouch-cancel counts; re-run analyze-nikki-bundle.mjs before building v${ARCHIVE_STATS_VERSION} rollups`,
+    );
+  }
+};
 const normalize = (value) => typeof value === "string" && value.trim()
   ? value.trim().toLocaleLowerCase("en-US")
   : null;
@@ -407,6 +417,7 @@ for (const [fileIndex, name] of resultFiles.entries()) {
   failedFiles += payload.failed;
   for (const record of payload.records) {
     if (!record.ok) continue;
+    assertCurrentStats(record, payload.bundle);
     const key = record.identityKey ?? `${payload.bundle}/${record.file}`;
     const identitySha256 = hash(key);
     const exactIdentityEvidence = record.players.some((_player, slot) =>
@@ -802,7 +813,7 @@ for (const [fileIndex, name] of resultFiles.entries()) {
       winner_slot: record.isTeams ? null : record.winnerIndex,
       winner_team_id: record.isTeams ? record.winnerTeamId : null,
       curation_tier: game.tier,
-      stats_version: record.statsVersion ?? ARCHIVE_STATS_VERSION,
+      stats_version: record.statsVersion,
       published: false,
     });
     for (const [slot, player] of record.players.entries()) {

@@ -615,6 +615,7 @@ returns void
 language plpgsql
 security definer
 set search_path = public
+set statement_timeout = '60s'
 as $$
 declare
   expected jsonb;

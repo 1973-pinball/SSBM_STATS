@@ -3,9 +3,10 @@
 This document covers the local research pipeline in
 [FORECAST_PLAN.md](../FORECAST_PLAN.md). Source downloads, normalized datasets,
 evaluation reports, and refreshable Markdown stay local and never touch personal
-replay files or Supabase. A reviewed, public-data-only projection catalog can be
-generated into the dashboard for the Predictions explorer; the model remains
-experimental and predictive usefulness has not been established.
+replay files or Supabase. Reviewed, public-data-only projection and aggregate
+backtest bundles can be generated into the dashboard for the Predictions
+explorer; the models remain experimental and no family has been selected for
+production.
 
 For a new-computer setup, including exact `.forecast/` transfer and a clean
 rebuild alternative, see [Continue forecast work on another computer](forecast-handoff.md).
@@ -49,8 +50,9 @@ The bundled snapshot is the registry source. All its majors stay auditable,
 including online events, but only offline ones can enter the research dataset.
 Its dates are **end dates**, not suitable pre-event cutoffs.
 
-The tracked mappings include five API-verified events. New URLs should remain
-candidates until reviewed. The map command checks the tournament title, source IDs, Melee game
+The tracked mappings include all 85 scoped 2018–2025 offline majors. New URLs
+outside that reviewed scope should remain candidates until reviewed. The map
+command checks the tournament title, source IDs, Melee game
 identity, singles/venue metadata, and dates against the major. It records a
 verified mapping only after those checks pass. A differing tournament title
 requires a reviewed mapping file rather than automatic fuzzy acceptance.
@@ -59,10 +61,19 @@ Repeat map for other majors. Once reviewed mappings exist:
 
 ~~~sh
 npm run forecast -- download --all-mapped
-npm run forecast -- normalize
+npm run forecast -- normalize --strict-corpus
 npm run forecast -- evaluate
+npm run forecast -- tune
+npm run forecast -- tune --allow-unverified-historical-seeds
+npm run predictions:backtest-data
 npm run forecast -- storage
 ~~~
+
+The accepted contract currently includes 84 events and quarantines GOML 2022
+as `source-ambiguous`; zero scoped decisions are unresolved. The strict dataset
+hash is `e21eb6bf8d91b295b875ab11959e1beddae937d7816e5c7da1a2f13db3f6371d`.
+Run `npm run forecast -- corpus --strict-corpus` to reproduce the contract,
+dataset-coverage, and authenticated source-readiness gate.
 
 ## Refreshable Riptide matchup report
 
@@ -108,14 +119,18 @@ dashboard catalog with:
 
 ~~~sh
 npm run predictions:build
+npm run predictions:backtest-data
 ~~~
 
 The builder hash-checks the selected historical dataset, evaluation report, and
 upcoming-event source bundle before writing
-**src/lib/tournamentPredictionData.ts**. The browser receives only the small
-public prediction catalog: public player IDs/names, seeds, model descriptions,
-held-out scores, projected matchups, and source provenance. It receives no API
-token, raw Start.gg response bundle, local path, personal replay record, or
+**src/lib/tournamentPredictionData.ts**. The second command hash-checks the two
+mode-specific nested-tuning results and writes the aggregate-only
+**src/lib/tournamentPredictionBacktestData.ts** comparison bundle. The browser
+receives only the small public prediction catalog and aggregate backtest data:
+public player IDs/names, seeds, model descriptions, held-out aggregate scores,
+projected matchups, and source provenance. It receives no per-set forecast row,
+API token, raw Start.gg response bundle, local path, personal replay record, or
 connect code. The dashboard makes no runtime Start.gg or Supabase request for
 this bundled view, so it continues to work offline.
 
@@ -185,8 +200,8 @@ ingestion process per research root.
 ## Local files
 
 All research and source artifacts are inside the ignored **.forecast/**
-directory. The only tracked derivative is the reviewed website catalog described
-above:
+directory. The tracked derivatives are the reviewed website catalog and the
+sanitized aggregate backtest bundle described above:
 
 | Path | Content |
 |---|---|
@@ -198,13 +213,24 @@ above:
 | datasets/&lt;hash&gt;/dataset.json | Canonical records and provenance |
 | datasets/&lt;hash&gt;/quality.json | Exclusions, duplicates and identity issues |
 | datasets/&lt;hash&gt;/registry.json | Registry used for that normalization |
+| datasets/&lt;hash&gt;/corpus-&lt;hash&gt;.json | Frozen corpus decision and canonical-coverage audit |
+| datasets/&lt;hash&gt;/corpus-source-readiness-&lt;hash&gt;.json | Authenticated source-readiness evidence |
+| datasets/&lt;hash&gt;/outcome-reconciliation-&lt;hash&gt;.json | Advisory winner/runner-up identity reconciliation |
 | latest.json | Dataset pointer, counts, SHA-256 and exact serialized byte size |
+| corpus-reports/ | Content-addressed contract, coverage, and source-readiness reports |
+| latest-corpus.json | Strict-corpus report pointer and readiness flags |
 | reports/&lt;hash&gt;/comparison.json | Initial model scores, methodology, folds and calibration bins |
 | reports/&lt;hash&gt;/comparison.md | Human-readable local diagnostic comparison |
 | reports/&lt;hash&gt;/predictions.json | Per-set held-out probabilities and coverage flags |
 | reports/&lt;hash&gt;/calibration.svg | Held-out calibration with descriptive intervals and bin counts |
 | reports/&lt;hash&gt;/calibration-in-sample.svg | Retrospective calibration, explicitly not validation |
 | latest-evaluation.json | Diagnostic-report pointer, run hash and source dataset hash |
+| tuning/runs/&lt;forecast-hash&gt;/ | Content-addressed nested forecasts, evaluation, report and manifest for one evidence mode |
+| tuning/event-forecasts/ | Pre-outcome per-target candidate forecast checkpoints used by resumable tuning |
+| tuning/resume/ | Resume indexes for completed nested folds |
+| latest-tuning-strict-seeds.json | Strict pre-event seed-evidence tuning pointer |
+| latest-tuning-availability-assumed.json | Explicit unverified-historical-seed sensitivity pointer |
+| latest-tuning.json | Convenience pointer to whichever tuning mode completed last; not sufficient to identify both modes |
 | upcoming/&lt;hash&gt;/matchups.json | Auditable status for every current source bracket row plus fixed-match probabilities |
 | upcoming/&lt;hash&gt;/matchups.md | Immutable compact Markdown board for that matchup snapshot |
 | upcoming/&lt;hash&gt;/matchups-full.md | Immutable dense one-row-per-match table |
@@ -214,6 +240,8 @@ above:
 | storage-reports/&lt;hash&gt;/storage.json | Measured file inventory and explicit database capacity scenarios |
 | storage-reports/&lt;hash&gt;/storage.md | Human-readable local storage report |
 | latest-storage.json | Storage-report pointer and dataset hash |
+| src/lib/tournamentPredictionData.ts | Tracked, reviewed public upcoming-event prediction catalog |
+| src/lib/tournamentPredictionBacktestData.ts | Tracked, generated six-model aggregate UI bundle; no per-set rows or credentials |
 
 An alternate **--root DIR** must be outside the checkout. In-repo output is
 restricted to .forecast, preventing accidental public/ or source-bundle writes.
@@ -311,6 +339,16 @@ Missing required source collections fail fast rather than becoming empty tables.
   proven pre-event features nor silently discarded. Any historical seed baseline
   using them must disclose its availability assumption. A valid seed actually
   observed before the event is marked true; an invalid one is false.
+- Nested tuning keeps each outer target event wholly out of training. Candidate
+  hyperparameters are selected only from completed inner folds made from earlier,
+  non-overlapping events; target outcomes never participate in selection.
+- Each candidate forecast is durably checkpointed before the corresponding
+  target outcomes are accessed. Training events must end before the target
+  cutoff, and an event with any eligible completion at or after that cutoff is
+  excluded rather than partially admitted.
+- Tests enforce target-outcome invariance: changing a target result cannot change
+  that target's forecast or any earlier forecast. They also cover input-order
+  invariance, overlapping-event exclusion, and post-event metadata changes.
 - Do not derive recent form, aliases, model hyperparameters, bracket assumptions,
   or player coverage using future events when implementing backtests.
 
@@ -352,7 +390,7 @@ Reports include a full-corpus retrospective in-sample fit and separate rolling
 whole-event test folds, with accuracy, Brier score, log loss, AUC, ten calibration
 bins and coverage. Exact 50/50 predictions receive half-credit accuracy. Log loss
 alone clips probabilities at epsilon=1e-15. Bin Wilson intervals are descriptive,
-not event-cluster confidence bounds or tournament forecast uncertainty.
+not tournament forecast uncertainty.
 Static SVG charts display both held-out and retrospective calibration, with
 bin sample sizes and empty bins omitted. They need no extra plotting dependency.
 The reported side is chosen by a fixed low bit of SHA-256 over
@@ -367,10 +405,45 @@ diagnostic; its salt was not tuned for balance or model performance. Approximate
 balance is not guaranteed, and event dependence remains.
 
 Each report is content-addressed with its dataset hash and an implementation
-fingerprint. Reports always retain productize:false and selectedModel:null.
-No title/top-eight predictions or superiority tests are
-implemented yet. The older Nikki-based tournament-forecast scripts remain
-separate and unmodified; their readiness checks do not validate this system.
+fingerprint. The expanded report also contains a deterministic paired
+event-cluster percentile bootstrap: 10,000 fixed-seed replicates compare each
+model with higher seed on the same target sets and report descriptive 95%
+intervals for accuracy, Brier, and log-loss differences. This is not an
+individual-forecast interval or a confirmatory superiority test. Reports retain
+`productize:false` and `selectedModel:null`; no title/top-eight validation exists
+yet. The older Nikki-based tournament-forecast scripts remain separate and
+unmodified; their readiness checks do not validate this system.
+
+### Nested out-of-sample hyperparameter tuning
+
+The completed nested rolling-origin run compares 24 frozen configurations over
+83 whole-event outer folds and 74,891 held-out sets. After a 16-event warm-up,
+each outer fold selects settings using only completed earlier inner event folds.
+Selection minimizes event-macro log loss and applies a paired one-standard-error
+rule that prefers the default-nearest setting. The strict and seed-assumed runs
+remain separate evidence modes.
+
+| Model | Strict log loss / Brier | Seed-assumed log loss / Brier |
+|---|---:|---:|
+| Neutral | 0.6931 / 0.2500 | 0.6931 / 0.2500 |
+| Higher seed | 0.6931 / 0.2500 | 0.5503 / 0.1824 |
+| Recency Elo | 0.5823 / 0.1972 | 0.5823 / 0.1972 |
+| Glicko-2 | **0.5525 / 0.1876** | 0.5525 / 0.1876 |
+| Dynamic Bradley-Terry | 0.5936 / 0.2051 | 0.5936 / 0.2051 |
+| Regularized BT + seed + form | 0.5629 / 0.1903 | **0.5085 / 0.1689** |
+
+The stable research settings are Elo **K=64, 730-day half-life**, Glicko-2
+**initial RD=500**, and dynamic Bradley-Terry **730-day half-life, ridge=1**.
+Their strict tuned-versus-frozen log-loss intervals are wholly below zero.
+Regularized Bradley-Terry's primary tuning intervals cross zero in both evidence
+modes and some folds hit optimizer or history-availability fallbacks, so it keeps
+its frozen defaults pending an optimizer repair and retest. Its large seed-assumed
+lift is evidence about historical seed availability, not reliable tuning gain.
+
+These are retrospective realized-matchup diagnostics, not snapshot-verified
+bracket or title backtests. No model family is selected and `productize` remains
+false. Full settings, paired intervals, hashes, and decisions are in
+[Six-model out-of-sample tuning results](forecast-tuning-results.md).
 
 ### Feature-expanded regularized Bradley-Terry model
 
@@ -387,8 +460,11 @@ Use the same chronological target folds for comparisons; select penalties and
 other tuning choices using earlier training events only. Swapping players must
 complement the probability, not introduce a first-bracket-slot advantage.
 The feature scales and coefficients are learned only from each fold's training
-sets. Fixed default penalties have not been tuned on held-out events. This is
-the sixth planned model, not a seventh model, and remains experimental.
+sets. Nested tuning tested a frozen one-at-a-time penalty and form-decay grid,
+but its primary log-loss improvement was not stable; the regularized model
+therefore retains its frozen defaults until optimizer reliability is improved
+and the grid is retested. This is the sixth planned model, not a seventh model,
+and remains experimental.
 
 Character choices actually observed during the target event are future
 information for a pre-event forecast. Past character profiles can also be stale
@@ -449,6 +525,12 @@ The current scenarios exclude WAL, backups, replicas, catalogs, quality/report
 documents and future prediction runs. Do not extrapolate selected-event averages
 to all 211 offline majors: field sizes and overlapping player identities vary.
 
+Current expanded measurement: the canonical JSON is **379,603,382 bytes** and
+retained local research state is **2,813,648,522 logical bytes**. The
+1×/1.5×/2× planning scenarios with 30% headroom are **687,367,783**,
+**973,927,220**, and **1,260,507,956 bytes**. These replace the initial small-
+sample estimates; they still are not measured database sizes.
+
 ## Verification
 
 ~~~sh
@@ -457,8 +539,9 @@ npm run lint
 npm run build
 ~~~
 
-Tests use synthetic fixtures and mocked network responses, never credentials or
-live events. Coverage includes cache/offline replay, pagination failures,
+The current fixture suite contains **224 tests**. Tests use synthetic fixtures
+and mocked network responses, never credentials or live events. Coverage
+includes cache/offline replay, pagination failures,
 credential suppression, registry gates, source hashes, identities, cleaning,
 determinism, and CLI source-to-dataset integration. CI runs this fixture suite.
 The first live authenticated acceptance check passed on Riptide 2025: 489
