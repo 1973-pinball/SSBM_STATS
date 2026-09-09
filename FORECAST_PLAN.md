@@ -1,12 +1,12 @@
 # Tournament Forecast Research Plan
 
-> Status: **in progress — the strict 2018–2025 historical corpus, source and identity audits, six-model suite, 24-configuration nested out-of-sample tuning, reviewed double-elimination pilot, Riptide path explorer, and public six-model backtest visualization are complete**. Snapshot-safe historical title validation, a generic probabilistic full-field simulator, and automatic public refresh remain open. Research sources and full reports stay local; only reviewed aggregate or public-data derivatives may be bundled into the app. Do not upload forecast data or model output to Supabase until tournament-level validation supports productization.
+> Status: **in progress — the strict 2018–2025 historical corpus, source and identity audits, six-model suite, 24-configuration nested out-of-sample tuning, accepted retrospective double-elimination pilot, Riptide path explorer, and public six-model backtest visualization shipped in v0.4.6 are complete**. A generic probabilistic full-field simulator and final model-family decision remain open; snapshot-safe historical title validation is optional follow-on evidence, and automatic public refresh stays last. Research sources and full reports stay local; only reviewed aggregate or public-data derivatives may be bundled into the app. Do not upload forecast data or model output to Supabase until tournament-level validation supports productization.
 
 ## Goal
 
-Build and evaluate models that forecast an upcoming Melee major using results from prior majors. The initial output is an internal research tool: it should explain each model, show honest in-sample and out-of-sample performance, and produce reproducible event predictions.
+Build and evaluate models that forecast an upcoming Melee major using results from prior majors. The research pipeline remains local, while v0.4.6 publishes only a reviewed sanitized derivative that explains each model, shows honest out-of-sample performance, and illustrates reproducible event predictions.
 
-The first live case study will be the next Riptide, but the pipeline must work for any major rather than learning Riptide-specific rules.
+The first live case study is Riptide 2026, but the pipeline must work for any major rather than learning Riptide-specific rules.
 
 See the [concise prediction TODO and acceptance checklist](docs/predictions-todo.md)
 for the current status of all ten roadmap items.
@@ -17,7 +17,7 @@ for the current status of all ten roadmap items.
 - **Start.gg:** entrants, seeds, completed sets, scores, bracket rounds, placements, and the official bracket for an upcoming event.
 - **Nikki replay archive:** optional explanatory replay-derived features for safely identified players. These features enter a predictive model only if leakage-safe backtests show an out-of-sample improvement.
 
-Start.gg ingestion will require a developer token stored locally in an ignored `.env.forecast.local` file. No credential belongs in source control.
+Start.gg ingestion requires a developer token stored locally in an ignored `.env.forecast.local` file. No credential belongs in source control.
 
 ## Build roadmap
 
@@ -60,11 +60,11 @@ Start.gg ingestion will require a developer token stored locally in an ignored `
    - A provisional field simulation before the official bracket is published
    - An exact double-elimination simulation after entrants, seeds, and bracket positions are official
 
-9. **Local comparison report**
+9. **Reports and model decision**
    Produce an internal report that compares methodology, validation results, calibration, historical forecasts, and the current upcoming-event prediction. Keep assumptions and forecast cutoffs visible.
 
-10. **Storage report**
-    Measure the actual local dataset and model-output sizes, then estimate Supabase table and index storage. Do not upload anything during this phase.
+10. **Storage and portability**
+    Measure the actual local dataset and model-output sizes, estimate Supabase table and index storage, and document clean-clone versus exact-research transfer. Do not upload research artifacts during this phase.
 
 ## Validation rules
 
@@ -126,11 +126,11 @@ mapped, and one scoped event is quarantined rather than trained on.
 | 3 | Canonical local dataset | Complete: strict 84-event dataset with 18,421 players, 44,022 entrants, and 77,270 eligible sets | Keep future generations contract- and source-gated |
 | 4 | Cleaning and identity resolution | Complete for accepted corpus: zero structural conflicts and all 84 winner/runner-up outcomes reconciled, including 10 advisory corroborations | Do not turn tag history into model identity joins; route audits belong to simulator work |
 | 5 | Model suite | Complete: six of six planned models and a frozen 24-configuration tuning grid implemented | Repair regularized-BT convergence before considering a wider grid |
-| 6 | Evaluation framework | Complete for set-level tuning: 83 chronological outer folds, inner-only selection, 74,891 predictions, calibration, coverage, and paired event-cluster uncertainty | Tournament-level metrics remain Roadmap item 7 |
+| 6 | Evaluation framework | Complete for set-level tuning: 83 chronological outer folds, inner-only selection, 74,891 predictions, calibration, coverage, and paired event-cluster uncertainty | Optional snapshot-verified title metrics require pre-event evidence and are outside the current release scope |
 | 7 | Historical major backtests | Complete for the accepted retrospective scope: engine and Scuffed pipeline pilot pass; strict mode has zero snapshot-valid historical targets and that limitation is accepted | Optional only: add pre-event snapshots if confirmatory title-odds claims are later required |
 | 8 | Upcoming-event simulator | Reviewed DE pilot, pairwise forecasts, and deterministic Riptide seed-scenario explorer exist | Generic event registry, probabilistic full-field simulation, multi-phase routing, title/Top-8 odds, and live refresh |
-| 9 | Local comparison report | In progress: compact tuning report and public six-model backtest visualization complete; current decision is revise before productizing | Final family selection after simulator expansion; then rebuild reviewed website forecasts |
-| 10 | Storage report | Complete after tuning: 379,603,382-byte dataset and 2,813,648,522 retained local bytes | Validate against a real schema only if a cloud design is later approved |
+| 9 | Reports and model decision | In progress: compact tuning report and public six-model backtest visualization complete; current decision is revise before productizing | Final family selection after simulator expansion; then rebuild reviewed website forecasts |
+| 10 | Storage and portability | Complete after tuning: 379,603,382-byte dataset, 2,813,648,522 retained local bytes, and clean-clone/private-transfer instructions | Validate against a real schema only if a cloud design is later approved |
 
 ### 2018–2025 corpus expansion checkpoint — accepted dataset
 
@@ -449,7 +449,7 @@ mapped, and one scoped event is quarantined rather than trained on.
 - The updated evaluation run is
   `6541f6da58ca5bb2975ae9b3668ac518b6ff541fb0469f311429c5b854573249`.
   The updated storage report is
-  `d9803b5aa29781bf0147a7409af547d1d66de70ec4fa87c1a989c11744e4c7f2`.
+  `b2e2db921b93f2bd291b616a338fc2a2c3d626491b2b5d933fdacaca15ed4f33`.
   The later bracket and tuning milestones below raised retained local research
   state to **2,813,648,522 logical bytes**; no data or model output was uploaded.
 
@@ -491,6 +491,8 @@ mapped, and one scoped event is quarantined rather than trained on.
   UI's six-model comparison, strict/sensitivity toggle, metric ranking, coverage,
   tuning notes, and selected settings. It contains no row-level identities and
   remains explicitly retrospective rather than a tournament-title backtest.
+- Release v0.4.6 publishes that reviewed bundle and UI on `main`; a clean clone
+  can build the same public result without the ignored research workspace.
 - Retained local research state is **2,813,648,522 logical bytes**. No model
   family has been selected for product use; the decision remains **revise**.
 - Next priorities, in order, are optimizer reliability, a generic manual

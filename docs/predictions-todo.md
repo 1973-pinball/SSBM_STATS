@@ -7,6 +7,9 @@
 Machine migration and clean-checkout setup are documented in the
 [forecast handoff guide](forecast-handoff.md).
 
+Release **v0.4.6** publishes the reviewed Tournament Predictions UI and
+aggregate evidence bundle. The full research workspace remains local by design.
+
 ## Ten-item roadmap
 
 - [x] **1. Major registry — COMPLETE for the 2018–2025 scope.** All 85 selected
@@ -107,6 +110,12 @@ intervals cross zero in the seed-assumed mode and its optimizer still needs
 neutral fallbacks. Its large sensitivity lift comes from seed availability, not
 a reliable hyperparameter gain. Full settings, intervals, and hashes are in the
 [six-model tuning report](forecast-tuning-results.md).
+
+Coverage is model applicability, not accuracy: it is the share of held-out sets
+with the full required pre-event inputs. Strict-history coverage is 46.63% for
+regularized BT, 49.36% for Glicko-2/Elo/dynamic BT, 0% for higher seed, and 100%
+for neutral. Seed-sensitivity coverage is 48.06%, 49.36%, 90.89%, and 100%,
+respectively; uncovered sets remain in scoring with model-specific fallbacks.
 
 ## Corpus acceptance record
 

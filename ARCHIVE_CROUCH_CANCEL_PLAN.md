@@ -4,7 +4,8 @@ Goal: publish a new Nikki public-archive dataset whose action rollups include `c
 
 ## Preconditions
 
-- Pull the production code containing app release `0.4.5`.
+- Pull app release `0.4.6` or later; it contains the stats-version and
+  publication safeguards required by this runbook.
 - Use Node 22 and run `npm install` if dependencies changed locally.
 - Keep the local Nikki archive cache and service-role env on the laptop; raw replay files never enter the repo.
 

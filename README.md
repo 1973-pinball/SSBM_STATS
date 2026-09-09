@@ -4,7 +4,8 @@
 
 Everything is parsed and cached in your browser; raw replay files never leave your device. Optional Google sign-in syncs parsed stats only, and Community contribution is a separate, default-off choice.
 
-No replays? Try the demo or browse the public Community, Tournament, and Liquipedia views.
+No replays? Try the demo or browse the public Community, Tournament Predictions,
+and Liquipedia views.
 
 ## How it works
 
@@ -33,13 +34,35 @@ The Community section compares your local character stats against four separate 
 
 Matchup, Stage, and Move Atlas use the same side-by-side columns. Community character controls default to the user's most-played character; every Atlas comparison column is sortable, and Move Atlas sorting follows the currently selected measure. The shared My games lookback defaults to the 150 most recent matching games and scopes only the user's column, while benchmark columns retain their full published samples. Stage Atlas defaults to an all-opponents aggregate. Move Atlas defaults to a 1-attempt-per-game minimum applied strictly to the user's rate, hiding lower and unavailable attempt rows, and places a full execution/action comparison directly beneath the move table with its own 1-action-per-game minimum. Move and action differences shade the user's cell on a continuous red-above/blue-below scale against Tournament, falling back to Venue when no tournament sample exists. In the all-opponents Stage view, SSBM Stats remains blank until a privacy-safe character-by-stage aggregate is published rather than summing suppressed matchup cells. Win-rate coloring uses the same blue-low/red-high direction throughout. The compact participation card advances from a 25-user milestone to 100, and the Metrics Guide keeps each section in an independent collapsed disclosure.
 
-The rolling execution, Move Trend, and Actions charts show these samples as fixed horizontal references; they are aggregate benchmarks, not historical time series. Each chart has an optional opponent overlay that is off by default, and the Actions chart shows one selected action at a time. In the current-form tables, Actions retains the opponent per-game rate and adds Venue, Tournament, and Pro per-game comparisons. Move effectiveness puts the same three attempted-per-game references beside the user's rate while retaining landed rate, damage share, kill share, and L-cancel; Openings adds the archive columns for openings per game. The user's attempted/game, action/game, and opening/game cells use the same continuous comparison heatmap. The full execution table compares tech, L-cancel, input, and available action rates across the same sources; a dash is retained when a source does not publish the required denominator. Matchup Atlas separates the user's local game count from win rate, defaults to Games descending, and can sort by any benchmark column. The Tournament explorer sits before Liquipedia and can be browsed by series or event. Selecting a named pro limits the Event menu to that player's published evidence-backed mappings and automatically selects their most-observed character for the event. Its tech KPI includes the in-place/in/away split, while the adjacent execution panel ranks the selected character's four largest moves by damage share.
+The rolling execution, Move Trend, and Actions charts show these samples as fixed horizontal references; they are aggregate benchmarks, not historical time series. Each chart has an optional opponent overlay that is off by default, and the Actions chart shows one selected action at a time. In the current-form tables, Actions retains the opponent per-game rate and adds Venue, Tournament, and Pro per-game comparisons. Move effectiveness puts the same three attempted-per-game references beside the user's rate while retaining landed rate, damage share, kill share, and L-cancel; Openings adds the archive columns for openings per game. The user's attempted/game, action/game, and opening/game cells use the same continuous comparison heatmap. The full execution table compares tech, L-cancel, input, and available action rates across the same sources; a dash is retained when a source does not publish the required denominator. Matchup Atlas separates the user's local game count from win rate, defaults to Games descending, and can sort by any benchmark column. The Tournament Predictions tab sits before Liquipedia; its Public Replay Archive is collapsed by default and can be browsed by series or event after expansion. Selecting a named pro limits the Event menu to that player's published evidence-backed mappings and automatically selects their most-observed character for the event. Its tech KPI includes the in-place/in/away split, while the adjacent execution panel ranks the selected character's four largest moves by damage share.
 
 The current `nikki-2026-09-02-v7` snapshot contains 160,075 unique parsed games, of which 152,566 are in the broad usable sample and 25,598 are in the conservative tournament sample. Those 152,566 games represent 321,668 player-games because singles contribute two player appearances and doubles contribute four. Twenty-seven players have publishable identity mappings: Aklo, Ampp, aMSa, Axe, Cody Schwab, Fiction, Ginger, Hungrybox, Jmook, Joshman, KoDoRiN, Krudo, lloD, Magi, Moky, n0ne, Ossify, RapMonster, S2J, Salt, SDJ, SFAT, Shroomed, Soonsay, Spark, Wizzrobe, and Zain. Across the named subset, 819 conservative games contain at least one resolved player, representing 956 named player-game slots (841 singles and 115 doubles). Identity publication uses public event or bracket evidence with narrowly scoped rules: exact replay-label matches for tournament aliases, game-identity fingerprints plus player slots and expected characters for bracket-verified anonymous stream games, and event-and-character rules for the verified two-player Zain–Cody exhibition. Ambiguous identities and deliberately excluded Summit aliases remain anonymous while still contributing to aggregate statistics.
 
 The v7 Supabase-ready export is 120,632,473 bytes (115.04 MiB) of derived NDJSON. Because published versions are immutable and database tuples, JSONB, TOAST, and indexes add overhead, operators should budget roughly 140–200 MB of incremental Supabase storage for this version. Raw archives are not part of that figure.
 
 Raw `.slp` files, source paths, unresolved tags, connect codes, and private user identifiers are not published. The archive contains only derived game/player statistics and rollups, in tables separate from private user-sync data.
+
+## Tournament Predictions
+
+Release 0.4.6 adds a bundled Tournament Predictions view with a tournament
+selector, six model choices and explanations, a deterministic Riptide 2026
+Top-16/Top-8 path illustration, and an interactive out-of-sample comparison.
+The comparison covers 83 held-out events and 74,891 realized sets from the
+accepted 2018–2025 corpus. **Strict history** excludes historical seed values
+whose pre-event availability was not established; **Seed sensitivity** shows
+the separate exploratory result when those seeds are assumed available.
+
+Coverage is the share of held-out sets where a model had its full required
+pre-event inputs, not its accuracy. All eligible sets remain in scoring, with
+model-specific fallback behavior when coverage is missing. The results are
+retrospective and not snapshot-verified title-odds evidence. The current
+Riptide graphic is a reviewed seed scenario rather than a full-field Monte Carlo
+simulation, and future event refreshes are manual; an automatic sanitized
+Start.gg feed is deliberately deferred.
+
+See the [prediction roadmap](docs/predictions-todo.md),
+[research methodology](docs/forecast-research.md), and
+[new-computer handoff guide](docs/forecast-handoff.md) for scope and setup.
 
 ## Development
 
@@ -48,6 +71,7 @@ npm install
 npm run dev
 npm run build
 npm run lint
+npm run test:forecast
 ```
 
 Requires Node 22. Run `git config core.hooksPath .githooks` once per clone. Use `npm run verify:slpz -- <replay-folder> [count]` to compare local `.slp`/`.slpz` pairs; replay fixtures are never committed.

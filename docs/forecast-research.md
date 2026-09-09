@@ -4,9 +4,9 @@ This document covers the local research pipeline in
 [FORECAST_PLAN.md](../FORECAST_PLAN.md). Source downloads, normalized datasets,
 evaluation reports, and refreshable Markdown stay local and never touch personal
 replay files or Supabase. Reviewed, public-data-only projection and aggregate
-backtest bundles can be generated into the dashboard for the Predictions
-explorer; the models remain experimental and no family has been selected for
-production.
+backtest bundles can be generated into the dashboard for the Tournament
+Predictions view; the models remain experimental and no family has been selected
+for production. Release v0.4.6 contains the current reviewed public derivative.
 
 For a new-computer setup, including exact `.forecast/` transfer and a clean
 rebuild alternative, see [Continue forecast work on another computer](forecast-handoff.md).
@@ -106,11 +106,12 @@ probability band won across the current 6,244 held-out historical sets. Those
 buckets are descriptive, not Riptide-specific guarantees. This remains a
 pairwise experimental report; it does not simulate title or top-eight odds.
 
-There is no automatic all-major search yet. Five 2025 majors now have verified
-API mappings: Riptide, GENESIS X2, Battle of BC 7, GOML: Forever and Supernova.
-Use status to inspect which source events have finished downloading.
-Older majors may not exist on Start.gg. Leave them unmapped; do not invent IDs or
-replace missing set history with the Liquipedia winner/runner-up.
+All 85 scoped 2018–2025 offline majors now have verified API mappings; 84 enter
+the accepted corpus and GOML 2022 remains quarantined. There is still no
+automatic discovery and publication path for a new future event. Add and review
+that mapping manually, then use status to inspect its source readiness. A major
+that does not exist on Start.gg stays unmapped; never invent IDs or replace
+missing set history with the Liquipedia winner/runner-up.
 
 ## Website prediction bundle
 
@@ -410,9 +411,10 @@ event-cluster percentile bootstrap: 10,000 fixed-seed replicates compare each
 model with higher seed on the same target sets and report descriptive 95%
 intervals for accuracy, Brier, and log-loss differences. This is not an
 individual-forecast interval or a confirmatory superiority test. Reports retain
-`productize:false` and `selectedModel:null`; no title/top-eight validation exists
-yet. The older Nikki-based tournament-forecast scripts remain separate and
-unmodified; their readiness checks do not validate this system.
+`productize:false` and `selectedModel:null`; the reviewed Scuffed retrospective
+simulator pilot is not confirmatory title/top-eight evidence. The older
+Nikki-based tournament-forecast scripts remain separate and unmodified; their
+readiness checks do not validate this system.
 
 ### Nested out-of-sample hyperparameter tuning
 
@@ -444,6 +446,13 @@ These are retrospective realized-matchup diagnostics, not snapshot-verified
 bracket or title backtests. No model family is selected and `productize` remains
 false. Full settings, paired intervals, hashes, and decisions are in
 [Six-model out-of-sample tuning results](forecast-tuning-results.md).
+
+Coverage is the share of held-out sets where the model had its full required
+pre-event inputs, not accuracy or corpus ingestion. Every eligible set remains
+in the score, with fallback behavior when inputs are missing. Strict-history
+coverage is 46.63% for regularized BT, 49.36% for Glicko-2/Elo/dynamic BT, 0%
+for higher seed, and 100% for neutral. In the seed-sensitivity run it is 48.06%,
+49.36%, 90.89%, and 100%, respectively.
 
 ### Feature-expanded regularized Bradley-Terry model
 

@@ -18,7 +18,7 @@ npm run test:forecast
 npm run build
 ~~~
 
-Use `npm run dev` and open the Tournaments view. The bundled prediction page
+Use `npm run dev` and open the Tournament Predictions view. The bundled page
 does not need a Start.gg credential, `.forecast/`, or Supabase.
 
 ## Choose a research transfer
@@ -58,8 +58,8 @@ git status --short
 ~~~
 
 Record the archive SHA-256 and producing Git commit beside the transferred
-file. The working tree currently must also be committed/pushed or transferred
-separately; an archive cannot make uncommitted code reproducible.
+file. Any intended uncommitted working-tree changes must also be pushed or
+transferred separately; an archive cannot make uncommitted code reproducible.
 
 On the destination, check out that exact commit, verify the archive checksum,
 and extract only into a fresh research directory:
@@ -135,9 +135,10 @@ npm run forecast -- evaluate
 npm run forecast -- tune
 # Sensitivity analysis only: assumes historical seeds were available pre-event.
 npm run forecast -- tune --allow-unverified-historical-seeds
-npm run forecast -- storage
 npm run forecast:riptide
 npm run predictions:build
+npm run predictions:backtest-data
+npm run forecast -- storage
 ~~~
 
 This requires a Start.gg token and network access. It may not reproduce existing

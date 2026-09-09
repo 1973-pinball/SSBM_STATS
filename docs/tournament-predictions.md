@@ -2,9 +2,10 @@
 
 > Experimental internal prototype. This archive-backed probabilistic simulator
 > is separate from the bundled six-model seed-scenario explorer currently shown
-> on the website. It is retained as candidate work for roadmap items 7 and 8;
-> it is not the source of the current Riptide bracket graphic and has not passed
-> the historical tournament-level acceptance gate.
+> on the website. It is retained as candidate work for roadmap item 8; it is
+> neither the source of the current Riptide bracket graphic nor the reviewed
+> Scuffed World Tour retrospective simulator pilot that completed item 7 for
+> the accepted scope.
 
 ## Model choice
 

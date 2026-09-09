@@ -36,7 +36,7 @@ that changing a target outcome cannot change its own or any earlier forecast,
 overlapping events are excluded, input order is irrelevant, and post-event end
 metadata cannot change forecast identity.
 
-## Strict-seed result
+## Strict-history result
 
 Strict mode admits a seed only when its observation is proven to precede the
 event cutoff. None of the 58,318 historical seeds has that proof, so higher seed
@@ -90,6 +90,21 @@ default; 15 other mature folds lacked a fully valid inner history and four outer
 fits used neutral fallback. The large absolute improvement over strict mode is
 therefore evidence about **seed availability**, not reliable evidence that the
 regularized model's hyperparameters were improved.
+
+## Prediction coverage
+
+Coverage is the share of held-out sets where a model had its full required
+pre-event inputs; it is not accuracy. All 74,891 eligible sets remain in the
+scores, with model-specific fallbacks when inputs are missing.
+
+| Model | Strict history | Seed sensitivity |
+|---|---:|---:|
+| Regularized BT | 46.63% | 48.06% |
+| Higher seed | 0.00% | 90.89% |
+| Glicko-2 | 49.36% | 49.36% |
+| Recency Elo | 49.36% | 49.36% |
+| Dynamic Bradley–Terry | 49.36% | 49.36% |
+| Neutral | 100.00% | 100.00% |
 
 ## Decision
 
