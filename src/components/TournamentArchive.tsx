@@ -8,9 +8,7 @@ import {
   fetchArchiveCommunityProOptions,
   fetchArchivePlayerEventAvailability,
   fetchArchiveRollups,
-  fetchPublishedForecasts,
   type ArchiveCatalog,
-  type ArchiveForecast,
   type ArchiveFormat,
   type ArchiveMetrics,
   type ArchiveMoveMetrics,
@@ -22,6 +20,7 @@ import {
   type ArchiveTournament,
 } from "../lib/publicArchive";
 import { Kpi } from "./Kpi";
+import { TournamentPredictions } from "./TournamentPredictions";
 import "./TournamentArchive.css";
 
 type ExplorerMode = "series" | "event";
@@ -105,8 +104,6 @@ export function TournamentArchive() {
   const [playerAvailability, setPlayerAvailability] = useState<{ playerId: string; rows: ArchivePlayerEventAvailability[] } | null>(null);
   const [dataLoading, setDataLoading] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
-  const [forecasts, setForecasts] = useState<ArchiveForecast[]>([]);
-  const [forecastId, setForecastId] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -128,13 +125,6 @@ export function TournamentArchive() {
         if (alive) setCatalogError(error instanceof Error ? error.message : "Tournament data is temporarily unavailable.");
       })
       .finally(() => { if (alive) setCatalogLoading(false); });
-    void fetchPublishedForecasts()
-      .then((nextForecasts) => {
-        if (!alive) return;
-        setForecasts(nextForecasts);
-        setForecastId(nextForecasts[0]?.id ?? "");
-      })
-      .catch(() => { if (alive) setForecasts([]); });
     return () => { alive = false; };
   }, []);
 
@@ -263,10 +253,10 @@ export function TournamentArchive() {
     ? tournamentLabel(selectedEvent)
     : selectedSeries?.canonical_name ?? "Tournament archive";
 
-  if (catalogLoading) return <div className="empty-note">Loading public tournament archive…</div>;
-  if (catalogError) return <ArchiveUnavailable message={catalogError} />;
+  if (catalogLoading) return <><TournamentPredictions /><div className="empty-note">Loading public tournament archive…</div></>;
+  if (catalogError) return <><TournamentPredictions /><ArchiveUnavailable message={catalogError} /></>;
   if (!catalog.dataset || catalog.tournaments.length === 0) {
-    return <ArchiveUnavailable message="No public tournament dataset has been published yet." />;
+    return <><TournamentPredictions /><ArchiveUnavailable message="No public tournament dataset has been published yet." /></>;
   }
 
   const lCancelAttempts = (selected?.metrics.lCancelSuccess ?? 0) + (selected?.metrics.lCancelFail ?? 0);
@@ -274,6 +264,8 @@ export function TournamentArchive() {
 
   return (
     <>
+      <TournamentPredictions />
+
       <section className="panel ta-hero">
         <div>
           <div className="eyebrow">Public replay archive</div>
@@ -344,8 +336,6 @@ export function TournamentArchive() {
           <MovePanel row={selected} />
         </>
       )}
-
-      <ForecastPanel forecasts={forecasts} selectedId={forecastId} onSelect={setForecastId} />
       <SourcesPanel catalog={catalog} selectedEvent={selectedEvent} selectedSeries={selectedSeries} seriesEditions={seriesEditions} population={population} />
     </>
   );
@@ -488,26 +478,6 @@ function MovePanel({ row }: { row: ArchiveRollup }) {
       <h2>Move usage</h2>
       {moves.length ? <div className="table-scroll"><table><thead><tr><th>Move</th><th className="data">Uses / game</th><th className="data">Usage share</th><th className="data">Hit rate</th><th className="data">Damage share</th><th className="data">Kills</th><th className="data">Avg kill %</th></tr></thead><tbody>{moves.map((move) => <tr key={move.key}><td>{move.label}</td><td className="data">{num(rate(move.attempts, row.game_count), 2)}</td><td className="data">{pct(rate(move.attempts, attempts))}</td><td className="data">{pct(rate(move.landed, move.attempts))}</td><td className="data">{pct(rate(move.damage, row.metrics.damageTotal))}</td><td className="data">{int(move.kills)}</td><td className="data">{move.kills ? `${num(move.killPctSum / move.kills, 0)}%` : "—"}</td></tr>)}</tbody></table></div> : <div className="ta-panel-empty">Choose a specific character to inspect its move distribution.</div>}
       <div className="hint">Usage share is each move group's portion of recorded attack attempts, not its share of time.</div>
-    </section>
-  );
-}
-
-function ForecastPanel({ forecasts, selectedId, onSelect }: { forecasts: ArchiveForecast[]; selectedId: string; onSelect: (id: string) => void }) {
-  if (!forecasts.length) return (
-    <section className="panel ta-forecast">
-      <h2>Predictions</h2>
-      <div className="ta-panel-empty">No tournament forecast is currently published.</div>
-      <div className="hint">Predictions will appear only after an entrant list and bracket have been reviewed.</div>
-    </section>
-  );
-  const forecast = forecasts.find((item) => item.id === selectedId) ?? forecasts[0]!;
-  return (
-    <section className="panel ta-forecast">
-      <div className="panel-heading-row"><div><h2>Predictions</h2><p>Experimental estimates from historical tournament results.</p></div>{forecasts.length > 1 && <label>Event<select value={forecast.id} onChange={(event) => onSelect(event.target.value)}>{forecasts.map((item) => <option key={item.id} value={item.id}>{item.canonical_name} · {shortDate(item.start_date)}</option>)}</select></label>}</div>
-      <div className="ta-forecast-meta"><b>{forecast.canonical_name}</b><span>{shortDate(forecast.start_date)}</span><span>Data through {shortDate(forecast.data_cutoff)}</span></div>
-      <div className="table-scroll"><table><thead><tr><th>Player</th><th className="data">Seed</th><th className="data">Win event</th><th className="data">Top 8</th><th className="data">Confidence</th></tr></thead><tbody>{forecast.players.slice(0, 12).map((entry) => <tr key={entry.player_id}><td>{entry.player.display_name}</td><td className="data">{entry.seed ?? "—"}</td><td className="data">{pct(entry.title_probability)}{entry.interval_low !== null && entry.interval_high !== null && <span className="sample-note">{pct(entry.interval_low, 0)}–{pct(entry.interval_high, 0)}</span>}</td><td className="data">{pct(entry.top_8_probability)}</td><td className="data"><span className={`ta-confidence ${entry.confidence}`}>{entry.confidence}</span></td></tr>)}</tbody></table></div>
-      <div className="hint">Probabilities are uncertain estimates, not picks or guarantees. Entrants and brackets can change after the listed data cutoff.</div>
-      <div className="ta-source-links"><a href={forecast.entrant_source_url} target="_blank" rel="noreferrer">Entrants</a>{forecast.bracket_source_url && <a href={forecast.bracket_source_url} target="_blank" rel="noreferrer">Bracket</a>}</div>
     </section>
   );
 }

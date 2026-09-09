@@ -54,6 +54,9 @@ jobs:
       - name: Verify known CPU filtering
         run: npm run verify:cpu
 
+      - name: Local forecast pipeline tests (fixtures only; no credentials)
+        run: npm run test:forecast
+
       # tsc -b, vite build, then the static SEO pages. Deliberately not
       # build:deploy: that additionally renders the share GIFs through
       # @napi-rs/canvas, which is slow, and a failed render is explicitly

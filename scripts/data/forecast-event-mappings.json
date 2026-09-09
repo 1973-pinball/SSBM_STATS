@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "mappings": [
+    {
+      "majorName": "Riptide 2025",
+      "year": 2025,
+      "eventSlug": "tournament/riptide-2025-4/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "1285893",
+      "tournamentId": "744261",
+      "evidenceUrl": "https://www.start.gg/tournament/riptide-2025-4/event/melee-singles",
+      "notes": "API-verified 2026-09-04: Riptide 2025, Melee singles, offline, September 5–7 tournament dates. Full event downloaded and audited locally."
+    },
+    {
+      "majorName": "GENESIS X2",
+      "year": 2025,
+      "eventSlug": "tournament/genesis-x2/event/melee-singles",
+      "confidence": "verified",
+      "eventId": "1229459",
+      "tournamentId": "716237",
+      "evidenceUrl": "https://www.start.gg/tournament/genesis-x2/event/melee-singles/set/85460495/",
+      "notes": "API-verified 2026-09-04: official title Genesis X2 matches the bundled title ignoring case; offline Melee singles and February 14–16, 2025 tournament dates agree."
+    },
+    {
+      "majorName": "Battle of BC 7",
+      "year": 2025,
+      "eventSlug": "tournament/battle-of-bc-7-6/event/main-event-melee-singles",
+      "confidence": "verified",
+      "eventId": "1258475",
+      "tournamentId": "726021",
+      "evidenceUrl": "https://www.start.gg/tournament/battle-of-bc-7-6/event/main-event-melee-singles/brackets/1902638/2797023/",
+      "notes": "API-verified 2026-09-04: Battle of BC 7, MAIN EVENT - Melee Singles, offline, March 28–30, 2025. Event ID and tournament ID checked against official metadata."
+    },
+    {
+      "majorName": "Get On My Level: Forever",
+      "year": 2025,
+      "eventSlug": "tournament/get-on-my-level-forever-canadian-fighting-game-championships/event/super-smash-bros-melee-singles",
+      "confidence": "verified",
+      "eventId": "1243598",
+      "tournamentId": "723270",
+      "evidenceUrl": "https://www.start.gg/tournament/get-on-my-level-forever-canadian-fighting-game-championships/event/super-smash-bros-melee-singles/brackets/1798394/2660263",
+      "notes": "Reviewed API mapping 2026-09-04: official title 'Get On My Level: Forever - Canadian Fighting Game Championships' adds a descriptive suffix to the bundled title. The cited singles bracket, July 4–6, 2025 dates, Melee game ID, offline venue and one-player entrant size agree."
+    },
+    {
+      "majorName": "Supernova 2025",
+      "year": 2025,
+      "eventSlug": "tournament/supernova-2025/event/melee-1v1-singles",
+      "confidence": "verified",
+      "eventId": "1354624",
+      "tournamentId": "777707",
+      "evidenceUrl": "https://www.start.gg/tournament/supernova-2025/event/melee-1v1-singles/brackets/1940608/2849852/",
+      "notes": "API-verified 2026-09-04: Supernova 2025, Melee - 1v1 Singles, offline, August 7–10, 2025. Event ID and tournament ID checked against official metadata."
+    }
+  ]
+}
