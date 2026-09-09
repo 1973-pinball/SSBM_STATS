@@ -7,6 +7,9 @@ replay files or Supabase. A reviewed, public-data-only projection catalog can be
 generated into the dashboard for the Predictions explorer; the model remains
 experimental and predictive usefulness has not been established.
 
+For a new-computer setup, including exact `.forecast/` transfer and a clean
+rebuild alternative, see [Continue forecast work on another computer](forecast-handoff.md).
+
 ## Setup
 
 Use the repository's Node 22 runtime. No new dependencies are needed.

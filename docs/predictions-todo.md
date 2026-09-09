@@ -4,6 +4,9 @@
 > `[ ]` means work remains. Every open item is explicitly marked **IN PROGRESS**
 > or **NOT STARTED**.
 
+Machine migration and clean-checkout setup are documented in the
+[forecast handoff guide](forecast-handoff.md).
+
 ## Ten-item roadmap
 
 - [ ] **1. Major registry — IN PROGRESS.** Five majors are API-verified; expand
@@ -47,6 +50,8 @@
   winner; label the neutral model's seed advancement as a display tie-break.
 - [x] Keep the missing-pool, provisional-preview, and “not title odds” warnings
   visible next to the graphic.
+- [x] Document clean-checkout setup, exact research-state transfer, token
+  recreation, and the non-identical rebuild fallback for another computer.
 - [ ] Add additional reviewed tournament catalogs so the tournament selector
   offers more than the current Riptide snapshot.
 - [ ] Add a reviewed refresh-and-redeploy workflow, or a privacy-compatible
