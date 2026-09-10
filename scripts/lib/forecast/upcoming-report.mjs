@@ -1,3 +1,5 @@
+import { markdownText as safe } from "./markdown.mjs";
+
 const compare = (a, b) => String(a).localeCompare(String(b), "en");
 const byId = (a, b) => compare(a.id, b.id);
 
@@ -392,8 +394,6 @@ export function buildUpcomingMatchupReport({
 }
 
 const percent = (value) => (value * 100).toFixed(1) + "%";
-const safe = (value) => String(value ?? "").replace(/\|/g, "\\|").replace(/[\r\n]+/g, " ");
-
 function validateReport(report) {
   if (!report || report.schemaVersion !== 1 || report.kind !== "upcoming-pairwise-matchup-report-v1"
       || !Array.isArray(report.matches)) throw new Error("Unsupported upcoming matchup report");

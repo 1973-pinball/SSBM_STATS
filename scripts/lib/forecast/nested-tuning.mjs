@@ -9,6 +9,7 @@ import {
 import { fitDynamicBradleyTerryModel } from "./dynamic-bradley-terry.mjs";
 import { chronologicalFolds, eventTimeBounds, scorePredictions } from "./evaluation.mjs";
 import { fitGlicko2Model } from "./glicko2.mjs";
+import { markdownCodeSpan, markdownText } from "./markdown.mjs";
 import { fitRegularizedBradleyTerryModel } from "./regularized-bradley-terry.mjs";
 
 const OUTER_BOOTSTRAP_REPLICATES = 10_000;
@@ -1321,8 +1322,6 @@ const MODEL_NAMES = Object.freeze({
 });
 
 const markdownNumber = (value) => Number.isFinite(value) ? value.toFixed(4) : "—";
-const markdownText = (value) => String(value).replace(/\|/g, "\\|").replace(/[\r\n]/g, " ");
-
 function markdownInterval(summary) {
   if (!summary || !summary.interval95) return markdownNumber(summary?.estimate) + " [—]";
   return markdownNumber(summary.estimate) + " [" + markdownNumber(summary.interval95.lower)
@@ -1365,9 +1364,9 @@ export function nestedTuningMarkdown({ manifest, forecasts, evaluation }, tuning
   });
   const gridRows = spec.models.flatMap((model) => model.candidates.map((candidate) =>
     "| " + markdownText(MODEL_NAMES[model.id] ?? model.id)
-      + " | `" + markdownText(candidate.id) + "`"
+      + " | " + markdownCodeSpan(candidate.id)
       + " | " + (candidate.id === model.defaultCandidateId ? "yes" : "")
-      + " | `" + markdownText(JSON.stringify(candidate.options)) + "` |"));
+      + " | " + markdownCodeSpan(JSON.stringify(candidate.options)) + " |"));
   return [
     "# Nested rolling-origin model tuning — exploratory",
     "",

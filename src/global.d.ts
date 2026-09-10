@@ -33,6 +33,6 @@ interface BeforeInstallPromptEvent extends Event {
 
 interface WindowEventMap {
   beforeinstallprompt: BeforeInstallPromptEvent;
-  "ssbm:update-ready": CustomEvent;
+  "ssbm:update-applied": CustomEvent;
   "ssbm:offline-ready": CustomEvent;
 }

@@ -4,6 +4,7 @@ import { DYNAMIC_BRADLEY_TERRY_OPTIONS, fitDynamicBradleyTerryModel } from "./dy
 import { GLICKO2_OPTIONS, fitGlicko2Model } from "./glicko2.mjs";
 import { REGULARIZED_BT_OPTIONS, fitRegularizedBradleyTerryModel } from "./regularized-bradley-terry.mjs";
 import { createHash } from "node:crypto";
+import { markdownText as safeText } from "./markdown.mjs";
 
 const byId = (a, b) => a.id.localeCompare(b.id, "en");
 export const MODEL_IDS = ["neutral", "higher-seed", "recency-elo", "glicko2",
@@ -337,7 +338,6 @@ export function compareBasicModels(dataset, { minTrainingEvents = 1, allowHistor
 
 const number = (value, digits = 4) => value == null ? "—" : value.toFixed(digits);
 const percent = (value) => value == null ? "—" : (value * 100).toFixed(1) + "%";
-const safeText = (value) => String(value).replace(/\|/g, "\\|").replace(/[\r\n]/g, " ");
 const signedNumber = (value) => value == null ? "—" : (value >= 0 ? "+" : "") + number(value);
 const differenceInterval = (entry) => signedNumber(entry.estimate) + " ["
   + signedNumber(entry.interval95.lower) + ", " + signedNumber(entry.interval95.upper) + "]";
@@ -428,7 +428,7 @@ export function comparisonMarkdown(report) {
     "",
     "## Limitations and next work",
     "",
-    ...report.warnings.map((warning) => "- " + warning),
+    ...report.warnings.map((warning) => "- " + safeText(warning)),
     "",
     report.pendingModels.length ? "Remaining model suite: " + report.pendingModels.join("; ") + "."
       : "All six planned model families are implemented; selection remains pending broader validation.",

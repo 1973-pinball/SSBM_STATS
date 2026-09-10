@@ -40,22 +40,21 @@ window.addEventListener('vite:preloadError', (event) => {
 /**
  * The service worker precaches the whole shell, so a tab that stays open never
  * sees a new deploy: it keeps serving what it cached, however far behind that
- * falls. registerType 'autoUpdate' fixes this on the *next* load, which is no
- * help to a dashboard left open all evening — hence an explicit poll.
+ * falls. registerType 'autoUpdate' lets the new worker activate as soon as it
+ * is ready; App only defers the page reload while local parsing is active.
  *
  * Only while visible and online: a backgrounded tab has nobody to show the new
  * build to, and an offline check just fails. Picking up a new worker triggers
- * the reload autoUpdate already performs, so this changes when that happens,
- * not what happens.
+ * an idle-safe reload instead of leaving a manual prompt stuck on screen.
  */
 const UPDATE_CHECK_MS = 60 * 60 * 1000
 
 registerSW({
   immediate: true,
   // Keep an update from reloading through an active folder parse. App owns the
-  // user-facing prompt and only offers the reload once local work is idle.
+  // final page reload and waits until local work is idle.
   onNeedReload() {
-    window.dispatchEvent(new CustomEvent('ssbm:update-ready'))
+    window.dispatchEvent(new CustomEvent('ssbm:update-applied'))
   },
   onOfflineReady() {
     window.dispatchEvent(new CustomEvent('ssbm:offline-ready'))

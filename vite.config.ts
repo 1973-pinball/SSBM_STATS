@@ -21,8 +21,8 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      // New deploys activate on next load instead of serving a stale shell
-      // forever; pairs with the vite:preloadError reload guard in main.tsx.
+      // New deploys activate immediately; App defers only the visible page
+      // reload when local parsing is active.
       registerType: 'autoUpdate',
       // Registered by hand in main.tsx so it can poll for new deploys — a tab
       // left open otherwise never re-checks, and keeps serving the precached
@@ -68,6 +68,10 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Keep this explicit because injectRegister is disabled; already-open
+        // tabs need the new worker to take control before App can reload.
+        skipWaiting: true,
+        clientsClaim: true,
         // Precache every build asset (all views are lazy chunks — offline needs
         // them all); fonts are hashed woff2 files, safe to cache immutably.
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],

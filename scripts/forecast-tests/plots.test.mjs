@@ -3,6 +3,12 @@ import assert from "node:assert/strict";
 import { scorePredictions } from "../lib/forecast/evaluation.mjs";
 import { calibrationSvg } from "../lib/forecast/plots.mjs";
 
+function nonStandardSvgUrls(svg) {
+  return [...svg.matchAll(/\bhttps?:\/\/[^\s"'<>]+/g)]
+    .map((match) => match[0])
+    .filter((url) => new URL(url).hostname !== "www.w3.org");
+}
+
 function fixture() {
   const models = ["neutral", "higher-seed", "recency-elo"].map((id) => ({ id, name: id,
     scores: scorePredictions([{ p: 0.5, actual: 1 }, { p: 0.5, actual: 0 }, { p: 0.95, actual: 1 }]) }));
@@ -16,7 +22,8 @@ test("calibration plots skip empty bins, keep descriptive uncertainty and label 
   assert.match(svg, /Conditional on realized matchups/);
   assert.match(svg, /not cluster-adjusted/);
   assert.match(svg, /availability is unverified/);
-  assert.doesNotMatch(svg, /NaN|Infinity|<script|https?:\/\/(?!www.w3.org)/);
+  assert.doesNotMatch(svg, /NaN|Infinity|<script/);
+  assert.deepEqual(nonStandardSvgUrls(svg), []);
   assert.match(calibrationSvg(fixture(), { inSample: true }), /not validation/);
 });
 

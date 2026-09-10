@@ -3,6 +3,7 @@ import { initialSeedIndex } from "./baselines.mjs";
 import { MODEL_IDS, fitModelSuite } from "./comparison.mjs";
 import { eventTimeBounds } from "./evaluation.mjs";
 import { compileReviewedDoubleElimination, simulateDoubleElimination } from "./historical-bracket.mjs";
+import { markdownText as safe } from "./markdown.mjs";
 
 const LOG_LOSS_EPSILON = 1e-15;
 const compare = (a, b) => String(a).localeCompare(String(b), "en");
@@ -648,8 +649,6 @@ export function scoreHistoricalTournamentForecasts(forecasts, outcomes, {
 
 const number = (value, digits = 4) => value == null ? "—" : value.toFixed(digits);
 const percent = (value) => value == null ? "—" : `${(value * 100).toFixed(1)}%`;
-const safe = (value) => String(value).replace(/\|/g, "\\|").replace(/[\r\n]/g, " ");
-
 export function historicalBacktestMarkdown(report) {
   const labeledId = (label, id) => label ? `${safe(label)} (${safe(id)})` : safe(id);
   const eventRows = report.events.flatMap((event) => event.models.map((model) => {
@@ -682,7 +681,7 @@ export function historicalBacktestMarkdown(report) {
     "",
     "## Method limits",
     "",
-    ...report.warnings.map((warning) => `- ${warning}`),
+    ...report.warnings.map((warning) => `- ${safe(warning)}`),
     "",
   ].join("\n");
 }

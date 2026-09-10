@@ -195,6 +195,7 @@ export default function App() {
   const [lastScanned, setLastScanned] = useState<string | null>(() => localStorage.getItem("ssbm-last-scanned"));
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [updateReady, setUpdateReady] = useState(false);
+  const [updateApplied, setUpdateApplied] = useState(false);
   const [offlineReady, setOfflineReady] = useState(false);
   const autoSyncDone = useRef(false);
   // Four callers now walk the folder — the load auto-sync, the Refresh click,
@@ -287,18 +288,21 @@ export default function App() {
       event.preventDefault();
       setInstallPrompt(event);
     };
-    const onUpdate = () => setUpdateReady(true);
+    const onUpdateApplied = () => {
+      setUpdateReady(true);
+      setUpdateApplied(true);
+    };
     const onOfflineReady = () => setOfflineReady(true);
     window.addEventListener("online", onOnline);
     window.addEventListener("offline", onOffline);
     window.addEventListener("beforeinstallprompt", onInstall);
-    window.addEventListener("ssbm:update-ready", onUpdate);
+    window.addEventListener("ssbm:update-applied", onUpdateApplied);
     window.addEventListener("ssbm:offline-ready", onOfflineReady);
     return () => {
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
       window.removeEventListener("beforeinstallprompt", onInstall);
-      window.removeEventListener("ssbm:update-ready", onUpdate);
+      window.removeEventListener("ssbm:update-applied", onUpdateApplied);
       window.removeEventListener("ssbm:offline-ready", onOfflineReady);
     };
   }, []);
@@ -995,6 +999,20 @@ export default function App() {
   const showTeams = hasTeamGames && filters.format === "teams";
   const activePending = isTabPending(tab);
   const busy = phase === "parsing" || syncing !== null;
+  const reloadForUpdate = useCallback(() => {
+    const last = Number(sessionStorage.getItem("ssbm-update-reload-at") ?? 0);
+    if (Date.now() - last < 30_000) {
+      setUpdateReady(false);
+      setUpdateApplied(false);
+      return;
+    }
+    sessionStorage.setItem("ssbm-update-reload-at", String(Date.now()));
+    window.location.reload();
+  }, []);
+  useEffect(() => {
+    if (!updateApplied || busy) return;
+    reloadForUpdate();
+  }, [busy, reloadForUpdate, updateApplied]);
   const lastScanLabel = lastScanned
     ? new Date(lastScanned).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
     : null;
@@ -1383,8 +1401,8 @@ export default function App() {
 
       {updateReady && (
         <div className="pwa-toast" role="status">
-          <span><b>Update ready.</b> {busy ? "It will wait while local parsing finishes." : "Reload when you’re ready."}</span>
-          {!busy && <button className="primary" onClick={() => window.location.reload()}>Reload</button>}
+          <span><b>Update ready.</b> {busy ? "It will reload when local parsing finishes." : "Reloading now."}</span>
+          {!busy && <button className="primary" onClick={reloadForUpdate}>Reload</button>}
         </div>
       )}
       {!updateReady && offlineReady && (
