@@ -139,11 +139,12 @@ const UI_RECORDS_MS = 1000;
 const UI_PROGRESS_MS = 250;
 
 /**
- * Above this size, either preview or full-record delivery creates more pressure
- * than useful feedback: every delivery makes React rebuild the full id map,
- * content dedup, resolution, and sorted game arrays. These runs skip the
- * preview entirely, commit full records continuously to IndexedDB, and let
- * every caller reconcile from storage once the run finishes.
+ * Above this size, full-record delivery creates more pressure than useful
+ * feedback: every delivery makes React rebuild the full id map, content dedup,
+ * resolution, and sorted game arrays. These runs still use the cheap header
+ * preview to get a first-time user into the app quickly, but commit the full
+ * records continuously to IndexedDB and reconcile from storage once the run
+ * finishes.
  */
 const LARGE_IMPORT_MIN = 5_000;
 
@@ -204,11 +205,11 @@ export async function runParsePipeline(
     .filter((f) => !cached.has(f.id))
     .sort((a, b) => b.file.lastModified - a.file.lastModified);
   const largeImport = queue.length >= LARGE_IMPORT_MIN;
-  // A preview makes medium imports feel instant, but at several thousand
-  // pending files it becomes a second in-memory library and a second full walk
-  // of the folder. Memory-safe runs show progress and perform only the
-  // authoritative pass.
-  const willPreview = queue.length >= HEADER_PASS_MIN && !largeImport;
+  // A preview gets a first-time user out of the blank progress screen quickly:
+  // it discovers dates, players, winners, and account counts without walking
+  // frames. Large imports still withhold the full records below so the heavy
+  // stats pass does not make React recompute the dashboard thousands of times.
+  const willPreview = queue.length >= HEADER_PASS_MIN;
   const progress: ParseProgress = {
     pass: willPreview ? "header" : "full",
     // Progress describes work in this run only. Cached files have their own
@@ -234,15 +235,23 @@ export async function runParsePipeline(
   // memory bandwidth still flattens before every logical core is busy. A
   // two-round, 240-game local benchmark of the final bounded parser measured
   // 44.7/52.5/54.8 games/s at 4/6/8 workers respectively, so eight is the
-  // measured ceiling rather than a guess at "all cores". Large imports still
-  // skip the preview pass, but on machines that expose enough memory/core
-  // budget they can run wider than the old three-worker fallback. Browsers
-  // that withhold `deviceMemory` remain conservative.
+  // measured ceiling rather than a guess at "all cores". Browsers that withhold
+  // `deviceMemory` still get a desktop-class fallback when the core count is
+  // high; an explicit low-memory signal stays conservative.
   const cores = navigator.hardwareConcurrency || 4;
   const memoryGb = navigator.deviceMemory ?? 0;
+  const memoryUnknown = memoryGb === 0;
   const hasMemory = memoryGb >= 8;
+  const lowMemory = memoryGb > 0 && memoryGb < 8;
+  const largeImportWorkerCap = () => {
+    if (lowMemory) return cores >= 6 ? 4 : 3;
+    if (cores >= 12 && hasMemory) return 8;
+    if (cores >= 8) return 6;
+    if (cores >= 6 && (hasMemory || memoryUnknown)) return 4;
+    return 3;
+  };
   const workerCap = largeImport
-    ? hasMemory && cores >= 8 ? 6 : hasMemory && cores >= 6 ? 4 : 3
+    ? largeImportWorkerCap()
     : hasMemory && cores >= 8 ? 8 : hasMemory && cores >= 6 ? 6 : 4;
   const workerCount = Math.max(1, Math.min(cores, workerCap));
   interface Slot {
@@ -472,6 +481,7 @@ export async function runParsePipeline(
     progress.pass = "full";
     progress.total = queue.length;
     progress.done = 0;
+    onProgress({ ...progress }, []);
     await runPass("full");
   } finally {
     // Terminate on rejection too — a failed pipeline must not leak the pool.

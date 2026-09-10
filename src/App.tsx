@@ -971,8 +971,15 @@ export default function App() {
   // resolving so no aggregate ever counts a game twice.
   const deduped = useMemo(() => dedupeRecords(records), [records]);
   const myCodes = useMemo(() => new Set(accounts.map((a) => a.code)), [accounts]);
-  const allResolved = useMemo(() => resolveGames(deduped, myCodes, true), [deduped, myCodes]);
-  const allResolvedTeams = useMemo(() => resolveTeamGames(deduped, myCodes, true), [deduped, myCodes]);
+  const shouldResolveDashboard = phase === "dashboard";
+  const allResolved = useMemo(
+    () => shouldResolveDashboard ? resolveGames(deduped, myCodes, true) : [],
+    [deduped, myCodes, shouldResolveDashboard],
+  );
+  const allResolvedTeams = useMemo(
+    () => shouldResolveDashboard ? resolveTeamGames(deduped, myCodes, true) : [],
+    [deduped, myCodes, shouldResolveDashboard],
+  );
   const withoutCpu = useMemo(() => allResolved.filter((g) => !hasKnownCpu(g.rec)), [allResolved]);
   const teamsWithoutCpu = useMemo(() => allResolvedTeams.filter((g) => !hasKnownCpu(g.rec)), [allResolvedTeams]);
   const resolved = filters.includeCpuGames ? allResolved : withoutCpu;
@@ -990,8 +997,8 @@ export default function App() {
   // false on its own as the second pass drains — no separate "is a parse
   // running" flag to keep in step. An incremental refresh never sets it: below
   // HEADER_PASS_MIN the pipeline skips the preview pass entirely.
-  const hasPreviews = useMemo(() => deduped.some((r) => !hasFullStats(r)), [deduped]);
-  const needsStatsRefresh = useMemo(() => deduped.some(needsStatsRepair), [deduped]);
+  const hasPreviews = useMemo(() => shouldResolveDashboard && deduped.some((r) => !hasFullStats(r)), [deduped, shouldResolveDashboard]);
+  const needsStatsRefresh = useMemo(() => shouldResolveDashboard && deduped.some(needsStatsRepair), [deduped, shouldResolveDashboard]);
   const isTabPending = (id: Tab) => hasPreviews && NEEDS_FULL_STATS.has(id);
 
   // Never strand the user in a teams view they have no games for.
