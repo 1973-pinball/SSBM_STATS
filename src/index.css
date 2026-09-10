@@ -185,15 +185,6 @@ select:disabled { opacity: 0.45; }
   text-transform: uppercase;
 }
 .landing-brand img { width: 34px; height: 34px; }
-.landing-eyebrow {
-  font-family: var(--font-display);
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--accent);
-  margin: 0;
-}
 .landing h1 {
   font-size: clamp(27px, 5.6vw, 40px);
   letter-spacing: 0.04em;

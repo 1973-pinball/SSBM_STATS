@@ -43,7 +43,6 @@ export function Landing({
         <img src="/favicon.svg" alt="" aria-hidden="true" />
         <span>SSBM Stats</span>
       </div>
-      <p className="landing-eyebrow">Ready? Go!</p>
       <h1>
         Slippi replay stats, <span className="accent">parsed in your browser</span>
       </h1>
