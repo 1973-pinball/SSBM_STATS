@@ -194,7 +194,6 @@ export default function App() {
   const [folderPermission, setFolderPermission] = useState<PermissionState | "unknown">("unknown");
   const [lastScanned, setLastScanned] = useState<string | null>(() => localStorage.getItem("ssbm-last-scanned"));
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [updateReady, setUpdateReady] = useState(false);
   const [updateApplied, setUpdateApplied] = useState(false);
   const [offlineReady, setOfflineReady] = useState(false);
   const autoSyncDone = useRef(false);
@@ -288,10 +287,7 @@ export default function App() {
       event.preventDefault();
       setInstallPrompt(event);
     };
-    const onUpdateApplied = () => {
-      setUpdateReady(true);
-      setUpdateApplied(true);
-    };
+    const onUpdateApplied = () => setUpdateApplied(true);
     const onOfflineReady = () => setOfflineReady(true);
     window.addEventListener("online", onOnline);
     window.addEventListener("offline", onOffline);
@@ -1009,7 +1005,6 @@ export default function App() {
   const reloadForUpdate = useCallback(() => {
     const last = Number(sessionStorage.getItem("ssbm-update-reload-at") ?? 0);
     if (Date.now() - last < 30_000) {
-      setUpdateReady(false);
       setUpdateApplied(false);
       return;
     }
@@ -1020,6 +1015,7 @@ export default function App() {
     if (!updateApplied || busy) return;
     reloadForUpdate();
   }, [busy, reloadForUpdate, updateApplied]);
+  const showUpdateToast = updateApplied && busy;
   const lastScanLabel = lastScanned
     ? new Date(lastScanned).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
     : null;
@@ -1406,13 +1402,12 @@ export default function App() {
         <button className="footer-link" onClick={() => openOverlay("privacy")}>Privacy promise</button>
       </footer>
 
-      {updateReady && (
+      {showUpdateToast && (
         <div className="pwa-toast" role="status">
-          <span><b>Update ready.</b> {busy ? "It will reload when local parsing finishes." : "Reloading now."}</span>
-          {!busy && <button className="primary" onClick={reloadForUpdate}>Reload</button>}
+          <span><b>Update ready.</b> It will reload when local parsing finishes.</span>
         </div>
       )}
-      {!updateReady && offlineReady && (
+      {!showUpdateToast && offlineReady && (
         <div className="pwa-toast" role="status">
           <span><b>Ready offline.</b> SSBM Stats is available on this device.</span>
           <button className="ghost" aria-label="Dismiss" onClick={() => setOfflineReady(false)}>×</button>
