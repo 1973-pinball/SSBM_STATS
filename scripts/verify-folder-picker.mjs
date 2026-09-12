@@ -42,7 +42,6 @@ const server = await createServer({
       return `
         import React from 'react';
         import { createRoot } from 'react-dom/client';
-        import App from '/src/App.tsx';
         import * as db from '/src/lib/db.ts';
         import { generateDemoRecords, DEMO_ACCOUNTS } from '/src/lib/demo.ts';
         window.checkDb = db;
@@ -61,6 +60,16 @@ const server = await createServer({
         } else {
           delete window.showDirectoryPicker;
         }
+        class CheckParserWorker {
+          onmessage = null;
+          onerror = null;
+          postMessage(job) {
+            setTimeout(() => this.onmessage?.({ data: { ok: false, id: job.id, path: job.path, error: 'synthetic parse failed' } }), 0);
+          }
+          terminate() {}
+        }
+        Object.defineProperty(window, 'Worker', { value: CheckParserWorker, configurable: true });
+        const { default: App } = await import('/src/App.tsx');
         createRoot(document.getElementById('root')).render(React.createElement(App));
       `;
     },
@@ -167,6 +176,22 @@ try {
   await ready("Add folder");
   await ready("Refresh");
   await waitFor("checkDb.getReplayFolders().then(folders => folders.length === 1)");
+  await evaluate(`
+    (async () => {
+      const root = await navigator.storage.getDirectory();
+      const folder = await root.getDirectoryHandle("Slippi-A");
+      const replay = await folder.getFileHandle("manual-refresh.slp", { create: true });
+      const writable = await replay.createWritable();
+      await writable.write(new Uint8Array([1, 2, 3, 4]));
+      await writable.close();
+      window.checkRealDateNow = Date.now;
+      Date.now = () => window.checkRealDateNow() + 20_000;
+    })()
+  `);
+  await click("Refresh");
+  await waitFor("checkDb.allRecords().then(records => records.some(r => r.path.endsWith('/manual-refresh.slp') && r.parseError))");
+  await ready("Refresh");
+  const refreshedIds = await savedIds();
   await evaluate("window.checkNextFolder = 'Slippi-B'");
   await click("Add folder");
   await ready("Refresh");
@@ -178,7 +203,7 @@ try {
   await evaluate("window.checkNextFolder = null");
   await click("Add folder");
   await ready("Add folder");
-  assert.deepEqual(await savedIds(), originalIds, "adding, re-picking and cancelling preserve cached stats");
+  assert.deepEqual(await savedIds(), refreshedIds, "adding, re-picking and cancelling preserve cached stats");
   assert.deepEqual(await evaluate("checkErrors"), []);
   console.log("Folder picker checks passed: empty and unsupported fallback selections, cancel recovery, native add/re-pick/cancel, and preservation of cached stats.");
 } finally {

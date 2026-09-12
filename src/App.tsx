@@ -160,6 +160,10 @@ function skippedDetail({ failed, unreadable, deferred }: SkipTally): string {
   return sentences.join(" ");
 }
 
+function sameReplayFolderIds(a: readonly ReplayFolder[], b: readonly ReplayFolder[]): boolean {
+  return a.length === b.length && a.every((folder, index) => folder.id === b[index]?.id);
+}
+
 export default function App() {
   const [phase, setPhase] = useState<Phase>("landing");
   const [tab, setTab] = useState<Tab>(tabFromUrl);
@@ -617,8 +621,31 @@ export default function App() {
       // final tally through the callback, and we need it after the await.
       const tally: { last: ParseProgress | null } = { last: null };
       try {
-        const access = await accessibleReplayFolders(selected, requestAccess);
+        // Long-lived tabs can hold directory handles for days. Re-read matching
+        // stored handles so Refresh behaves like a fresh page load.
+        let scanFolders = selected;
+        if (!requestAccess) {
+          const stored = await getReplayFolders();
+          if (sameReplayFolderIds(selected, stored)) {
+            scanFolders = stored;
+            setFolders(stored);
+          }
+        }
+        let access = await accessibleReplayFolders(scanFolders, requestAccess);
         if (generation.current !== gen) return;
+        if (requestAccess && access.granted.length > 0) {
+          const stored = await getReplayFolders();
+          if (generation.current !== gen) return;
+          if (sameReplayFolderIds(scanFolders, stored)) {
+            const storedAccess = await accessibleReplayFolders(stored);
+            if (generation.current !== gen) return;
+            if (storedAccess.granted.length > 0) {
+              scanFolders = stored;
+              access = storedAccess;
+              setFolders(stored);
+            }
+          }
+        }
         setFolderPermission(access.unavailable.length === 0 ? "granted" : "prompt");
         setFolderIssues(access.unavailable.map((folder) => folder.handle.name));
         if (access.granted.length === 0) return;
