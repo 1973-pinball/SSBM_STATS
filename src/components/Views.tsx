@@ -273,6 +273,8 @@ function StageCharGrid({
   );
 }
 
+type StageSortKey = "games" | "wins" | "winRate";
+
 export function Stages({
   games,
   onSelect,
@@ -281,9 +283,35 @@ export function Stages({
   onSelect: (stageId: number, charId: number, side: "opp" | "mine") => void;
 }) {
   const [minGames, setMinGames] = useState(10);
+  const [sort, setSort] = useState<{ key: StageSortKey; direction: "asc" | "desc" }>({ key: "games", direction: "desc" });
   const rows = useMemo(() => byStage(games), [games]);
+  const sortedRows = useMemo(() => [...rows].sort((a, b) => {
+    const aValue = a[sort.key];
+    const bValue = b[sort.key];
+    const tieBreak = b.games - a.games || a.stageId - b.stageId;
+    if (aValue === null) return bValue === null ? tieBreak : 1;
+    if (bValue === null) return -1;
+    return (sort.direction === "asc" ? aValue - bValue : bValue - aValue) || tieBreak;
+  }), [rows, sort]);
   if (rows.length === 0) return <div className="empty-note">No games match the current filters.</div>;
   const max = Math.max(...rows.map((r) => r.games));
+  const sortableHeader = (key: StageSortKey, label: string) => {
+    const active = sort.key === key;
+    const nextDirection = active && sort.direction === "desc" ? "asc" : "desc";
+    const action = `Sort by ${key === "wins" ? "wins" : label.toLowerCase()}, ${nextDirection === "asc" ? "lowest" : "highest"} first`;
+    return (
+      <th className={`metric-sortable data${active ? " active" : ""}`} aria-sort={active ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}>
+        <button
+          type="button"
+          title={action}
+          aria-label={action}
+          onClick={() => setSort((previous) => ({ key, direction: previous.key === key && previous.direction === "desc" ? "asc" : "desc" }))}
+        >
+          {label}<span aria-hidden="true">{active ? (sort.direction === "asc" ? "▲" : "▼") : "↕"}</span>
+        </button>
+      </th>
+    );
+  };
   return (
     <>
     <div className="panel">
@@ -292,14 +320,14 @@ export function Stages({
         <thead>
           <tr>
             <th>Stage</th>
-            <th className="data">Games</th>
-            <th className="data">W–L</th>
-            <th className="data">Win rate</th>
+            {sortableHeader("games", "Games")}
+            {sortableHeader("wins", "W–L")}
+            {sortableHeader("winRate", "Win rate")}
             <th style={{ width: "38%" }} />
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
+          {sortedRows.map((r) => (
             <tr key={r.stageId}>
               <td>{stageName(r.stageId)}</td>
               <td className="data">{r.games.toLocaleString()}</td>
