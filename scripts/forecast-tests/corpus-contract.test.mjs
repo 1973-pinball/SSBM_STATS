@@ -613,7 +613,7 @@ test("source readiness rejects a symlinked raw parent that escapes the resolved 
   const source = await saveSource(root, sourceBundle(0));
   const escaped = path.join(outside, "escaped-raw");
   await rename(path.join(root, "raw"), escaped);
-  await symlink(escaped, path.join(root, "raw"), "dir");
+  await symlink(escaped, path.join(root, "raw"), process.platform === "win32" ? "junction" : "dir");
   const report = await inspectHistoricalCorpusSources({
     root,
     registry: sourceRegistryValue,

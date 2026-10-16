@@ -2,11 +2,14 @@
 
 This document covers the local research pipeline in
 [FORECAST_PLAN.md](../FORECAST_PLAN.md). Source downloads, normalized datasets,
-evaluation reports, and refreshable Markdown stay local and never touch personal
-replay files or Supabase. Reviewed, public-data-only projection and aggregate
+evaluation reports, and refreshable Markdown are generated locally and never touch
+personal replay files or Supabase. The public reconstruction and fitted-model backup
+is distributed with release `forecast-platfight-2026-10-17`; raw response caches,
+credentials, and replay files are excluded. Reviewed, public-data-only projection and aggregate
 backtest bundles can be generated into the dashboard for the Tournament
 Predictions view; the models remain experimental and no family has been selected
-for production. Release v0.4.6 contains the current reviewed public derivative.
+for production. The current catalog adds Platfight 2026 and preserves the Riptide
+2026 derivative originally published in release v0.4.6.
 
 For a new-computer setup, including exact `.forecast/` transfer and a clean
 rebuild alternative, see [Continue forecast work on another computer](forecast-handoff.md).
@@ -70,10 +73,15 @@ npm run forecast -- storage
 ~~~
 
 The accepted contract currently includes 84 events and quarantines GOML 2022
-as `source-ambiguous`; zero scoped decisions are unresolved. The strict dataset
+as `source-ambiguous`; zero scoped decisions are unresolved. The prior authenticated strict dataset
 hash is `e21eb6bf8d91b295b875ab11959e1beddae937d7816e5c7da1a2f13db3f6371d`.
 Run `npm run forecast -- corpus --strict-corpus` to reproduce the contract,
 dataset-coverage, and authenticated source-readiness gate.
+The October 2026 public reconstruction uses the same 84-event cohort and 77,270
+eligible sets, with history through December 7, 2025. Its dataset hash is
+`fbc3729fa9b44448bb3c428a83973c4e3887cfd5233dde49919a07d7fe8fa441`;
+it does not claim the authenticated source-readiness audit. See the
+[handoff guide](forecast-handoff.md) for its source evidence and backup workflow.
 
 ## Refreshable Riptide matchup report
 
@@ -135,13 +143,17 @@ API token, raw Start.gg response bundle, local path, personal replay record, or
 connect code. The dashboard makes no runtime Start.gg or Supabase request for
 this bundled view, so it continues to work offline.
 
-The current catalog contains one Riptide 2026 scenario and all six evaluated
-models. It advances model favorites through the published Top-16 and Top-8
-routing while assuming current seeds 1–16 reach their matching Top-16 slots.
-This is a deterministic path illustration, not a full-field Monte Carlo model,
-confirmed later-round bracket, title probability, or confidence interval. Five
-root pools have no source set rows in the current snapshot, covering 88 entrants;
-the UI discloses that limitation. See
+The current catalog opens with Platfight Gaming Championships 2026 and preserves
+Riptide 2026, with all six evaluated models available for each. Platfight uses the
+84-event public reconstruction and the October 16, 2026 snapshot of 96 entrants.
+Its scenario assumes root seeds 1–16 reach their projected Top 24 slots and seeds
+9–16 win the first lower round, then advances model favorites through the published
+Top 24 and Top 8 routing. The saved Riptide scenario retains its original training
+snapshot and Top-16 assumptions, including five pools without source set rows
+covering 88 entrants. These are deterministic path illustrations, not full-field
+simulations, confirmed later-round brackets, title probabilities, or confidence
+intervals. The saved nested-tuning comparison is unchanged and separately labeled
+from the selected tournament's training snapshot. See
 [Predictions TODO](predictions-todo.md) for the remaining acceptance work.
 
 ## Cache and reproducibility

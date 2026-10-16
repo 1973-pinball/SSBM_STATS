@@ -1,157 +1,192 @@
 # Continue forecast work on another computer
 
-The Git repository contains forecast code, tests, reviewed mappings, the corpus
-contract, documentation, and the reviewed website derivative. It deliberately
-does **not** contain the Start.gg token or `.forecast/` research workspace.
-A clone is enough to build the current website; it is not enough to reproduce
-the exact local research state.
+Git contains the forecast code, reviewed event mappings, tests, and website
+predictions. The ignored `.forecast/` workspace contains historical observations,
+evaluation artifacts, and fitted model weights. A clone builds the saved website;
+use the backup below to reproduce a forecast or reuse its fitted model.
 
-## Build and view the committed website
+## Build the saved website
 
-Prerequisites: Git, Node.js 22, and npm.
+Prerequisites: Git, Node.js 22, and npm. Backup commands also need `tar`, included
+with current Windows, macOS, and typical Linux installations.
 
-~~~sh
+```sh
 git clone https://github.com/1973-pinball/SSBM_STATS.git
 cd SSBM_STATS
 npm ci
 npm run test:forecast
 npm run build
-~~~
+npm run dev
+```
 
-Use `npm run dev` and open the Tournament Predictions view. The bundled page
-does not need a Start.gg credential, `.forecast/`, or Supabase.
+Open `/?view=tournaments`. The bundled Tournament Predictions page needs no
+Start.gg credential, research workspace, or Supabase connection.
 
-## Choose a research transfer
+## Make a portable forecast backup
 
-As of dataset `e21eb6bf…`, the measured retained local workspace is
-2,813,648,522 bytes (about 2.62 GiB). It contains retained generations,
-checkpointed tuning work, and reports, not one required file. The model-ready
-canonical dataset itself is still 379,603,382 bytes.
+Stop commands that write the dataset, evaluation, or fit before packaging.
+Read `.forecast/latest-upcoming.json` for the exact `file` path, then pass it
+explicitly:
 
-| Transfer | Approximate size | Supports |
-|---|---:|---|
-| Model-ready generation | 380 MB | Verify/use the canonical dataset and rerun evaluation |
-| Source-auditable evidence | 1.13 GB | Recheck the selected raw bundles and request receipts as well as the dataset |
-| Full continuation snapshot | 2.62 GiB | Preserve old generations, tuning checkpoints, reports, Riptide state, and all local history |
+```sh
+node scripts/package-forecast.mjs --bundle .forecast/public-raw/<bundle-sha256>.json
+```
 
-The source-auditable tier does not yet have a one-command packer. Until it does,
-use the full snapshot when exact source replay matters. Do not guess a subset of
-cache files: source-readiness validates every referenced receipt.
+The default output is `.forecast/backups/forecast-<dataset-prefix>-<timestamp>.tgz`
+plus a `.tgz.sha256` checksum file. `--root DIR` selects another research workspace;
+`--output FILE.tgz` selects an archive destination. The command prints the archive
+checksum, producing Git commit, and whether the working tree was dirty. Commit
+intended code changes before creating a release backup so the recorded commit
+alone identifies its implementation.
 
-Ordinary GitHub blobs cannot hold the 379.6 MB canonical JSON. Git LFS would
-store each regenerated monolith as another large object, so it is not the
-default. Use a private object store, private file transfer, or external drive.
-Do not publish raw Start.gg responses without a separate redistribution review.
+The packer verifies dataset and fitted-model hashes, recomputes the evaluation
+run hash, and checks that the fitted model matches the selected event snapshot.
+It includes only:
 
-## Transfer the model-ready generation
+- `latest.json` and the referenced dataset generation's recognized JSON files.
+- `latest-evaluation.json` and its comparison, predictions, and calibration files,
+  when present.
+- `latest-model.json` and its content-addressed fitted model, when present.
+- The explicitly selected sanitized `public-raw/<sha256>.json` upcoming bundle.
+- `backup-manifest.json`, recording each file's SHA-256 and size, the Git commit,
+  dataset identity, and upcoming bundle path.
 
-Stop all forecast commands first. Write the archive outside the repository so
-it cannot become an accidental untracked project file:
+Archive paths start with `.forecast/`, even when `--root` points to a differently
+named directory. Source-response caches, unrelated raw bundles, credentials,
+environment files, Slippi replays, and tuning checkpoints are excluded. This is
+a model-ready backup; it does not retain every original request receipt needed
+to repeat a source-level audit. Keep those receipts separately when required.
 
-~~~sh
-tar -czf /path/outside/repo/ssbm-forecast-e21eb6bf-model.tgz \
-  .forecast/latest.json \
-  .forecast/datasets/e21eb6bf8d91b295b875ab11959e1beddae937d7816e5c7da1a2f13db3f6371d
-shasum -a 256 /path/outside/repo/ssbm-forecast-e21eb6bf-model.tgz
-git rev-parse HEAD
-git status --short
-~~~
+The generated archive and checksum file can be attached to the corresponding
+GitHub release. The packer itself performs no upload.
 
-Record the archive SHA-256 and producing Git commit beside the transferred
-file. Any intended uncommitted working-tree changes must also be pushed or
-transferred separately; an archive cannot make uncommitted code reproducible.
+## Restore and reproduce
 
-On the destination, check out that exact commit, verify the archive checksum,
-and extract only into a fresh research directory:
+Check out the commit recorded in the backup manifest. Before extraction, compare
+the downloaded archive's checksum with its companion file:
 
-~~~sh
-shasum -a 256 /path/to/ssbm-forecast-e21eb6bf-model.tgz
-test ! -e .forecast
-tar -xzf /path/to/ssbm-forecast-e21eb6bf-model.tgz
-npm run forecast -- status
+```powershell
+Get-FileHash -Algorithm SHA256 .\forecast-backup.tgz
+```
+
+On macOS/Linux use `shasum -a 256 forecast-backup.tgz`. Inspect entries with
+`tar -tzf forecast-backup.tgz`, then extract into a fresh directory:
+
+```sh
+mkdir restored-forecast
+tar -xzf forecast-backup.tgz -C restored-forecast
+node scripts/package-forecast.mjs --verify --root restored-forecast/.forecast
+```
+
+Verification checks every recorded file's bytes and hash, then rechecks the
+dataset, evaluation, fitted model, and sanitized upcoming bundle pointers. It
+does not fit models or contact a service. Preserve an existing research workspace
+separately instead of extracting over it.
+
+The verification output includes `upcomingBundle`. Use that exact relative path
+under `restored-forecast` to regenerate all six models and the site catalog:
+
+```sh
+node scripts/build-site-predictions.mjs --root restored-forecast/.forecast --bundle restored-forecast/.forecast/public-raw/<bundle-sha256>.json --event 1661592
+npm run build
+```
+
+This fits the six-model suite from the saved training corpus. It preserves prior
+catalog tournaments and puts the requested event first, making it the dropdown
+default on a fresh page load. Platfight's route is conditional on the displayed
+top 16 seeds surviving earlier rounds; its probabilities are conditional set
+estimates, not title odds or a full-field simulation.
+
+## Reuse the fitted model without training data
+
+`build-site-predictions.mjs` also saves the default regularized Bradley–Terry fit
+in `models/<sha256>.json` and points `latest-model.json` to it. The snapshot
+contains player abilities, fitted coefficients, feature scales, and recent-form
+state. `restoreRegularizedBradleyTerryModel` restores this fit without reading
+historical sets. The other five models still require their training corpus.
+
+For a small inference-only transfer, retain `latest-model.json`, its referenced
+model file, `backup-manifest.json`, and the upcoming bundle named there. This
+subset can run the example below; full-backup verification expects the complete
+archive. Place these files under `.forecast/` at the repository root before
+running the example.
+
+Save the following as `.forecast/predict-saved.mjs`, then run
+`node .forecast/predict-saved.mjs` from the repository root:
+
+```js
+import { readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { restoreRegularizedBradleyTerryModel } from "../scripts/lib/forecast/regularized-bradley-terry.mjs";
+import { selectRootFullFieldSeedPhase } from "../scripts/lib/forecast/upcoming-report.mjs";
+
+const json = async (file) => JSON.parse(await readFile(file, "utf8"));
+const sha256 = (body) => createHash("sha256").update(body).digest("hex");
+const pointer = await json(".forecast/latest-model.json");
+const body = await readFile(".forecast/" + pointer.model, "utf8");
+if (sha256(body) !== pointer.sha256) throw new Error("Model checksum mismatch");
+const backup = await json(".forecast/backup-manifest.json");
+const bundleBody = await readFile(backup.upcomingBundle, "utf8");
+const bundleEntry = backup.files.find((file) => file.path === backup.upcomingBundle);
+if (sha256(bundleBody) !== bundleEntry?.sha256) throw new Error("Bundle checksum mismatch");
+const bundle = JSON.parse(bundleBody);
+const root = selectRootFullFieldSeedPhase(bundle);
+const seedIndex = { seeds: new Map(root.seeds.map((seed) =>
+  ["startgg:entrant:" + seed.entrantId, seed.seedNum])) };
+const model = restoreRegularizedBradleyTerryModel(JSON.parse(body).snapshot, { seedIndex });
+const pair = root.seeds.slice(0, 2).map((seed) => {
+  const entrant = bundle.entrants.find((row) => String(row.id) === seed.entrantId);
+  return { entrantId: "startgg:entrant:" + seed.entrantId,
+    playerId: "startgg:player:" + entrant.participants[0].player.id };
+});
+console.log(model.predict({ entrantIds: pair.map((row) => row.entrantId),
+  playerIds: pair.map((row) => row.playerId) }));
+```
+
+The example predicts a set between the first two current seeds. Its abilities and
+recent form remain **frozen at the saved cutoff**. Supplying new seeds does not
+advance the form date or incorporate later results. Refit when those inputs need
+updating, and record the resulting cutoff with the new backup.
+
+## Rebuild public inputs when no backup exists
+
+The public reconstruction flow needs no Start.gg token:
+
+```sh
+node scripts/restore-public-forecast.mjs --census
+node scripts/restore-public-forecast.mjs
 npm run forecast -- evaluate
-npm run forecast -- storage
-~~~
+node scripts/restore-public-forecast.mjs --upcoming 1661592
+```
 
-Do not merge an exact snapshot into a stale `.forecast/`; rename the old
-directory first if it must be retained.
+The historical downloader resumes from verified local observations and publishes
+`latest.json` only after the complete reviewed cohort passes membership checks.
+`--event ID` warms one reviewed historical event's cache; it does not publish a
+reduced training dataset. `--upcoming ID` fetches a new upcoming snapshot and
+writes `latest-upcoming.json`. Read its `file`, run the site builder with
+`--bundle` and `--event`, then create a backup.
 
-## Transfer nested tuning results or checkpoints
+These observations are explicitly labeled `startgg-public-legacy-v1`. The adapter
+reconciles event/group collections and retains stable public player identities,
+but the legacy service supplies no independent pagination totals. Ladder groups
+that omit legacy sets use the public website's anonymous GraphQL endpoint with
+separate `startgg-public-web-graphql-v1` receipts and verified pagination totals.
+Public reconstruction does not claim the original GraphQL receipt audit, and a later
+download can produce different hashes if the source changed. Historical seed
+availability remains an assumption, not proof that a seed was known before its
+event.
 
-An exact completed tuning result requires the content-addressed run artifacts
-plus the mode-specific latest pointers:
+The reconstruction preserves the existing outcome eligibility rules. Missing or
+invalid scores remain excluded even when the source reports a winner, so some
+events have sparse eligible coverage. Eligible sets from all phases within each
+reviewed event are retained, including amateur or exhibition phases where present;
+this dataset is not restricted to the main bracket.
 
-- `.forecast/tuning/runs/`
-- `.forecast/latest-tuning-strict-seeds.json`
-- `.forecast/latest-tuning-availability-assumed.json`
+The existing authenticated `npm run forecast -- download --all-mapped` workflow
+remains available for GraphQL research. Its credential belongs only in the ignored
+`.env.forecast.local` file or the process environment. Create or transfer that
+credential separately; never add it to a forecast archive.
 
-`.forecast/latest-tuning.json` is only a convenience pointer to the last mode
-that completed; do not use it alone to identify both runs. If tuning must resume
-on the destination without recomputing completed event folds, also transfer
-`.forecast/tuning/event-forecasts/` and `.forecast/tuning/resume/`.
-
-For the smallest exact-results transfer, archive the run directory and the two
-mode-specific pointers. For a resumable transfer, include all five paths named
-above.
-The full continuation snapshot already includes them.
-
-## Transfer the full continuation snapshot
-
-With no forecast command running:
-
-~~~sh
-tar -czf /path/outside/repo/ssbm-forecast-full.tgz .forecast
-shasum -a 256 /path/outside/repo/ssbm-forecast-full.tgz
-git rev-parse HEAD
-git status --short
-~~~
-
-Transfer the archive privately, verify its checksum on the destination, require
-that `.forecast/` does not already exist, then extract from the repository root.
-Delete the transfer archive after verification if it is no longer needed.
-
-## Recreate the credential separately
-
-Never put `.env.forecast.local` in an archive or repository. Create it directly
-on the destination:
-
-~~~dotenv
-STARTGG_TOKEN=your-token-here
-~~~
-
-On macOS or Linux, run `chmod 600 .env.forecast.local`. If the old computer is
-no longer trusted, revoke its token and issue a new one.
-
-## Rebuild instead of transferring
-
-The tracked mappings and pipeline can construct a new workspace:
-
-~~~sh
-npm run forecast -- registry
-npm run forecast -- download --all-mapped
-npm run forecast -- normalize --strict-corpus
-npm run forecast -- corpus --strict-corpus
-npm run forecast -- evaluate
-npm run forecast -- tune
-# Sensitivity analysis only: assumes historical seeds were available pre-event.
-npm run forecast -- tune --allow-unverified-historical-seeds
-npm run forecast:riptide
-npm run predictions:build
-npm run predictions:backtest-data
-npm run forecast -- storage
-~~~
-
-This requires a Start.gg token and network access. It may not reproduce existing
-hashes because Start.gg can correct historical responses. Transfer `.forecast/`
-when exact observations matter.
-
-## What remains machine-local
-
-- `.forecast/`: source responses, canonical datasets, evaluations, tuning runs
-  and checkpoints, reports, caches, and upcoming-event snapshots.
-- `.env.forecast.local`: the Start.gg credential.
-- Uncommitted working-tree files. Commit the intended work or transfer that
-  working tree before retiring the source computer.
-
-Raw `.slp` replay files remain local under the product privacy contract and are
-unrelated to this public tournament forecast dataset.
+Nested tuning checkpoints, old generations, and raw response receipts remain
+machine-local unless separately transferred. Raw `.slp` files are unrelated to
+this public tournament forecasting workflow.

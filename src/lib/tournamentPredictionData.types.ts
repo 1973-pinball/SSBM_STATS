@@ -36,6 +36,7 @@ export interface TournamentPredictionModel {
   shortName: string;
   explanation: string;
   recommended: boolean;
+  fit?: { converged: boolean; iterations: number };
   heldOut: {
     predictions: number;
     events: number;
@@ -63,6 +64,7 @@ export interface TournamentPrediction {
   scenario: {
     kind: "seed-projected-top-16";
     label: string;
+    routingEvidence?: "published" | "assumed-template";
     explanation: string;
     missingPoolNames: readonly string[];
     missingEntrantCount: number;
@@ -70,6 +72,7 @@ export interface TournamentPrediction {
   training: {
     events: number;
     sets: number;
+    throughDate?: string;
     datasetSha256: string;
     evaluationRunHash: string;
   };

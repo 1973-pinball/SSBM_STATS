@@ -3,8 +3,3060 @@ import type { TournamentPredictionCatalog } from "./tournamentPredictionData.typ
 
 export const TOURNAMENT_PREDICTIONS = {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-07T23:32:15.013Z",
+  "generatedAt": "2026-10-16T11:15:30.355Z",
   "tournaments": [
+    {
+      "id": "startgg:event:1661592",
+      "name": "Platfight Gaming Championships 2026",
+      "eventName": "Melee Singles",
+      "startDate": "2026-10-17",
+      "sourceUrl": "https://www.start.gg/tournament/platfight-gaming-championships-2026/event/melee-singles",
+      "sourceSha256": "ef5ea6ff07dd6a1726358bc2cf602fe1a31060810af850c184eca0c6325abe5c",
+      "snapshot": {
+        "fetchedAt": "2026-10-16T11:15:30.355Z",
+        "state": "CREATED",
+        "entrantCount": 96
+      },
+      "scenario": {
+        "kind": "seed-projected-top-16",
+        "label": "Top-16 survival scenario",
+        "routingEvidence": "published",
+        "explanation": "Root seeds 1–16 are assumed to reach their projected Top 24 slots, and seeds 9–16 are assumed to win the first lower round. Model favorites then advance through Platfight's published Top 24 and Top 8 routing. Seeds 17–24 and earlier pool upsets are outside this conditional scenario.",
+        "missingPoolNames": [],
+        "missingEntrantCount": 0
+      },
+      "training": {
+        "events": 84,
+        "sets": 77270,
+        "throughDate": "2025-12-07",
+        "datasetSha256": "fbc3729fa9b44448bb3c428a83973c4e3887cfd5233dde49919a07d7fe8fa441",
+        "evaluationRunHash": "a3a0b367074490539294573a5f8c2c431c55dd0277670259e6714cdc875ca9ba"
+      },
+      "defaultModelId": "regularized-bt-recent-form",
+      "players": [
+        {
+          "id": "startgg:player:2011959",
+          "name": "RapMonster",
+          "seed": 1
+        },
+        {
+          "id": "startgg:player:324561",
+          "name": "Soonsay",
+          "seed": 2
+        },
+        {
+          "id": "startgg:player:133666",
+          "name": "Salt",
+          "seed": 3
+        },
+        {
+          "id": "startgg:player:631158",
+          "name": "Free Cuba",
+          "seed": 4
+        },
+        {
+          "id": "startgg:player:6544",
+          "name": "Magi",
+          "seed": 5
+        },
+        {
+          "id": "startgg:player:16342",
+          "name": "Axe",
+          "seed": 6
+        },
+        {
+          "id": "startgg:player:1016",
+          "name": "Fiction",
+          "seed": 7
+        },
+        {
+          "id": "startgg:player:541439",
+          "name": "chape",
+          "seed": 8
+        },
+        {
+          "id": "startgg:player:51488",
+          "name": "Maher",
+          "seed": 9
+        },
+        {
+          "id": "startgg:player:10485",
+          "name": "DayDream",
+          "seed": 10
+        },
+        {
+          "id": "startgg:player:132938",
+          "name": "Zaza",
+          "seed": 11
+        },
+        {
+          "id": "startgg:player:301654",
+          "name": "Venison",
+          "seed": 12
+        },
+        {
+          "id": "startgg:player:47806",
+          "name": "Friend",
+          "seed": 13
+        },
+        {
+          "id": "startgg:player:1974127",
+          "name": "aujory",
+          "seed": 14
+        },
+        {
+          "id": "startgg:player:158003",
+          "name": "Mono",
+          "seed": 15
+        },
+        {
+          "id": "startgg:player:411895",
+          "name": "Odin",
+          "seed": 16
+        }
+      ],
+      "models": [
+        {
+          "id": "regularized-bt-recent-form",
+          "name": "Regularized Bradley-Terry + seed + recent form",
+          "shortName": "Regularized BT + seed + form",
+          "explanation": "Uses categorical player IDs, initial seeds, and pre-event recent form. Historical seed value is shown only in the separate seed sensitivity; character is not included and optimizer reliability still needs work.",
+          "recommended": true,
+          "heldOut": {
+            "predictions": 74891,
+            "events": 83,
+            "brier": 0.1576,
+            "logLoss": 0.475316
+          },
+          "fit": {
+            "converged": true,
+            "iterations": 59
+          },
+          "championId": "startgg:player:2011959",
+          "top8PlayerIds": [
+            "startgg:player:2011959",
+            "startgg:player:324561",
+            "startgg:player:133666",
+            "startgg:player:631158",
+            "startgg:player:6544",
+            "startgg:player:16342",
+            "startgg:player:1016",
+            "startgg:player:541439"
+          ],
+          "matches": [
+            {
+              "id": "A",
+              "label": "Top 24 winners A",
+              "phase": "top16",
+              "bracket": "upper",
+              "round": "winners-quarterfinal",
+              "playerIds": [
+                "startgg:player:2011959",
+                "startgg:player:541439"
+              ],
+              "probabilities": [
+                0.9884,
+                0.0116
+              ],
+              "predictedWinnerId": "startgg:player:2011959",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "B",
+              "label": "Top 24 winners B",
+              "phase": "top16",
+              "bracket": "upper",
+              "round": "winners-quarterfinal",
+              "playerIds": [
+                "startgg:player:631158",
+                "startgg:player:6544"
+              ],
+              "probabilities": [
+                0.591326,
+                0.408674
+              ],
+              "predictedWinnerId": "startgg:player:631158",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "C",
+              "label": "Top 24 winners C",
+              "phase": "top16",
+              "bracket": "upper",
+              "round": "winners-quarterfinal",
+              "playerIds": [
+                "startgg:player:324561",
+                "startgg:player:1016"
+              ],
+              "probabilities": [
+                0.864429,
+                0.135571
+              ],
+              "predictedWinnerId": "startgg:player:324561",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "D",
+              "label": "Top 24 winners D",
+              "phase": "top16",
+              "bracket": "upper",
+              "round": "winners-quarterfinal",
+              "playerIds": [
+                "startgg:player:133666",
+                "startgg:player:16342"
+              ],
+              "probabilities": [
+                0.587462,
+                0.412538
+              ],
+              "predictedWinnerId": "startgg:player:133666",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "J",
+              "label": "Top 24 lower T",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-initial",
+              "playerIds": [
+                "startgg:player:301654",
+                "startgg:player:47806"
+              ],
+              "probabilities": [
+                0.671666,
+                0.328334
+              ],
+              "predictedWinnerId": "startgg:player:301654",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "K",
+              "label": "Top 24 lower U",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-initial",
+              "playerIds": [
+                "startgg:player:51488",
+                "startgg:player:411895"
+              ],
+              "probabilities": [
+                0.874626,
+                0.125374
+              ],
+              "predictedWinnerId": "startgg:player:51488",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "L",
+              "label": "Top 24 lower R",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-initial",
+              "playerIds": [
+                "startgg:player:132938",
+                "startgg:player:1974127"
+              ],
+              "probabilities": [
+                0.570046,
+                0.429954
+              ],
+              "predictedWinnerId": "startgg:player:132938",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "M",
+              "label": "Top 24 lower S",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-initial",
+              "playerIds": [
+                "startgg:player:10485",
+                "startgg:player:158003"
+              ],
+              "probabilities": [
+                0.653555,
+                0.346445
+              ],
+              "predictedWinnerId": "startgg:player:10485",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "N",
+              "label": "Top 24 lower qualifier X",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-round-2",
+              "playerIds": [
+                "startgg:player:16342",
+                "startgg:player:301654"
+              ],
+              "probabilities": [
+                0.942786,
+                0.057214
+              ],
+              "predictedWinnerId": "startgg:player:16342",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "O",
+              "label": "Top 24 lower qualifier Y",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-round-2",
+              "playerIds": [
+                "startgg:player:1016",
+                "startgg:player:51488"
+              ],
+              "probabilities": [
+                0.739257,
+                0.260743
+              ],
+              "predictedWinnerId": "startgg:player:1016",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "P",
+              "label": "Top 24 lower qualifier V",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-round-2",
+              "playerIds": [
+                "startgg:player:6544",
+                "startgg:player:132938"
+              ],
+              "probabilities": [
+                0.880138,
+                0.119862
+              ],
+              "predictedWinnerId": "startgg:player:6544",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "Q",
+              "label": "Top 24 lower qualifier W",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-round-2",
+              "playerIds": [
+                "startgg:player:541439",
+                "startgg:player:10485"
+              ],
+              "probabilities": [
+                0.563606,
+                0.436394
+              ],
+              "predictedWinnerId": "startgg:player:541439",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "WSF-A",
+              "label": "Winners semifinal A",
+              "phase": "top8",
+              "bracket": "upper",
+              "round": "winners-semifinal",
+              "playerIds": [
+                "startgg:player:2011959",
+                "startgg:player:631158"
+              ],
+              "probabilities": [
+                0.947606,
+                0.052394
+              ],
+              "predictedWinnerId": "startgg:player:2011959",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "WSF-B",
+              "label": "Winners semifinal B",
+              "phase": "top8",
+              "bracket": "upper",
+              "round": "winners-semifinal",
+              "playerIds": [
+                "startgg:player:324561",
+                "startgg:player:133666"
+              ],
+              "probabilities": [
+                0.717707,
+                0.282293
+              ],
+              "predictedWinnerId": "startgg:player:324561",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LR1-A",
+              "label": "Lower round 1 F",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-round-1",
+              "playerIds": [
+                "startgg:player:541439",
+                "startgg:player:6544"
+              ],
+              "probabilities": [
+                0.234967,
+                0.765033
+              ],
+              "predictedWinnerId": "startgg:player:6544",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LR1-B",
+              "label": "Lower round 1 G",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-round-1",
+              "playerIds": [
+                "startgg:player:1016",
+                "startgg:player:16342"
+              ],
+              "probabilities": [
+                0.362167,
+                0.637833
+              ],
+              "predictedWinnerId": "startgg:player:16342",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LQF-A",
+              "label": "Lower quarterfinal H",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-quarterfinal",
+              "playerIds": [
+                "startgg:player:133666",
+                "startgg:player:6544"
+              ],
+              "probabilities": [
+                0.683139,
+                0.316861
+              ],
+              "predictedWinnerId": "startgg:player:133666",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LQF-B",
+              "label": "Lower quarterfinal I",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-quarterfinal",
+              "playerIds": [
+                "startgg:player:631158",
+                "startgg:player:16342"
+              ],
+              "probabilities": [
+                0.488677,
+                0.511323
+              ],
+              "predictedWinnerId": "startgg:player:16342",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LSF",
+              "label": "Lower semifinal J",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-semifinal",
+              "playerIds": [
+                "startgg:player:133666",
+                "startgg:player:16342"
+              ],
+              "probabilities": [
+                0.587462,
+                0.412538
+              ],
+              "predictedWinnerId": "startgg:player:133666",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "WF",
+              "label": "Winners final C",
+              "phase": "top8",
+              "bracket": "upper",
+              "round": "winners-final",
+              "playerIds": [
+                "startgg:player:2011959",
+                "startgg:player:324561"
+              ],
+              "probabilities": [
+                0.826818,
+                0.173182
+              ],
+              "predictedWinnerId": "startgg:player:2011959",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LF",
+              "label": "Lower final K",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-final",
+              "playerIds": [
+                "startgg:player:324561",
+                "startgg:player:133666"
+              ],
+              "probabilities": [
+                0.717707,
+                0.282293
+              ],
+              "predictedWinnerId": "startgg:player:324561",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "GF",
+              "label": "Grand final D",
+              "phase": "top8",
+              "bracket": "final",
+              "round": "grand-final",
+              "playerIds": [
+                "startgg:player:2011959",
+                "startgg:player:324561"
+              ],
+              "probabilities": [
+                0.826818,
+                0.173182
+              ],
+              "predictedWinnerId": "startgg:player:2011959",
+              "decision": "model",
+              "isReset": false
+            }
+          ],
+          "placements": [
+            {
+              "placement": 1,
+              "playerId": "startgg:player:2011959"
+            },
+            {
+              "placement": 2,
+              "playerId": "startgg:player:324561"
+            },
+            {
+              "placement": 3,
+              "playerId": "startgg:player:133666"
+            },
+            {
+              "placement": 4,
+              "playerId": "startgg:player:16342"
+            },
+            {
+              "placement": 5,
+              "playerId": "startgg:player:631158"
+            },
+            {
+              "placement": 5,
+              "playerId": "startgg:player:6544"
+            },
+            {
+              "placement": 7,
+              "playerId": "startgg:player:1016"
+            },
+            {
+              "placement": 7,
+              "playerId": "startgg:player:541439"
+            },
+            {
+              "placement": 9,
+              "playerId": "startgg:player:51488"
+            },
+            {
+              "placement": 9,
+              "playerId": "startgg:player:10485"
+            },
+            {
+              "placement": 9,
+              "playerId": "startgg:player:132938"
+            },
+            {
+              "placement": 9,
+              "playerId": "startgg:player:301654"
+            },
+            {
+              "placement": 13,
+              "playerId": "startgg:player:47806"
+            },
+            {
+              "placement": 13,
+              "playerId": "startgg:player:1974127"
+            },
+            {
+              "placement": 13,
+              "playerId": "startgg:player:158003"
+            },
+            {
+              "placement": 13,
+              "playerId": "startgg:player:411895"
+            }
+          ]
+        },
+        {
+          "id": "higher-seed",
+          "name": "Higher seed (historical availability assumed)",
+          "shortName": "Higher seed",
+          "explanation": "Always favors the better initial seed at one training-calibrated rate. It ignores player history, recent form, and character.",
+          "recommended": false,
+          "heldOut": {
+            "predictions": 74891,
+            "events": 83,
+            "brier": 0.180883,
+            "logLoss": 0.546964
+          },
+          "championId": "startgg:player:2011959",
+          "top8PlayerIds": [
+            "startgg:player:2011959",
+            "startgg:player:324561",
+            "startgg:player:133666",
+            "startgg:player:631158",
+            "startgg:player:6544",
+            "startgg:player:16342",
+            "startgg:player:1016",
+            "startgg:player:541439"
+          ],
+          "matches": [
+            {
+              "id": "A",
+              "label": "Top 24 winners A",
+              "phase": "top16",
+              "bracket": "upper",
+              "round": "winners-quarterfinal",
+              "playerIds": [
+                "startgg:player:2011959",
+                "startgg:player:541439"
+              ],
+              "probabilities": [
+                0.775103,
+                0.224897
+              ],
+              "predictedWinnerId": "startgg:player:2011959",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "B",
+              "label": "Top 24 winners B",
+              "phase": "top16",
+              "bracket": "upper",
+              "round": "winners-quarterfinal",
+              "playerIds": [
+                "startgg:player:631158",
+                "startgg:player:6544"
+              ],
+              "probabilities": [
+                0.775103,
+                0.224897
+              ],
+              "predictedWinnerId": "startgg:player:631158",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "C",
+              "label": "Top 24 winners C",
+              "phase": "top16",
+              "bracket": "upper",
+              "round": "winners-quarterfinal",
+              "playerIds": [
+                "startgg:player:324561",
+                "startgg:player:1016"
+              ],
+              "probabilities": [
+                0.775103,
+                0.224897
+              ],
+              "predictedWinnerId": "startgg:player:324561",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "D",
+              "label": "Top 24 winners D",
+              "phase": "top16",
+              "bracket": "upper",
+              "round": "winners-quarterfinal",
+              "playerIds": [
+                "startgg:player:133666",
+                "startgg:player:16342"
+              ],
+              "probabilities": [
+                0.775103,
+                0.224897
+              ],
+              "predictedWinnerId": "startgg:player:133666",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "J",
+              "label": "Top 24 lower T",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-initial",
+              "playerIds": [
+                "startgg:player:301654",
+                "startgg:player:47806"
+              ],
+              "probabilities": [
+                0.775103,
+                0.224897
+              ],
+              "predictedWinnerId": "startgg:player:301654",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "K",
+              "label": "Top 24 lower U",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-initial",
+              "playerIds": [
+                "startgg:player:51488",
+                "startgg:player:411895"
+              ],
+              "probabilities": [
+                0.775103,
+                0.224897
+              ],
+              "predictedWinnerId": "startgg:player:51488",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "L",
+              "label": "Top 24 lower R",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-initial",
+              "playerIds": [
+                "startgg:player:132938",
+                "startgg:player:1974127"
+              ],
+              "probabilities": [
+                0.775103,
+                0.224897
+              ],
+              "predictedWinnerId": "startgg:player:132938",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "M",
+              "label": "Top 24 lower S",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-initial",
+              "playerIds": [
+                "startgg:player:10485",
+                "startgg:player:158003"
+              ],
+              "probabilities": [
+                0.775103,
+                0.224897
+              ],
+              "predictedWinnerId": "startgg:player:10485",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "N",
+              "label": "Top 24 lower qualifier X",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-round-2",
+              "playerIds": [
+                "startgg:player:16342",
+                "startgg:player:301654"
+              ],
+              "probabilities": [
+                0.775103,
+                0.224897
+              ],
+              "predictedWinnerId": "startgg:player:16342",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "O",
+              "label": "Top 24 lower qualifier Y",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-round-2",
+              "playerIds": [
+                "startgg:player:1016",
+                "startgg:player:51488"
+              ],
+              "probabilities": [
+                0.775103,
+                0.224897
+              ],
+              "predictedWinnerId": "startgg:player:1016",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "P",
+              "label": "Top 24 lower qualifier V",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-round-2",
+              "playerIds": [
+                "startgg:player:6544",
+                "startgg:player:132938"
+              ],
+              "probabilities": [
+                0.775103,
+                0.224897
+              ],
+              "predictedWinnerId": "startgg:player:6544",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "Q",
+              "label": "Top 24 lower qualifier W",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-round-2",
+              "playerIds": [
+                "startgg:player:541439",
+                "startgg:player:10485"
+              ],
+              "probabilities": [
+                0.775103,
+                0.224897
+              ],
+              "predictedWinnerId": "startgg:player:541439",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "WSF-A",
+              "label": "Winners semifinal A",
+              "phase": "top8",
+              "bracket": "upper",
+              "round": "winners-semifinal",
+              "playerIds": [
+                "startgg:player:2011959",
+                "startgg:player:631158"
+              ],
+              "probabilities": [
+                0.775103,
+                0.224897
+              ],
+              "predictedWinnerId": "startgg:player:2011959",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "WSF-B",
+              "label": "Winners semifinal B",
+              "phase": "top8",
+              "bracket": "upper",
+              "round": "winners-semifinal",
+              "playerIds": [
+                "startgg:player:324561",
+                "startgg:player:133666"
+              ],
+              "probabilities": [
+                0.775103,
+                0.224897
+              ],
+              "predictedWinnerId": "startgg:player:324561",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LR1-A",
+              "label": "Lower round 1 F",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-round-1",
+              "playerIds": [
+                "startgg:player:541439",
+                "startgg:player:6544"
+              ],
+              "probabilities": [
+                0.224897,
+                0.775103
+              ],
+              "predictedWinnerId": "startgg:player:6544",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LR1-B",
+              "label": "Lower round 1 G",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-round-1",
+              "playerIds": [
+                "startgg:player:1016",
+                "startgg:player:16342"
+              ],
+              "probabilities": [
+                0.224897,
+                0.775103
+              ],
+              "predictedWinnerId": "startgg:player:16342",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LQF-A",
+              "label": "Lower quarterfinal H",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-quarterfinal",
+              "playerIds": [
+                "startgg:player:133666",
+                "startgg:player:6544"
+              ],
+              "probabilities": [
+                0.775103,
+                0.224897
+              ],
+              "predictedWinnerId": "startgg:player:133666",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LQF-B",
+              "label": "Lower quarterfinal I",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-quarterfinal",
+              "playerIds": [
+                "startgg:player:631158",
+                "startgg:player:16342"
+              ],
+              "probabilities": [
+                0.775103,
+                0.224897
+              ],
+              "predictedWinnerId": "startgg:player:631158",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LSF",
+              "label": "Lower semifinal J",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-semifinal",
+              "playerIds": [
+                "startgg:player:133666",
+                "startgg:player:631158"
+              ],
+              "probabilities": [
+                0.775103,
+                0.224897
+              ],
+              "predictedWinnerId": "startgg:player:133666",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "WF",
+              "label": "Winners final C",
+              "phase": "top8",
+              "bracket": "upper",
+              "round": "winners-final",
+              "playerIds": [
+                "startgg:player:2011959",
+                "startgg:player:324561"
+              ],
+              "probabilities": [
+                0.775103,
+                0.224897
+              ],
+              "predictedWinnerId": "startgg:player:2011959",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LF",
+              "label": "Lower final K",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-final",
+              "playerIds": [
+                "startgg:player:324561",
+                "startgg:player:133666"
+              ],
+              "probabilities": [
+                0.775103,
+                0.224897
+              ],
+              "predictedWinnerId": "startgg:player:324561",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "GF",
+              "label": "Grand final D",
+              "phase": "top8",
+              "bracket": "final",
+              "round": "grand-final",
+              "playerIds": [
+                "startgg:player:2011959",
+                "startgg:player:324561"
+              ],
+              "probabilities": [
+                0.775103,
+                0.224897
+              ],
+              "predictedWinnerId": "startgg:player:2011959",
+              "decision": "model",
+              "isReset": false
+            }
+          ],
+          "placements": [
+            {
+              "placement": 1,
+              "playerId": "startgg:player:2011959"
+            },
+            {
+              "placement": 2,
+              "playerId": "startgg:player:324561"
+            },
+            {
+              "placement": 3,
+              "playerId": "startgg:player:133666"
+            },
+            {
+              "placement": 4,
+              "playerId": "startgg:player:631158"
+            },
+            {
+              "placement": 5,
+              "playerId": "startgg:player:6544"
+            },
+            {
+              "placement": 5,
+              "playerId": "startgg:player:16342"
+            },
+            {
+              "placement": 7,
+              "playerId": "startgg:player:1016"
+            },
+            {
+              "placement": 7,
+              "playerId": "startgg:player:541439"
+            },
+            {
+              "placement": 9,
+              "playerId": "startgg:player:51488"
+            },
+            {
+              "placement": 9,
+              "playerId": "startgg:player:10485"
+            },
+            {
+              "placement": 9,
+              "playerId": "startgg:player:132938"
+            },
+            {
+              "placement": 9,
+              "playerId": "startgg:player:301654"
+            },
+            {
+              "placement": 13,
+              "playerId": "startgg:player:47806"
+            },
+            {
+              "placement": 13,
+              "playerId": "startgg:player:1974127"
+            },
+            {
+              "placement": 13,
+              "playerId": "startgg:player:158003"
+            },
+            {
+              "placement": 13,
+              "playerId": "startgg:player:411895"
+            }
+          ]
+        },
+        {
+          "id": "glicko2",
+          "name": "Glicko-2 (event rating periods)",
+          "shortName": "Glicko-2",
+          "explanation": "Rates players with both estimated strength and rating uncertainty, updating once per event. Unseen players begin at the shared default.",
+          "recommended": false,
+          "heldOut": {
+            "predictions": 74891,
+            "events": 83,
+            "brier": 0.189061,
+            "logLoss": 0.55611
+          },
+          "championId": "startgg:player:16342",
+          "top8PlayerIds": [
+            "startgg:player:2011959",
+            "startgg:player:324561",
+            "startgg:player:16342",
+            "startgg:player:6544",
+            "startgg:player:631158",
+            "startgg:player:133666",
+            "startgg:player:1016",
+            "startgg:player:541439"
+          ],
+          "matches": [
+            {
+              "id": "A",
+              "label": "Top 24 winners A",
+              "phase": "top16",
+              "bracket": "upper",
+              "round": "winners-quarterfinal",
+              "playerIds": [
+                "startgg:player:2011959",
+                "startgg:player:541439"
+              ],
+              "probabilities": [
+                0.676184,
+                0.323816
+              ],
+              "predictedWinnerId": "startgg:player:2011959",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "B",
+              "label": "Top 24 winners B",
+              "phase": "top16",
+              "bracket": "upper",
+              "round": "winners-quarterfinal",
+              "playerIds": [
+                "startgg:player:631158",
+                "startgg:player:6544"
+              ],
+              "probabilities": [
+                0.461344,
+                0.538656
+              ],
+              "predictedWinnerId": "startgg:player:6544",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "C",
+              "label": "Top 24 winners C",
+              "phase": "top16",
+              "bracket": "upper",
+              "round": "winners-quarterfinal",
+              "playerIds": [
+                "startgg:player:324561",
+                "startgg:player:1016"
+              ],
+              "probabilities": [
+                0.553247,
+                0.446753
+              ],
+              "predictedWinnerId": "startgg:player:324561",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "D",
+              "label": "Top 24 winners D",
+              "phase": "top16",
+              "bracket": "upper",
+              "round": "winners-quarterfinal",
+              "playerIds": [
+                "startgg:player:133666",
+                "startgg:player:16342"
+              ],
+              "probabilities": [
+                0.390671,
+                0.609329
+              ],
+              "predictedWinnerId": "startgg:player:16342",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "J",
+              "label": "Top 24 lower T",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-initial",
+              "playerIds": [
+                "startgg:player:301654",
+                "startgg:player:47806"
+              ],
+              "probabilities": [
+                0.729444,
+                0.270556
+              ],
+              "predictedWinnerId": "startgg:player:301654",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "K",
+              "label": "Top 24 lower U",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-initial",
+              "playerIds": [
+                "startgg:player:51488",
+                "startgg:player:411895"
+              ],
+              "probabilities": [
+                0.800619,
+                0.199381
+              ],
+              "predictedWinnerId": "startgg:player:51488",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "L",
+              "label": "Top 24 lower R",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-initial",
+              "playerIds": [
+                "startgg:player:132938",
+                "startgg:player:1974127"
+              ],
+              "probabilities": [
+                0.432464,
+                0.567536
+              ],
+              "predictedWinnerId": "startgg:player:1974127",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "M",
+              "label": "Top 24 lower S",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-initial",
+              "playerIds": [
+                "startgg:player:10485",
+                "startgg:player:158003"
+              ],
+              "probabilities": [
+                0.528477,
+                0.471523
+              ],
+              "predictedWinnerId": "startgg:player:10485",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "N",
+              "label": "Top 24 lower qualifier X",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-round-2",
+              "playerIds": [
+                "startgg:player:133666",
+                "startgg:player:301654"
+              ],
+              "probabilities": [
+                0.902075,
+                0.097925
+              ],
+              "predictedWinnerId": "startgg:player:133666",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "O",
+              "label": "Top 24 lower qualifier Y",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-round-2",
+              "playerIds": [
+                "startgg:player:1016",
+                "startgg:player:51488"
+              ],
+              "probabilities": [
+                0.742468,
+                0.257532
+              ],
+              "predictedWinnerId": "startgg:player:1016",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "P",
+              "label": "Top 24 lower qualifier V",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-round-2",
+              "playerIds": [
+                "startgg:player:631158",
+                "startgg:player:1974127"
+              ],
+              "probabilities": [
+                0.778835,
+                0.221165
+              ],
+              "predictedWinnerId": "startgg:player:631158",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "Q",
+              "label": "Top 24 lower qualifier W",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-round-2",
+              "playerIds": [
+                "startgg:player:541439",
+                "startgg:player:10485"
+              ],
+              "probabilities": [
+                0.507451,
+                0.492549
+              ],
+              "predictedWinnerId": "startgg:player:541439",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "WSF-A",
+              "label": "Winners semifinal A",
+              "phase": "top8",
+              "bracket": "upper",
+              "round": "winners-semifinal",
+              "playerIds": [
+                "startgg:player:2011959",
+                "startgg:player:6544"
+              ],
+              "probabilities": [
+                0.395196,
+                0.604804
+              ],
+              "predictedWinnerId": "startgg:player:6544",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "WSF-B",
+              "label": "Winners semifinal B",
+              "phase": "top8",
+              "bracket": "upper",
+              "round": "winners-semifinal",
+              "playerIds": [
+                "startgg:player:324561",
+                "startgg:player:16342"
+              ],
+              "probabilities": [
+                0.408918,
+                0.591082
+              ],
+              "predictedWinnerId": "startgg:player:16342",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LR1-A",
+              "label": "Lower round 1 F",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-round-1",
+              "playerIds": [
+                "startgg:player:541439",
+                "startgg:player:631158"
+              ],
+              "probabilities": [
+                0.268939,
+                0.731061
+              ],
+              "predictedWinnerId": "startgg:player:631158",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LR1-B",
+              "label": "Lower round 1 G",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-round-1",
+              "playerIds": [
+                "startgg:player:1016",
+                "startgg:player:133666"
+              ],
+              "probabilities": [
+                0.465775,
+                0.534225
+              ],
+              "predictedWinnerId": "startgg:player:133666",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LQF-A",
+              "label": "Lower quarterfinal H",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-quarterfinal",
+              "playerIds": [
+                "startgg:player:324561",
+                "startgg:player:631158"
+              ],
+              "probabilities": [
+                0.579649,
+                0.420351
+              ],
+              "predictedWinnerId": "startgg:player:324561",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LQF-B",
+              "label": "Lower quarterfinal I",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-quarterfinal",
+              "playerIds": [
+                "startgg:player:2011959",
+                "startgg:player:133666"
+              ],
+              "probabilities": [
+                0.374192,
+                0.625808
+              ],
+              "predictedWinnerId": "startgg:player:133666",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LSF",
+              "label": "Lower semifinal J",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-semifinal",
+              "playerIds": [
+                "startgg:player:324561",
+                "startgg:player:133666"
+              ],
+              "probabilities": [
+                0.519166,
+                0.480834
+              ],
+              "predictedWinnerId": "startgg:player:324561",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "WF",
+              "label": "Winners final C",
+              "phase": "top8",
+              "bracket": "upper",
+              "round": "winners-final",
+              "playerIds": [
+                "startgg:player:6544",
+                "startgg:player:16342"
+              ],
+              "probabilities": [
+                0.369636,
+                0.630364
+              ],
+              "predictedWinnerId": "startgg:player:16342",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LF",
+              "label": "Lower final K",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-final",
+              "playerIds": [
+                "startgg:player:6544",
+                "startgg:player:324561"
+              ],
+              "probabilities": [
+                0.458566,
+                0.541434
+              ],
+              "predictedWinnerId": "startgg:player:324561",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "GF",
+              "label": "Grand final D",
+              "phase": "top8",
+              "bracket": "final",
+              "round": "grand-final",
+              "playerIds": [
+                "startgg:player:16342",
+                "startgg:player:324561"
+              ],
+              "probabilities": [
+                0.591082,
+                0.408918
+              ],
+              "predictedWinnerId": "startgg:player:16342",
+              "decision": "model",
+              "isReset": false
+            }
+          ],
+          "placements": [
+            {
+              "placement": 1,
+              "playerId": "startgg:player:16342"
+            },
+            {
+              "placement": 2,
+              "playerId": "startgg:player:324561"
+            },
+            {
+              "placement": 3,
+              "playerId": "startgg:player:6544"
+            },
+            {
+              "placement": 4,
+              "playerId": "startgg:player:133666"
+            },
+            {
+              "placement": 5,
+              "playerId": "startgg:player:2011959"
+            },
+            {
+              "placement": 5,
+              "playerId": "startgg:player:631158"
+            },
+            {
+              "placement": 7,
+              "playerId": "startgg:player:1016"
+            },
+            {
+              "placement": 7,
+              "playerId": "startgg:player:541439"
+            },
+            {
+              "placement": 9,
+              "playerId": "startgg:player:51488"
+            },
+            {
+              "placement": 9,
+              "playerId": "startgg:player:10485"
+            },
+            {
+              "placement": 9,
+              "playerId": "startgg:player:301654"
+            },
+            {
+              "placement": 9,
+              "playerId": "startgg:player:1974127"
+            },
+            {
+              "placement": 13,
+              "playerId": "startgg:player:132938"
+            },
+            {
+              "placement": 13,
+              "playerId": "startgg:player:47806"
+            },
+            {
+              "placement": 13,
+              "playerId": "startgg:player:158003"
+            },
+            {
+              "placement": 13,
+              "playerId": "startgg:player:411895"
+            }
+          ]
+        },
+        {
+          "id": "recency-elo",
+          "name": "Recency-weighted event-batch Elo",
+          "shortName": "Recency Elo",
+          "explanation": "Builds player ratings from prior sets, downweights older events, and updates every event as one batch.",
+          "recommended": false,
+          "heldOut": {
+            "predictions": 74891,
+            "events": 83,
+            "brier": 0.207938,
+            "logLoss": 0.601858
+          },
+          "championId": "startgg:player:16342",
+          "top8PlayerIds": [
+            "startgg:player:2011959",
+            "startgg:player:324561",
+            "startgg:player:16342",
+            "startgg:player:6544",
+            "startgg:player:631158",
+            "startgg:player:133666",
+            "startgg:player:1016",
+            "startgg:player:158003"
+          ],
+          "matches": [
+            {
+              "id": "A",
+              "label": "Top 24 winners A",
+              "phase": "top16",
+              "bracket": "upper",
+              "round": "winners-quarterfinal",
+              "playerIds": [
+                "startgg:player:2011959",
+                "startgg:player:541439"
+              ],
+              "probabilities": [
+                0.757324,
+                0.242676
+              ],
+              "predictedWinnerId": "startgg:player:2011959",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "B",
+              "label": "Top 24 winners B",
+              "phase": "top16",
+              "bracket": "upper",
+              "round": "winners-quarterfinal",
+              "playerIds": [
+                "startgg:player:631158",
+                "startgg:player:6544"
+              ],
+              "probabilities": [
+                0.447236,
+                0.552764
+              ],
+              "predictedWinnerId": "startgg:player:6544",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "C",
+              "label": "Top 24 winners C",
+              "phase": "top16",
+              "bracket": "upper",
+              "round": "winners-quarterfinal",
+              "playerIds": [
+                "startgg:player:324561",
+                "startgg:player:1016"
+              ],
+              "probabilities": [
+                0.598055,
+                0.401945
+              ],
+              "predictedWinnerId": "startgg:player:324561",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "D",
+              "label": "Top 24 winners D",
+              "phase": "top16",
+              "bracket": "upper",
+              "round": "winners-quarterfinal",
+              "playerIds": [
+                "startgg:player:133666",
+                "startgg:player:16342"
+              ],
+              "probabilities": [
+                0.385202,
+                0.614798
+              ],
+              "predictedWinnerId": "startgg:player:16342",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "J",
+              "label": "Top 24 lower T",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-initial",
+              "playerIds": [
+                "startgg:player:301654",
+                "startgg:player:47806"
+              ],
+              "probabilities": [
+                0.545066,
+                0.454934
+              ],
+              "predictedWinnerId": "startgg:player:301654",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "K",
+              "label": "Top 24 lower U",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-initial",
+              "playerIds": [
+                "startgg:player:51488",
+                "startgg:player:411895"
+              ],
+              "probabilities": [
+                0.745921,
+                0.254079
+              ],
+              "predictedWinnerId": "startgg:player:51488",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "L",
+              "label": "Top 24 lower R",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-initial",
+              "playerIds": [
+                "startgg:player:132938",
+                "startgg:player:1974127"
+              ],
+              "probabilities": [
+                0.616017,
+                0.383983
+              ],
+              "predictedWinnerId": "startgg:player:132938",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "M",
+              "label": "Top 24 lower S",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-initial",
+              "playerIds": [
+                "startgg:player:10485",
+                "startgg:player:158003"
+              ],
+              "probabilities": [
+                0.385605,
+                0.614395
+              ],
+              "predictedWinnerId": "startgg:player:158003",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "N",
+              "label": "Top 24 lower qualifier X",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-round-2",
+              "playerIds": [
+                "startgg:player:133666",
+                "startgg:player:301654"
+              ],
+              "probabilities": [
+                0.83677,
+                0.16323
+              ],
+              "predictedWinnerId": "startgg:player:133666",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "O",
+              "label": "Top 24 lower qualifier Y",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-round-2",
+              "playerIds": [
+                "startgg:player:1016",
+                "startgg:player:51488"
+              ],
+              "probabilities": [
+                0.613328,
+                0.386672
+              ],
+              "predictedWinnerId": "startgg:player:1016",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "P",
+              "label": "Top 24 lower qualifier V",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-round-2",
+              "playerIds": [
+                "startgg:player:631158",
+                "startgg:player:132938"
+              ],
+              "probabilities": [
+                0.742356,
+                0.257644
+              ],
+              "predictedWinnerId": "startgg:player:631158",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "Q",
+              "label": "Top 24 lower qualifier W",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-round-2",
+              "playerIds": [
+                "startgg:player:541439",
+                "startgg:player:158003"
+              ],
+              "probabilities": [
+                0.288225,
+                0.711775
+              ],
+              "predictedWinnerId": "startgg:player:158003",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "WSF-A",
+              "label": "Winners semifinal A",
+              "phase": "top8",
+              "bracket": "upper",
+              "round": "winners-semifinal",
+              "playerIds": [
+                "startgg:player:2011959",
+                "startgg:player:6544"
+              ],
+              "probabilities": [
+                0.352263,
+                0.647737
+              ],
+              "predictedWinnerId": "startgg:player:6544",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "WSF-B",
+              "label": "Winners semifinal B",
+              "phase": "top8",
+              "bracket": "upper",
+              "round": "winners-semifinal",
+              "playerIds": [
+                "startgg:player:324561",
+                "startgg:player:16342"
+              ],
+              "probabilities": [
+                0.413116,
+                0.586884
+              ],
+              "predictedWinnerId": "startgg:player:16342",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LR1-A",
+              "label": "Lower round 1 F",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-round-1",
+              "playerIds": [
+                "startgg:player:158003",
+                "startgg:player:631158"
+              ],
+              "probabilities": [
+                0.347215,
+                0.652785
+              ],
+              "predictedWinnerId": "startgg:player:631158",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LR1-B",
+              "label": "Lower round 1 G",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-round-1",
+              "playerIds": [
+                "startgg:player:1016",
+                "startgg:player:133666"
+              ],
+              "probabilities": [
+                0.430224,
+                0.569776
+              ],
+              "predictedWinnerId": "startgg:player:133666",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LQF-A",
+              "label": "Lower quarterfinal H",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-quarterfinal",
+              "playerIds": [
+                "startgg:player:324561",
+                "startgg:player:631158"
+              ],
+              "probabilities": [
+                0.583278,
+                0.416722
+              ],
+              "predictedWinnerId": "startgg:player:324561",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LQF-B",
+              "label": "Lower quarterfinal I",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-quarterfinal",
+              "playerIds": [
+                "startgg:player:2011959",
+                "startgg:player:133666"
+              ],
+              "probabilities": [
+                0.350447,
+                0.649553
+              ],
+              "predictedWinnerId": "startgg:player:133666",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LSF",
+              "label": "Lower semifinal J",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-semifinal",
+              "playerIds": [
+                "startgg:player:324561",
+                "startgg:player:133666"
+              ],
+              "probabilities": [
+                0.529075,
+                0.470925
+              ],
+              "predictedWinnerId": "startgg:player:324561",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "WF",
+              "label": "Winners final C",
+              "phase": "top8",
+              "bracket": "upper",
+              "round": "winners-final",
+              "playerIds": [
+                "startgg:player:6544",
+                "startgg:player:16342"
+              ],
+              "probabilities": [
+                0.383316,
+                0.616684
+              ],
+              "predictedWinnerId": "startgg:player:16342",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LF",
+              "label": "Lower final K",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-final",
+              "playerIds": [
+                "startgg:player:6544",
+                "startgg:player:324561"
+              ],
+              "probabilities": [
+                0.46894,
+                0.53106
+              ],
+              "predictedWinnerId": "startgg:player:324561",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "GF",
+              "label": "Grand final D",
+              "phase": "top8",
+              "bracket": "final",
+              "round": "grand-final",
+              "playerIds": [
+                "startgg:player:16342",
+                "startgg:player:324561"
+              ],
+              "probabilities": [
+                0.586884,
+                0.413116
+              ],
+              "predictedWinnerId": "startgg:player:16342",
+              "decision": "model",
+              "isReset": false
+            }
+          ],
+          "placements": [
+            {
+              "placement": 1,
+              "playerId": "startgg:player:16342"
+            },
+            {
+              "placement": 2,
+              "playerId": "startgg:player:324561"
+            },
+            {
+              "placement": 3,
+              "playerId": "startgg:player:6544"
+            },
+            {
+              "placement": 4,
+              "playerId": "startgg:player:133666"
+            },
+            {
+              "placement": 5,
+              "playerId": "startgg:player:2011959"
+            },
+            {
+              "placement": 5,
+              "playerId": "startgg:player:631158"
+            },
+            {
+              "placement": 7,
+              "playerId": "startgg:player:1016"
+            },
+            {
+              "placement": 7,
+              "playerId": "startgg:player:158003"
+            },
+            {
+              "placement": 9,
+              "playerId": "startgg:player:541439"
+            },
+            {
+              "placement": 9,
+              "playerId": "startgg:player:51488"
+            },
+            {
+              "placement": 9,
+              "playerId": "startgg:player:132938"
+            },
+            {
+              "placement": 9,
+              "playerId": "startgg:player:301654"
+            },
+            {
+              "placement": 13,
+              "playerId": "startgg:player:10485"
+            },
+            {
+              "placement": 13,
+              "playerId": "startgg:player:47806"
+            },
+            {
+              "placement": 13,
+              "playerId": "startgg:player:1974127"
+            },
+            {
+              "placement": 13,
+              "playerId": "startgg:player:411895"
+            }
+          ]
+        },
+        {
+          "id": "dynamic-bradley-terry",
+          "name": "Dynamic Bradley–Terry",
+          "shortName": "Dynamic Bradley–Terry",
+          "explanation": "Fits player strength jointly within each event, then decays and shrinks that strength between events. It does not use seed.",
+          "recommended": false,
+          "heldOut": {
+            "predictions": 74891,
+            "events": 83,
+            "brier": 0.211675,
+            "logLoss": 0.607014
+          },
+          "championId": "startgg:player:16342",
+          "top8PlayerIds": [
+            "startgg:player:2011959",
+            "startgg:player:324561",
+            "startgg:player:16342",
+            "startgg:player:6544",
+            "startgg:player:631158",
+            "startgg:player:133666",
+            "startgg:player:1016",
+            "startgg:player:158003"
+          ],
+          "matches": [
+            {
+              "id": "A",
+              "label": "Top 24 winners A",
+              "phase": "top16",
+              "bracket": "upper",
+              "round": "winners-quarterfinal",
+              "playerIds": [
+                "startgg:player:2011959",
+                "startgg:player:541439"
+              ],
+              "probabilities": [
+                0.790307,
+                0.209693
+              ],
+              "predictedWinnerId": "startgg:player:2011959",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "B",
+              "label": "Top 24 winners B",
+              "phase": "top16",
+              "bracket": "upper",
+              "round": "winners-quarterfinal",
+              "playerIds": [
+                "startgg:player:631158",
+                "startgg:player:6544"
+              ],
+              "probabilities": [
+                0.49067,
+                0.50933
+              ],
+              "predictedWinnerId": "startgg:player:6544",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "C",
+              "label": "Top 24 winners C",
+              "phase": "top16",
+              "bracket": "upper",
+              "round": "winners-quarterfinal",
+              "playerIds": [
+                "startgg:player:324561",
+                "startgg:player:1016"
+              ],
+              "probabilities": [
+                0.58535,
+                0.41465
+              ],
+              "predictedWinnerId": "startgg:player:324561",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "D",
+              "label": "Top 24 winners D",
+              "phase": "top16",
+              "bracket": "upper",
+              "round": "winners-quarterfinal",
+              "playerIds": [
+                "startgg:player:133666",
+                "startgg:player:16342"
+              ],
+              "probabilities": [
+                0.375143,
+                0.624857
+              ],
+              "predictedWinnerId": "startgg:player:16342",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "J",
+              "label": "Top 24 lower T",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-initial",
+              "playerIds": [
+                "startgg:player:301654",
+                "startgg:player:47806"
+              ],
+              "probabilities": [
+                0.555422,
+                0.444578
+              ],
+              "predictedWinnerId": "startgg:player:301654",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "K",
+              "label": "Top 24 lower U",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-initial",
+              "playerIds": [
+                "startgg:player:51488",
+                "startgg:player:411895"
+              ],
+              "probabilities": [
+                0.5,
+                0.5
+              ],
+              "predictedWinnerId": "startgg:player:51488",
+              "decision": "lower-seed-number",
+              "isReset": false
+            },
+            {
+              "id": "L",
+              "label": "Top 24 lower R",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-initial",
+              "playerIds": [
+                "startgg:player:132938",
+                "startgg:player:1974127"
+              ],
+              "probabilities": [
+                0.591244,
+                0.408756
+              ],
+              "predictedWinnerId": "startgg:player:132938",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "M",
+              "label": "Top 24 lower S",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-initial",
+              "playerIds": [
+                "startgg:player:10485",
+                "startgg:player:158003"
+              ],
+              "probabilities": [
+                0.443394,
+                0.556606
+              ],
+              "predictedWinnerId": "startgg:player:158003",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "N",
+              "label": "Top 24 lower qualifier X",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-round-2",
+              "playerIds": [
+                "startgg:player:133666",
+                "startgg:player:301654"
+              ],
+              "probabilities": [
+                0.739244,
+                0.260756
+              ],
+              "predictedWinnerId": "startgg:player:133666",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "O",
+              "label": "Top 24 lower qualifier Y",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-round-2",
+              "playerIds": [
+                "startgg:player:1016",
+                "startgg:player:51488"
+              ],
+              "probabilities": [
+                0.584764,
+                0.415236
+              ],
+              "predictedWinnerId": "startgg:player:1016",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "P",
+              "label": "Top 24 lower qualifier V",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-round-2",
+              "playerIds": [
+                "startgg:player:631158",
+                "startgg:player:132938"
+              ],
+              "probabilities": [
+                0.744986,
+                0.255014
+              ],
+              "predictedWinnerId": "startgg:player:631158",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "Q",
+              "label": "Top 24 lower qualifier W",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-round-2",
+              "playerIds": [
+                "startgg:player:541439",
+                "startgg:player:158003"
+              ],
+              "probabilities": [
+                0.318947,
+                0.681053
+              ],
+              "predictedWinnerId": "startgg:player:158003",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "WSF-A",
+              "label": "Winners semifinal A",
+              "phase": "top8",
+              "bracket": "upper",
+              "round": "winners-semifinal",
+              "playerIds": [
+                "startgg:player:2011959",
+                "startgg:player:6544"
+              ],
+              "probabilities": [
+                0.463163,
+                0.536837
+              ],
+              "predictedWinnerId": "startgg:player:6544",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "WSF-B",
+              "label": "Winners semifinal B",
+              "phase": "top8",
+              "bracket": "upper",
+              "round": "winners-semifinal",
+              "playerIds": [
+                "startgg:player:324561",
+                "startgg:player:16342"
+              ],
+              "probabilities": [
+                0.435339,
+                0.564661
+              ],
+              "predictedWinnerId": "startgg:player:16342",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LR1-A",
+              "label": "Lower round 1 F",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-round-1",
+              "playerIds": [
+                "startgg:player:158003",
+                "startgg:player:631158"
+              ],
+              "probabilities": [
+                0.336607,
+                0.663393
+              ],
+              "predictedWinnerId": "startgg:player:631158",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LR1-B",
+              "label": "Lower round 1 G",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-round-1",
+              "playerIds": [
+                "startgg:player:1016",
+                "startgg:player:133666"
+              ],
+              "probabilities": [
+                0.476353,
+                0.523647
+              ],
+              "predictedWinnerId": "startgg:player:133666",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LQF-A",
+              "label": "Lower quarterfinal H",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-quarterfinal",
+              "playerIds": [
+                "startgg:player:324561",
+                "startgg:player:631158"
+              ],
+              "probabilities": [
+                0.52482,
+                0.47518
+              ],
+              "predictedWinnerId": "startgg:player:324561",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LQF-B",
+              "label": "Lower quarterfinal I",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-quarterfinal",
+              "playerIds": [
+                "startgg:player:2011959",
+                "startgg:player:133666"
+              ],
+              "probabilities": [
+                0.510115,
+                0.489885
+              ],
+              "predictedWinnerId": "startgg:player:2011959",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LSF",
+              "label": "Lower semifinal J",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-semifinal",
+              "playerIds": [
+                "startgg:player:324561",
+                "startgg:player:2011959"
+              ],
+              "probabilities": [
+                0.552222,
+                0.447778
+              ],
+              "predictedWinnerId": "startgg:player:324561",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "WF",
+              "label": "Winners final C",
+              "phase": "top8",
+              "bracket": "upper",
+              "round": "winners-final",
+              "playerIds": [
+                "startgg:player:6544",
+                "startgg:player:16342"
+              ],
+              "probabilities": [
+                0.420155,
+                0.579845
+              ],
+              "predictedWinnerId": "startgg:player:16342",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "LF",
+              "label": "Lower final K",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-final",
+              "playerIds": [
+                "startgg:player:6544",
+                "startgg:player:324561"
+              ],
+              "probabilities": [
+                0.484496,
+                0.515504
+              ],
+              "predictedWinnerId": "startgg:player:324561",
+              "decision": "model",
+              "isReset": false
+            },
+            {
+              "id": "GF",
+              "label": "Grand final D",
+              "phase": "top8",
+              "bracket": "final",
+              "round": "grand-final",
+              "playerIds": [
+                "startgg:player:16342",
+                "startgg:player:324561"
+              ],
+              "probabilities": [
+                0.564661,
+                0.435339
+              ],
+              "predictedWinnerId": "startgg:player:16342",
+              "decision": "model",
+              "isReset": false
+            }
+          ],
+          "placements": [
+            {
+              "placement": 1,
+              "playerId": "startgg:player:16342"
+            },
+            {
+              "placement": 2,
+              "playerId": "startgg:player:324561"
+            },
+            {
+              "placement": 3,
+              "playerId": "startgg:player:6544"
+            },
+            {
+              "placement": 4,
+              "playerId": "startgg:player:2011959"
+            },
+            {
+              "placement": 5,
+              "playerId": "startgg:player:133666"
+            },
+            {
+              "placement": 5,
+              "playerId": "startgg:player:631158"
+            },
+            {
+              "placement": 7,
+              "playerId": "startgg:player:1016"
+            },
+            {
+              "placement": 7,
+              "playerId": "startgg:player:158003"
+            },
+            {
+              "placement": 9,
+              "playerId": "startgg:player:541439"
+            },
+            {
+              "placement": 9,
+              "playerId": "startgg:player:51488"
+            },
+            {
+              "placement": 9,
+              "playerId": "startgg:player:132938"
+            },
+            {
+              "placement": 9,
+              "playerId": "startgg:player:301654"
+            },
+            {
+              "placement": 13,
+              "playerId": "startgg:player:10485"
+            },
+            {
+              "placement": 13,
+              "playerId": "startgg:player:47806"
+            },
+            {
+              "placement": 13,
+              "playerId": "startgg:player:1974127"
+            },
+            {
+              "placement": 13,
+              "playerId": "startgg:player:411895"
+            }
+          ]
+        },
+        {
+          "id": "neutral",
+          "name": "Neutral 50/50",
+          "shortName": "Neutral 50/50",
+          "explanation": "Gives both players 50%. Better seed is used only as a display tie-break so the path can continue; that is not model evidence.",
+          "recommended": false,
+          "heldOut": {
+            "predictions": 74891,
+            "events": 83,
+            "brier": 0.25,
+            "logLoss": 0.693147
+          },
+          "championId": "startgg:player:2011959",
+          "top8PlayerIds": [
+            "startgg:player:2011959",
+            "startgg:player:324561",
+            "startgg:player:133666",
+            "startgg:player:631158",
+            "startgg:player:6544",
+            "startgg:player:16342",
+            "startgg:player:1016",
+            "startgg:player:541439"
+          ],
+          "matches": [
+            {
+              "id": "A",
+              "label": "Top 24 winners A",
+              "phase": "top16",
+              "bracket": "upper",
+              "round": "winners-quarterfinal",
+              "playerIds": [
+                "startgg:player:2011959",
+                "startgg:player:541439"
+              ],
+              "probabilities": [
+                0.5,
+                0.5
+              ],
+              "predictedWinnerId": "startgg:player:2011959",
+              "decision": "lower-seed-number",
+              "isReset": false
+            },
+            {
+              "id": "B",
+              "label": "Top 24 winners B",
+              "phase": "top16",
+              "bracket": "upper",
+              "round": "winners-quarterfinal",
+              "playerIds": [
+                "startgg:player:631158",
+                "startgg:player:6544"
+              ],
+              "probabilities": [
+                0.5,
+                0.5
+              ],
+              "predictedWinnerId": "startgg:player:631158",
+              "decision": "lower-seed-number",
+              "isReset": false
+            },
+            {
+              "id": "C",
+              "label": "Top 24 winners C",
+              "phase": "top16",
+              "bracket": "upper",
+              "round": "winners-quarterfinal",
+              "playerIds": [
+                "startgg:player:324561",
+                "startgg:player:1016"
+              ],
+              "probabilities": [
+                0.5,
+                0.5
+              ],
+              "predictedWinnerId": "startgg:player:324561",
+              "decision": "lower-seed-number",
+              "isReset": false
+            },
+            {
+              "id": "D",
+              "label": "Top 24 winners D",
+              "phase": "top16",
+              "bracket": "upper",
+              "round": "winners-quarterfinal",
+              "playerIds": [
+                "startgg:player:133666",
+                "startgg:player:16342"
+              ],
+              "probabilities": [
+                0.5,
+                0.5
+              ],
+              "predictedWinnerId": "startgg:player:133666",
+              "decision": "lower-seed-number",
+              "isReset": false
+            },
+            {
+              "id": "J",
+              "label": "Top 24 lower T",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-initial",
+              "playerIds": [
+                "startgg:player:301654",
+                "startgg:player:47806"
+              ],
+              "probabilities": [
+                0.5,
+                0.5
+              ],
+              "predictedWinnerId": "startgg:player:301654",
+              "decision": "lower-seed-number",
+              "isReset": false
+            },
+            {
+              "id": "K",
+              "label": "Top 24 lower U",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-initial",
+              "playerIds": [
+                "startgg:player:51488",
+                "startgg:player:411895"
+              ],
+              "probabilities": [
+                0.5,
+                0.5
+              ],
+              "predictedWinnerId": "startgg:player:51488",
+              "decision": "lower-seed-number",
+              "isReset": false
+            },
+            {
+              "id": "L",
+              "label": "Top 24 lower R",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-initial",
+              "playerIds": [
+                "startgg:player:132938",
+                "startgg:player:1974127"
+              ],
+              "probabilities": [
+                0.5,
+                0.5
+              ],
+              "predictedWinnerId": "startgg:player:132938",
+              "decision": "lower-seed-number",
+              "isReset": false
+            },
+            {
+              "id": "M",
+              "label": "Top 24 lower S",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-initial",
+              "playerIds": [
+                "startgg:player:10485",
+                "startgg:player:158003"
+              ],
+              "probabilities": [
+                0.5,
+                0.5
+              ],
+              "predictedWinnerId": "startgg:player:10485",
+              "decision": "lower-seed-number",
+              "isReset": false
+            },
+            {
+              "id": "N",
+              "label": "Top 24 lower qualifier X",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-round-2",
+              "playerIds": [
+                "startgg:player:16342",
+                "startgg:player:301654"
+              ],
+              "probabilities": [
+                0.5,
+                0.5
+              ],
+              "predictedWinnerId": "startgg:player:16342",
+              "decision": "lower-seed-number",
+              "isReset": false
+            },
+            {
+              "id": "O",
+              "label": "Top 24 lower qualifier Y",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-round-2",
+              "playerIds": [
+                "startgg:player:1016",
+                "startgg:player:51488"
+              ],
+              "probabilities": [
+                0.5,
+                0.5
+              ],
+              "predictedWinnerId": "startgg:player:1016",
+              "decision": "lower-seed-number",
+              "isReset": false
+            },
+            {
+              "id": "P",
+              "label": "Top 24 lower qualifier V",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-round-2",
+              "playerIds": [
+                "startgg:player:6544",
+                "startgg:player:132938"
+              ],
+              "probabilities": [
+                0.5,
+                0.5
+              ],
+              "predictedWinnerId": "startgg:player:6544",
+              "decision": "lower-seed-number",
+              "isReset": false
+            },
+            {
+              "id": "Q",
+              "label": "Top 24 lower qualifier W",
+              "phase": "top16",
+              "bracket": "lower",
+              "round": "lower-round-2",
+              "playerIds": [
+                "startgg:player:541439",
+                "startgg:player:10485"
+              ],
+              "probabilities": [
+                0.5,
+                0.5
+              ],
+              "predictedWinnerId": "startgg:player:541439",
+              "decision": "lower-seed-number",
+              "isReset": false
+            },
+            {
+              "id": "WSF-A",
+              "label": "Winners semifinal A",
+              "phase": "top8",
+              "bracket": "upper",
+              "round": "winners-semifinal",
+              "playerIds": [
+                "startgg:player:2011959",
+                "startgg:player:631158"
+              ],
+              "probabilities": [
+                0.5,
+                0.5
+              ],
+              "predictedWinnerId": "startgg:player:2011959",
+              "decision": "lower-seed-number",
+              "isReset": false
+            },
+            {
+              "id": "WSF-B",
+              "label": "Winners semifinal B",
+              "phase": "top8",
+              "bracket": "upper",
+              "round": "winners-semifinal",
+              "playerIds": [
+                "startgg:player:324561",
+                "startgg:player:133666"
+              ],
+              "probabilities": [
+                0.5,
+                0.5
+              ],
+              "predictedWinnerId": "startgg:player:324561",
+              "decision": "lower-seed-number",
+              "isReset": false
+            },
+            {
+              "id": "LR1-A",
+              "label": "Lower round 1 F",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-round-1",
+              "playerIds": [
+                "startgg:player:541439",
+                "startgg:player:6544"
+              ],
+              "probabilities": [
+                0.5,
+                0.5
+              ],
+              "predictedWinnerId": "startgg:player:6544",
+              "decision": "lower-seed-number",
+              "isReset": false
+            },
+            {
+              "id": "LR1-B",
+              "label": "Lower round 1 G",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-round-1",
+              "playerIds": [
+                "startgg:player:1016",
+                "startgg:player:16342"
+              ],
+              "probabilities": [
+                0.5,
+                0.5
+              ],
+              "predictedWinnerId": "startgg:player:16342",
+              "decision": "lower-seed-number",
+              "isReset": false
+            },
+            {
+              "id": "LQF-A",
+              "label": "Lower quarterfinal H",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-quarterfinal",
+              "playerIds": [
+                "startgg:player:133666",
+                "startgg:player:6544"
+              ],
+              "probabilities": [
+                0.5,
+                0.5
+              ],
+              "predictedWinnerId": "startgg:player:133666",
+              "decision": "lower-seed-number",
+              "isReset": false
+            },
+            {
+              "id": "LQF-B",
+              "label": "Lower quarterfinal I",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-quarterfinal",
+              "playerIds": [
+                "startgg:player:631158",
+                "startgg:player:16342"
+              ],
+              "probabilities": [
+                0.5,
+                0.5
+              ],
+              "predictedWinnerId": "startgg:player:631158",
+              "decision": "lower-seed-number",
+              "isReset": false
+            },
+            {
+              "id": "LSF",
+              "label": "Lower semifinal J",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-semifinal",
+              "playerIds": [
+                "startgg:player:133666",
+                "startgg:player:631158"
+              ],
+              "probabilities": [
+                0.5,
+                0.5
+              ],
+              "predictedWinnerId": "startgg:player:133666",
+              "decision": "lower-seed-number",
+              "isReset": false
+            },
+            {
+              "id": "WF",
+              "label": "Winners final C",
+              "phase": "top8",
+              "bracket": "upper",
+              "round": "winners-final",
+              "playerIds": [
+                "startgg:player:2011959",
+                "startgg:player:324561"
+              ],
+              "probabilities": [
+                0.5,
+                0.5
+              ],
+              "predictedWinnerId": "startgg:player:2011959",
+              "decision": "lower-seed-number",
+              "isReset": false
+            },
+            {
+              "id": "LF",
+              "label": "Lower final K",
+              "phase": "top8",
+              "bracket": "lower",
+              "round": "lower-final",
+              "playerIds": [
+                "startgg:player:324561",
+                "startgg:player:133666"
+              ],
+              "probabilities": [
+                0.5,
+                0.5
+              ],
+              "predictedWinnerId": "startgg:player:324561",
+              "decision": "lower-seed-number",
+              "isReset": false
+            },
+            {
+              "id": "GF",
+              "label": "Grand final D",
+              "phase": "top8",
+              "bracket": "final",
+              "round": "grand-final",
+              "playerIds": [
+                "startgg:player:2011959",
+                "startgg:player:324561"
+              ],
+              "probabilities": [
+                0.5,
+                0.5
+              ],
+              "predictedWinnerId": "startgg:player:2011959",
+              "decision": "lower-seed-number",
+              "isReset": false
+            }
+          ],
+          "placements": [
+            {
+              "placement": 1,
+              "playerId": "startgg:player:2011959"
+            },
+            {
+              "placement": 2,
+              "playerId": "startgg:player:324561"
+            },
+            {
+              "placement": 3,
+              "playerId": "startgg:player:133666"
+            },
+            {
+              "placement": 4,
+              "playerId": "startgg:player:631158"
+            },
+            {
+              "placement": 5,
+              "playerId": "startgg:player:6544"
+            },
+            {
+              "placement": 5,
+              "playerId": "startgg:player:16342"
+            },
+            {
+              "placement": 7,
+              "playerId": "startgg:player:1016"
+            },
+            {
+              "placement": 7,
+              "playerId": "startgg:player:541439"
+            },
+            {
+              "placement": 9,
+              "playerId": "startgg:player:51488"
+            },
+            {
+              "placement": 9,
+              "playerId": "startgg:player:10485"
+            },
+            {
+              "placement": 9,
+              "playerId": "startgg:player:132938"
+            },
+            {
+              "placement": 9,
+              "playerId": "startgg:player:301654"
+            },
+            {
+              "placement": 13,
+              "playerId": "startgg:player:47806"
+            },
+            {
+              "placement": 13,
+              "playerId": "startgg:player:1974127"
+            },
+            {
+              "placement": 13,
+              "playerId": "startgg:player:158003"
+            },
+            {
+              "placement": 13,
+              "playerId": "startgg:player:411895"
+            }
+          ]
+        }
+      ],
+      "caveats": [
+        "Experimental seed projection, not a confirmed later-round Start.gg bracket or full-field simulation.",
+        "Later opponents are inferred by advancing each model's local favorite; percentages are raw conditional set estimates, not title odds or confidence intervals.",
+        "The source labels this event CREATED; entrants or routing can change after the snapshot.",
+        "84 prior events and 77270 eligible sets supply the training data; historical seed availability is assumed.",
+        "Character is not a feature, and historical seed value is supported only by the separately labeled sensitivity."
+      ]
+    },
     {
       "id": "startgg:event:1503439",
       "name": "Riptide 2026",

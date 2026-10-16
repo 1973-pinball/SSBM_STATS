@@ -173,6 +173,58 @@ function candidateViews(observations, standingsByEntrant) {
   });
 }
 
+function unusedResetEvidence(final, reset, eventSets, groupId) {
+  // A completed winners-side victory can leave the optional reset in source
+  // state 5. Do not infer this from an empty row alone: prove the reset's exact
+  // dependency and both finalists' bracket paths from the same observation.
+  if (!/^Grand Final$/i.test(final.bracket.fullRoundText ?? "") || !isCompleted(final.state)
+      || !/^Grand Final Reset$/i.test(reset.bracket?.fullRoundText ?? "") || reset.state !== 5
+      || reset.eligible !== false || reset.eventId !== final.eventId
+      || reset.bracket.wPlacement !== 1 || reset.bracket.lPlacement !== 2
+      || canonicalId(reset.bracket.phaseGroup?.id) !== groupId
+      || !isDoubleElimination(reset.bracket.phaseGroup?.bracketType)
+      || !isCompleted(reset.bracket.phaseGroup?.state)
+      || reset.source?.system !== "start.gg" || canonicalId(reset.source.id) == null) return null;
+  for (const field of ["entrantIds", "playerIds", "scores"]) {
+    if (!Array.isArray(reset[field]) || reset[field].length !== 2 || reset[field].some((value) => value !== null)) return null;
+  }
+  if (reset.winnerEntrantId != null || reset.winnerPlayerId != null
+      || !reset.timestamps || ["startAt", "startedAt", "completedAt"].some((key) => reset.timestamps[key] != null)
+      || reset.bracket.winnerProgressionSeed != null || reset.bracket.loserProgressionSeed != null) return null;
+  const sourceFinalId = canonicalId(final.source.id);
+  const resetSlots = reset.bracket.slots;
+  if (!Array.isArray(resetSlots) || resetSlots.length !== 2
+      || new Set(resetSlots.map((slot) => slot.slotIndex)).size !== 2
+      || resetSlots.some((slot) => ![0, 1].includes(slot.slotIndex) || slot.entrantId != null || slot.seed != null
+        || slot.prereqType !== "set" || canonicalId(slot.prereqId) !== sourceFinalId
+        || ![1, 2].includes(slot.prereqPlacement)
+        || slot.prereqCondition != null && slot.prereqCondition !== (slot.prereqPlacement === 1 ? "winner" : "loser"))
+      || new Set(resetSlots.map((slot) => slot.prereqPlacement)).size !== 2) return null;
+  if (eventSets.some((candidate) => candidate.id !== reset.id && (candidate.bracket?.slots ?? [])
+    .some((slot) => slot.prereqType === "set" && canonicalId(slot.prereqId) === canonicalId(reset.source.id)))) return null;
+  const provenanceIds = unique((reset.source.provenanceIds ?? [])
+    .filter((id) => final.source.provenanceIds?.includes(id)));
+  if (!provenanceIds.length) return null;
+  const finalSlots = final.bracket.slots;
+  if (!Array.isArray(finalSlots) || finalSlots.length !== 2
+      || finalSlots.some((slot) => slot.prereqType !== "set" || slot.prereqPlacement !== 1)
+      || new Set(finalSlots.map((slot) => canonicalId(slot.prereqId))).size !== 2) return null;
+  const parents = finalSlots.map((slot) => eventSets.filter((candidate) => canonicalId(candidate.source?.id) === canonicalId(slot.prereqId)));
+  if (parents.some((matches) => matches.length !== 1)) return null;
+  const preceding = parents.map(([candidate]) => candidate);
+  if (preceding.some((candidate) => candidate.eligible !== true || !isCompleted(candidate.state)
+      || canonicalId(candidate.bracket?.phaseGroup?.id) !== groupId
+      || !candidate.source?.provenanceIds?.some((id) => provenanceIds.includes(id)))) return null;
+  const upper = preceding.filter((candidate) => /^Winners Final$/i.test(candidate.bracket.fullRoundText ?? ""));
+  const lower = preceding.filter((candidate) => /^Losers Final$/i.test(candidate.bracket.fullRoundText ?? ""));
+  if (upper.length !== 1 || lower.length !== 1 || upper[0].winnerEntrantId !== final.winnerEntrantId
+      || upper[0].winnerPlayerId !== final.winnerPlayerId || lower[0].winnerEntrantId === final.winnerEntrantId
+      || !final.entrantIds.includes(lower[0].winnerEntrantId)) return null;
+  return { setId: reset.id, state: reset.state, provenanceIds,
+    reason: "empty optional reset after the winners-side finalist won Grand Final",
+    winnersFinalSetId: upper[0].id, losersFinalSetId: lower[0].id };
+}
+
 function championshipContext(event, set, eventSets) {
   if (event?.source?.system !== "start.gg" || !Array.isArray(event.source.provenanceIds)
       || event.source.provenanceIds.length === 0) return null;
@@ -195,10 +247,12 @@ function championshipContext(event, set, eventSets) {
 
   const sourceSetId = canonicalId(set.source?.id);
   if (sourceSetId == null) return null;
-  const outgoingSetIds = unique(eventSets.filter((candidate) => candidate.id !== set.id
+  const outgoingSets = eventSets.filter((candidate) => candidate.id !== set.id
     && (candidate.bracket?.slots ?? []).some((slot) => slot?.prereqType === "set"
-      && canonicalId(slot.prereqId) === sourceSetId)).map((candidate) => candidate.id));
-  if (outgoingSetIds.length > 0) return null;
+      && canonicalId(slot.prereqId) === sourceSetId));
+  const outgoingSetIds = unique(outgoingSets.map((candidate) => candidate.id));
+  const unusedReset = outgoingSets.length === 1 ? unusedResetEvidence(set, outgoingSets[0], eventSets, groupId) : null;
+  if (outgoingSetIds.length > 0 && unusedReset == null) return null;
   const incomingSetIds = unique((set.bracket.slots ?? [])
     .filter((slot) => slot?.prereqType === "set" && canonicalId(slot.prereqId) != null)
     .map((slot) => canonicalId(slot.prereqId)));
@@ -214,6 +268,7 @@ function championshipContext(event, set, eventSets) {
     bracketType: "DOUBLE_ELIMINATION",
     incomingSetIds,
     outgoingSetIds,
+    ...(unusedReset ? { unusedReset } : {}),
     provenanceIds: unique(event.source.provenanceIds),
   };
 }
@@ -504,7 +559,7 @@ export function auditHistoricalOutcomes(registry, dataset, { datasetSha256 = nul
       normalized: "With no exact candidate, NFKC + lowercase + trim uniquely matches an event-local canonical alias owned by the reported finisher.",
       conservativeIdentity: "Historical labels never assign, merge, or repair player identities; ambiguous and mismatched aliases remain review signals.",
       corroboration: "A raw review signal may be corroborated only after a standing or validated terminal championship placement independently resolves the entrant and authoritative player ID. Event-local entrant aliases are preferred; cross-event alias history must be unique within this immutable dataset corpus to that already-resolved player.",
-      terminalChampionship: "Set fallback requires provenance-linked Start.gg evidence, an explicit championship phase name, matching completed double-elimination phase/group metadata, a unique group in that phase, an exact Grand Final/Reset label, no progression or outgoing set edge, and set ancestry inside that group.",
+      terminalChampionship: "Set fallback requires provenance-linked Start.gg evidence, an explicit championship phase name, matching completed double-elimination phase/group metadata, a unique group in that phase, an exact Grand Final/Reset label, no progression, and set ancestry inside that group. An outgoing edge is allowed only to a single empty state-5 optional reset with no onward edge, after independently confirming the winners-side finalist won Grand Final.",
       temporalScope: "Cross-event alias history is post-event QA and may include observations after the audited event; it must never be used as a predictive or backtest feature.",
       sourceWarnings: "Corroboration never removes the raw mismatch, homonym, or malformed-standing signal from the report.",
       trainingEffect: "This audit is advisory and never changes event or set eligibility, training rows, routing, or backtest features.",

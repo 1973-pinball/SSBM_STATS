@@ -35,7 +35,7 @@ test("storage inventory measures all retained artifact categories without openin
 
 test("storage refuses links and temporary writes instead of traversing or claiming complete sizes", async (t) => {
   const root = await workspace(t);
-  await symlink(tmpdir(), path.join(root, "escape"));
+  await symlink(tmpdir(), path.join(root, "escape"), process.platform === "win32" ? "junction" : "dir");
   await assert.rejects(inventoryStorage(root), /symbolic links/);
   const other = await workspace(t);
   await writeText(path.join(other, "active.tmp"), "partial");

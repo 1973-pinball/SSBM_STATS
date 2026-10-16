@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import {
+  prependTournament, readGeneratedCatalog, selectTrainingCorpus, siteRoutingForEvent, validatePublishedSeedMapping, validateEvaluationRun,
+} from "../build-site-predictions.mjs";
 
 const GENERATED_PATH = new URL("../../src/lib/tournamentPredictionData.ts", import.meta.url);
 const EXPECTED_MODELS = [
@@ -16,61 +20,121 @@ const BASE_MATCH_IDS = [
   "WSF-A", "WSF-B", "LR1-A", "LR1-B", "LQF-A", "LQF-B", "LSF", "WF", "LF", "GF",
 ];
 
-function generatedJsonLiteral(source) {
-  const marker = "export const TOURNAMENT_PREDICTIONS =";
-  const declaration = source.indexOf(marker);
-  assert.notEqual(declaration, -1, "generated catalog export is missing");
-  const start = source.indexOf("{", declaration + marker.length);
-  assert.notEqual(start, -1, "generated catalog JSON object is missing");
+const catalog = readGeneratedCatalog(readFileSync(GENERATED_PATH, "utf8"));
+const tournament = catalog.tournaments.find((item) => item.id === "startgg:event:1503439");
 
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-  for (let index = start; index < source.length; index++) {
-    const char = source[index];
-    if (inString) {
-      if (escaped) escaped = false;
-      else if (char === "\\") escaped = true;
-      else if (char === "\"") inString = false;
-      continue;
-    }
-    if (char === "\"") inString = true;
-    else if (char === "{") depth++;
-    else if (char === "}" && --depth === 0) return source.slice(start, index + 1);
-  }
-  assert.fail("generated catalog JSON object is unterminated");
-}
+test("site generation rejects modified evaluation scores or predictions", () => {
+  const datasetSha256 = "d".repeat(64);
+  const comparison = { sourceDatasetSha256: datasetSha256, scores: { brier: 0.2 } };
+  const predictions = [{ id: "set", p: 0.6 }];
+  const runHash = createHash("sha256").update(JSON.stringify({ report: comparison, predictions })).digest("hex");
+  const manifest = { runHash, sourceDatasetSha256: datasetSha256,
+    report: `reports/${runHash}/comparison.json`, predictions: `reports/${runHash}/predictions.json` };
+  const artifacts = { manifest, comparison, predictions, datasetSha256 };
+  assert.doesNotThrow(() => validateEvaluationRun(artifacts));
+  assert.throws(() => validateEvaluationRun({ ...artifacts, comparison: { ...comparison, scores: { brier: 0.1 } } }), /run-hash verification/);
+  assert.throws(() => validateEvaluationRun({ ...artifacts, predictions: [{ id: "set", p: 0.9 }] }), /run-hash verification/);
+  assert.throws(() => validateEvaluationRun({ ...artifacts, datasetSha256: "a".repeat(64) }), /run-hash verification/);
+});
 
-const catalog = JSON.parse(generatedJsonLiteral(readFileSync(GENERATED_PATH, "utf8")));
-const tournament = catalog.tournaments[0];
+test("new forecasts become the dropdown default while preserving previous tournaments", () => {
+  const requested = { id: "startgg:event:1661592", snapshot: { fetchedAt: "2026-10-16T00:00:00.000Z" } };
+  const appended = prependTournament(catalog, requested);
+  assert.equal(appended.tournaments[0], requested);
+  assert.equal(appended.generatedAt, requested.snapshot.fetchedAt);
+  assert.equal(appended.tournaments.find((item) => item.id === tournament.id), tournament);
+  const replacement = { ...requested, name: "Refreshed event" };
+  const refreshed = prependTournament(appended, replacement);
+  assert.equal(refreshed.tournaments[0], replacement);
+  assert.equal(refreshed.tournaments.filter((item) => item.id === requested.id).length, 1);
+  assert.equal(refreshed.tournaments.length, appended.tournaments.length);
+});
 
-test("generated site catalog contains one current tournament and all six models", () => {
+test("catalog reader handles quoted braces and rejects malformed existing artifacts", () => {
+  const expected = { schemaVersion: 1, tournaments: [{ id: "event", name: 'Name with } and "quotes"' }] };
+  assert.deepEqual(readGeneratedCatalog(`export const TOURNAMENT_PREDICTIONS = ${JSON.stringify(expected)} satisfies Catalog;`), expected);
+  assert.throws(() => readGeneratedCatalog("export const OTHER = {};"), /missing/);
+  assert.throws(() => readGeneratedCatalog("export const TOURNAMENT_PREDICTIONS = {"), /unterminated/);
+  assert.throws(() => readGeneratedCatalog("export const TOURNAMENT_PREDICTIONS = {\"schemaVersion\":2,\"tournaments\":[]};"), /Unsupported/);
+});
+
+test("training stops at the earlier snapshot or event start and excludes the target", () => {
+  const makeEvent = (id, end) => ({ id, eligible: true, chronology: { reportedTournamentEndAt: end } });
+  const events = [makeEvent("past", 1000), makeEvent("after-start", 2100),
+    makeEvent("at-start", 2000), makeEvent("startgg:event:1661592", 900)];
+  const dataset = { events, sets: events.map((event) => ({ id: event.id, eventId: event.id, eligible: true })) };
+  const bundle = { event: { id: 1661592, startAt: 2000 }, provenance: { fetchedAt: new Date(3000 * 1000).toISOString() } };
+  const training = selectTrainingCorpus(dataset, bundle);
+  assert.equal(training.cutoff, 2000);
+  assert.deepEqual(training.events.map((event) => event.id), ["past"]);
+  assert.deepEqual(training.sets.map((set) => set.id), ["past"]);
+  const earlierSnapshot = { ...bundle, provenance: { fetchedAt: new Date(1500 * 1000).toISOString() } };
+  assert.equal(selectTrainingCorpus(dataset, earlierSnapshot).cutoff, 1500);
+  assert.throws(() => selectTrainingCorpus({ events: [], sets: [] }, bundle), /No historical training corpus/);
+});
+
+test("Platfight uses its reviewed routing and unknown events disclose the template assumption", () => {
+  const platfight = siteRoutingForEvent("startgg:event:1661592");
+  assert.equal(platfight.routing.sourceEventId, "1661592");
+  assert.equal(platfight.routingEvidence, "published");
+  assert.match(platfight.explanation, /9–16 are assumed to win the first lower round/);
+  assert.deepEqual(platfight.routing.matches.find((match) => match.id === "J").sides.map((side) => side.seed), [12, 13]);
+  const unknown = siteRoutingForEvent("startgg:event:999999");
+  assert.equal(unknown.routingEvidence, "assumed-template");
+  assert.match(unknown.explanation, /has not been verified/);
+});
+
+test("Platfight requires the reviewed root-to-Top-24 seed mapping", () => {
+  const root = { seeds: Array.from({ length: 16 }, (_, index) => ({ seedNum: index + 1, entrantId: String(index + 100) })) };
+  const bundle = { event: { id: 1661592 }, seeds: root.seeds.map((seed) => ({
+    phase: { id: 2402255 }, seedNum: seed.seedNum, projectedEntrantId: Number(seed.entrantId),
+  })) };
+  assert.doesNotThrow(() => validatePublishedSeedMapping(bundle, root));
+  assert.throws(() => validatePublishedSeedMapping({ ...bundle, seeds: [] }, root), /mapping changed or is unavailable/);
+  const changed = structuredClone(bundle);
+  changed.seeds[0].projectedEntrantId = 999;
+  assert.throws(() => validatePublishedSeedMapping(changed, root), /review the published routing/);
+});
+
+test("generated site catalog retains Riptide and gives every tournament all six models", () => {
   assert.equal(catalog.schemaVersion, 1);
   assert.ok(Number.isFinite(Date.parse(catalog.generatedAt)));
-  assert.equal(catalog.tournaments.length, 1);
+  assert.ok(catalog.tournaments.length >= 1);
+  assert.equal(new Set(catalog.tournaments.map((item) => item.id)).size, catalog.tournaments.length);
+  assert.ok(tournament, "the saved Riptide forecast must remain available");
   assert.equal(tournament.id, "startgg:event:1503439");
   assert.equal(tournament.name, "Riptide 2026");
 
-  const modelIds = tournament.models.map((model) => model.id);
-  assert.equal(new Set(modelIds).size, 6);
-  assert.deepEqual([...modelIds].sort(), EXPECTED_MODELS);
-  const recommended = tournament.models.filter((model) => model.recommended);
-  assert.equal(recommended.length, 1);
-  assert.equal(recommended[0].id, tournament.defaultModelId);
-  assert.equal(tournament.models.filter((model) => model.id === tournament.defaultModelId).length, 1);
+  for (const item of catalog.tournaments) {
+    const modelIds = item.models.map((model) => model.id);
+    assert.equal(new Set(modelIds).size, 6, item.name);
+    assert.deepEqual([...modelIds].sort(), EXPECTED_MODELS, item.name);
+    const recommended = item.models.filter((model) => model.recommended);
+    assert.equal(recommended.length, 1, item.name);
+    assert.equal(recommended[0].id, item.defaultModelId, item.name);
+    assert.equal(item.models.filter((model) => model.id === item.defaultModelId).length, 1, item.name);
+    if (item.scenario.routingEvidence === "assumed-template") {
+      assert.match(item.scenario.label, /assumed/i);
+      assert.match(item.scenario.explanation, /has not been verified/);
+    }
+  }
 
   assert.deepEqual(tournament.scenario.missingPoolNames, ["J205", "L204", "M203", "M205", "M206"]);
   assert.equal(tournament.scenario.missingEntrantCount, 88);
 });
 
 test("players are the unique seed 1 through 16 field", () => {
-  assert.equal(tournament.players.length, 16);
-  assert.equal(new Set(tournament.players.map((player) => player.id)).size, 16);
-  assert.deepEqual(tournament.players.map((player) => player.seed).sort((a, b) => a - b),
-    Array.from({ length: 16 }, (_, index) => index + 1));
+  for (const item of catalog.tournaments) {
+    assert.equal(item.players.length, 16, item.name);
+    assert.equal(new Set(item.players.map((player) => player.id)).size, 16, item.name);
+    assert.deepEqual(item.players.map((player) => player.seed).sort((a, b) => a - b),
+      Array.from({ length: 16 }, (_, index) => index + 1), item.name);
+  }
 });
 
-test("every model scenario has valid deterministic matches, reset state, and champion", () => {
+for (const currentTournament of catalog.tournaments) {
+test(`${currentTournament.name}: every model scenario has valid deterministic matches, reset state, and champion`, () => {
+  const tournament = currentTournament;
   const playersById = new Map(tournament.players.map((player) => [player.id, player]));
   const placementCounts = new Map([[1, 1], [2, 1], [3, 1], [4, 1], [5, 2], [7, 2], [9, 4], [13, 4]]);
 
@@ -123,7 +187,8 @@ test("every model scenario has valid deterministic matches, reset state, and cha
   }
 });
 
-test("neutral model is 50/50 and advances the lower numerical seed", () => {
+test(`${currentTournament.name}: neutral model is 50/50 and advances the lower numerical seed`, () => {
+  const tournament = currentTournament;
   const neutral = tournament.models.find((model) => model.id === "neutral");
   const seedByPlayer = new Map(tournament.players.map((player) => [player.id, player.seed]));
   assert.ok(neutral);
@@ -134,6 +199,7 @@ test("neutral model is 50/50 and advances the lower numerical seed", () => {
     assert.equal(match.predictedWinnerId, expected);
   }
 });
+}
 
 test("recommended regularized model projects Hungrybox over lloD in grand final", () => {
   const primary = tournament.models.find((model) => model.id === "regularized-bt-recent-form");

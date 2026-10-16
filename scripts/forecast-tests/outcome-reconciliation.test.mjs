@@ -454,6 +454,82 @@ test("a completed Grand Final Reset is the sole deciding terminal set", () => {
   assert.equal(report.events[0].results.runnerUp.corroboration.setId, reset.id);
 });
 
+test("a proven unused reset permits terminal corroboration while retaining malformed standings", () => {
+  const major = registryEvent("major:unused-reset", "Unused reset", 2022, "Winner", "Runner");
+  const sourceEvent = event(650, major);
+  const { groupId } = addChampionshipPhase(sourceEvent);
+  const entrants = [0, 1, 2].map((number) => entrant(sourceEvent.id, 650 + number, `startgg:player:${650 + number}`));
+  const createSet = (id, label, winner, prereqIds = [], placement = false) => ({
+    ...bracketSet({ id, sourceEvent, groupId, entrantIds: entrants.slice(0, 2).map((row) => row.id),
+      winnerEntrantId: entrants[winner].id, winnerPlayerId: entrants[winner].playerId,
+      fullRoundText: label, prereqIds, wPlacement: placement ? 1 : null, lPlacement: placement ? 2 : null }),
+    state: 3,
+  });
+  const final = createSet(650, "Grand Final", 0, [648, 649], true);
+  final.bracket.slots.forEach((slot) => { slot.prereqPlacement = 1; });
+  const reset = createSet(651, "Grand Final Reset", 0, [650, 650], true);
+  Object.assign(reset, { eligible: false, state: 5, entrantIds: [null, null], playerIds: [null, null],
+    scores: [null, null], winnerEntrantId: null, winnerPlayerId: null,
+    timestamps: { startAt: null, startedAt: null, completedAt: null } });
+  reset.bracket.slots.forEach((slot, index) => Object.assign(slot,
+    { slotIndex: index, entrantId: null, seed: null, prereqPlacement: index + 1, prereqCondition: null }));
+  const registry = { schemaVersion: 1, events: [major] };
+  const dataset = { schemaVersion: 1, events: [sourceEvent], entrants,
+    standings: [standing(sourceEvent.id, 650, entrants[0].id, 1), standing(sourceEvent.id, 652, entrants[2].id, 1)],
+    aliases: [alias(650, entrants[0].playerId, entrants[0].id, sourceEvent.id, "Winner"),
+      alias(651, entrants[1].playerId, entrants[1].id, sourceEvent.id, "Runner")],
+    sets: [createSet(648, "Winners Final", 0), createSet(649, "Losers Final", 1), final, reset] };
+  const before = JSON.stringify(dataset);
+  const report = auditHistoricalOutcomes(registry, dataset);
+  assert.equal(report.allMatched, false);
+  assert.equal(report.allReconciled, true);
+  const result = report.events[0];
+  assert.deepEqual(result.reviewSignals, ["runnerUp:missing_standing", "winner:multiple_standings"]);
+  assert.equal(result.results.winner.corroboration.setId, final.id);
+  assert.equal(result.results.runnerUp.corroboration.setId, final.id);
+  assert.deepEqual(result.results.winner.corroboration.championship.outgoingSetIds, [reset.id]);
+  assert.equal(result.results.winner.corroboration.championship.unusedReset.setId, reset.id);
+  assert.equal(JSON.stringify(dataset), before, "corroboration never rewrites source outcomes");
+
+  const changes = [
+    (row) => { row.state = 1; },
+    (row) => { row.state = 3; },
+    (row) => { row.eligible = true; },
+    (row) => { row.entrantIds[0] = entrants[0].id; },
+    (row) => { row.playerIds[0] = entrants[0].playerId; },
+    (row) => { row.scores[0] = 0; },
+    (row) => { row.winnerEntrantId = entrants[0].id; },
+    (row) => { row.winnerPlayerId = entrants[0].playerId; },
+    (row) => { row.timestamps.startedAt = 1; },
+    (row) => { row.timestamps.completedAt = 1; },
+    (row) => { row.bracket.fullRoundText = "Other Final"; },
+    (row) => { row.bracket.phaseGroup.id = groupId + 1; },
+    (row) => { row.bracket.slots[1].prereqId = "649"; },
+    (row) => { row.bracket.slots[1].prereqPlacement = 1; },
+    (row) => { row.bracket.slots[1].prereqCondition = "winner"; },
+    (row) => { row.bracket.slots[0].entrantId = "650"; },
+    (row) => { row.bracket.slots[0].seed = { id: 1 }; },
+    (row) => { row.bracket.winnerProgressionSeed = { id: 1 }; },
+    (row) => { row.source.provenanceIds = []; },
+    (_row, copy) => { copy.sets[0].state = 2; },
+    (_row, copy) => { copy.sets[0].bracket.fullRoundText = "Pools Final"; },
+    (_row, copy) => { copy.sets.push({ ...structuredClone(reset), id: "startgg:set:652", source: { ...reset.source, id: "652" } }); },
+    (_row, copy) => { copy.sets.push(createSet(653, "Other set", 0, [651])); },
+  ];
+  for (const [index, change] of changes.entries()) {
+    const copy = structuredClone(dataset);
+    change(copy.sets.at(-1), copy);
+    const rejected = auditHistoricalOutcomes(registry, copy);
+    assert.equal(rejected.allReconciled, false, `inconsistent reset case ${index} must fail closed`);
+    assert.equal(rejected.events[0].results.winner.corroboration, null);
+  }
+  const lowerSideWin = structuredClone(dataset);
+  Object.assign(lowerSideWin.sets[2], { winnerEntrantId: entrants[1].id, winnerPlayerId: entrants[1].playerId, scores: [0, 3] });
+  const swappedRegistry = { schemaVersion: 1, events: [{ ...major, historicalOutcome: { winner: "Runner", runnerUp: "Winner" } }] };
+  assert.equal(auditHistoricalOutcomes(swappedRegistry, lowerSideWin).allReconciled, false,
+    "a losers-side Grand Final victory still requires a played reset even if the expected names agree");
+});
+
 test("a corpus alias collision disables authoritative player alias-history corroboration", () => {
   const targetMajor = registryEvent("major:alias-target", "Alias target", 2021, "Cody Schwab", "Runner");
   const historyMajor = registryEvent("major:alias-history", "Alias history", 2024, "Cody Schwab", "Other");

@@ -256,17 +256,77 @@ export function fitRegularizedBradleyTerryModel({ events, sets, cutoff, seedInde
   const orderedPlayers = [...players].sort(compare);
   const fitted = fitCoefficients(observations, orderedPlayers, config);
 
+  const methodology = {
+    kind: "l2-regularized-bradley-terry",
+    playerEffects: "categorical public player IDs; ID numbers are never numeric features",
+    features: ["initial-seed log ratio", "pre-event recency-decayed opponent-adjusted form difference"],
+    ...config,
+    trainingEvents: events.length,
+    trainingSets: sets.length,
+    trainedPlayers: orderedPlayers.length,
+    coefficients: fitted.coefficients,
+    featureScales: scales,
+    fit: fitted.fit,
+    chronology: "reported event completion; all same-event and equal-completion-time observations use one opening state",
+    targetState: "training state decayed to forecast cutoff",
+    missingSeed: "zero feature contribution unless both initial seeds are available and distinct",
+    missingPlayerAbility: "zero ability effect",
+    missingForm: "zero form value for each player without prior outcomes",
+    seedAvailability: seedIndex.allowHistorical ? "historical availability assumed" : "observed before cutoff only",
+    characterFeature: "not included",
+  };
+  return restoreRegularizedBradleyTerryModel({
+    schemaVersion: 1,
+    kind: "regularized-bt-fitted-snapshot",
+    cutoff,
+    methodology,
+    abilities: [...fitted.abilities],
+    targetForm: [...targetForm].sort(([a], [b]) => compare(a, b)),
+  }, { seedIndex });
+}
+
+/** Restore a frozen-cutoff fit without historical sets. The supplied seeds are
+ * for the requested event; the fitted abilities/form remain as of snapshot.cutoff.
+ * Refit to incorporate newer outcomes or advance the form cutoff. */
+export function restoreRegularizedBradleyTerryModel(input, { seedIndex } = {}) {
+  if (input?.schemaVersion !== 1 || input.kind !== "regularized-bt-fitted-snapshot"
+    || !Number.isFinite(input.cutoff) || input.cutoff <= 0) throw new Error("Invalid fitted model snapshot");
+  if (!(seedIndex?.seeds instanceof Map)) throw new Error("A seed index with a seeds Map is required");
+  const readState = (entries, label) => {
+    if (!Array.isArray(entries) || entries.some((entry) => !Array.isArray(entry) || entry.length !== 2
+      || typeof entry[0] !== "string" || !entry[0] || !Number.isFinite(entry[1]))) {
+      throw new Error(`Invalid snapshot ${label}`);
+    }
+    const state = new Map(entries);
+    if (state.size !== entries.length) throw new Error(`Duplicate snapshot ${label} player`);
+    return state;
+  };
+  const abilities = readState(input.abilities, "abilities");
+  const targetForm = readState(input.targetForm, "form");
+  const coefficients = input.methodology?.coefficients;
+  const scales = { ...input.methodology?.featureScales };
+  const fit = input.methodology?.fit;
+  if (![coefficients?.seed, coefficients?.form].every(Number.isFinite)
+    || ![scales?.seed, scales?.form].every((value) => Number.isFinite(value) && value > 0)
+    || input.methodology?.trainedPlayers !== abilities.size
+    || targetForm.size !== abilities.size
+    || typeof fit?.converged !== "boolean" || !Number.isSafeInteger(fit?.iterations) || fit.iterations < 0
+    || ![fit?.objective, fit?.lastLargestDirection, fit?.lastGradientMax].every(Number.isFinite)
+    || [...targetForm.keys()].some((player) => !abilities.has(player))) {
+    throw new Error("Invalid snapshot fitted parameters");
+  }
+  const snapshot = structuredClone(input);
   const predict = (set) => {
     const [a, b] = set.playerIds ?? [];
     if (!a || !b || a === b) throw new Error("A prediction needs two distinct players");
-    const knownPlayers = Number(fitted.abilities.has(a)) + Number(fitted.abilities.has(b));
+    const knownPlayers = Number(abilities.has(a)) + Number(abilities.has(b));
     const pair = seedPair(set, seedIndex);
     const seed = pair ? rawSeedDifference(set, seedIndex) / scales.seed : 0;
     const aHasForm = targetForm.has(a);
     const bHasForm = targetForm.has(b);
     const form = ((targetForm.get(a) ?? 0) - (targetForm.get(b) ?? 0)) / scales.form;
-    const linear = (fitted.abilities.get(a) ?? 0) - (fitted.abilities.get(b) ?? 0)
-      + fitted.coefficients.seed * seed + fitted.coefficients.form * form;
+    const linear = (abilities.get(a) ?? 0) - (abilities.get(b) ?? 0)
+      + snapshot.methodology.coefficients.seed * seed + snapshot.methodology.coefficients.form * form;
     return {
       p: sigmoid(linear),
       covered: knownPlayers === 2,
@@ -279,25 +339,8 @@ export function fitRegularizedBradleyTerryModel({ events, sets, cutoff, seedInde
   return {
     id: "regularized-bt-recent-form",
     name: "Regularized Bradley-Terry + seed + recent form",
-    methodology: {
-      kind: "l2-regularized-bradley-terry",
-      playerEffects: "categorical public player IDs; ID numbers are never numeric features",
-      features: ["initial-seed log ratio", "pre-event recency-decayed opponent-adjusted form difference"],
-      ...config,
-      trainingEvents: events.length,
-      trainingSets: sets.length,
-      trainedPlayers: orderedPlayers.length,
-      coefficients: fitted.coefficients,
-      featureScales: scales,
-      fit: fitted.fit,
-      chronology: "reported event completion; all same-event and equal-completion-time observations use one opening state",
-      targetState: "training state decayed to forecast cutoff",
-      missingSeed: "zero feature contribution unless both initial seeds are available and distinct",
-      missingPlayerAbility: "zero ability effect",
-      missingForm: "zero form value for each player without prior outcomes",
-      seedAvailability: seedIndex.allowHistorical ? "historical availability assumed" : "observed before cutoff only",
-      characterFeature: "not included",
-    },
+    methodology: structuredClone(snapshot.methodology),
+    get snapshot() { return structuredClone(snapshot); },
     predict,
   };
 }

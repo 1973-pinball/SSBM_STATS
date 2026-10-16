@@ -91,6 +91,131 @@ export const RIPTIDE_TOP16_TOP8_ROUTING = deepFreeze({
   },
 });
 
+/**
+ * Platfight's published Top 24 route, conditional on root seeds 1–16 surviving
+ * pools and seeds 9–16 winning the first played lower round (source J–Q).
+ * The phase's projectedEntrantId values map its seeds 1–16 to root seeds 1–16.
+ * Only A–D and R–Y progress toward Top 8; later Top 24 preview rows are unused
+ * after wProgressionSeedId transfers their winners into phase group 3462538.
+ *
+ * Source URLs reviewed for this event:
+ * https://api.start.gg/event/1661592?expand[]=phase&expand[]=groups&expand[]=entrants&expand[]=seeds
+ * https://api.start.gg/phase_group/3462537?expand[]=sets&expand[]=seeds
+ * https://api.start.gg/phase_group/3462538?expand[]=sets&expand[]=seeds
+ *
+ * A–D/J–Q below are stable UI keys, not all the published source identifiers.
+ * In particular UI J/K/L/M = source T/U/R/S and N/O/P/Q = source X/Y/V/W.
+ */
+export const PLATFIGHT_2026_TOP16_TOP8_ROUTING = deepFreeze({
+  id: "platfight-2026-published-top24-conditional-top16-top8-v1",
+  label: "Platfight published Top 24 → Top 8 routing, conditional on Top 16 survival",
+  fieldSize: 16,
+  sourceEventId: "1661592",
+  sourceUrls: [
+    "https://api.start.gg/event/1661592?expand[]=phase&expand[]=groups&expand[]=entrants&expand[]=seeds",
+    "https://api.start.gg/phase_group/3462537?expand[]=sets&expand[]=seeds",
+    "https://api.start.gg/phase_group/3462538?expand[]=sets&expand[]=seeds",
+  ],
+  assumptions: [
+    "Root seeds 1–16 reach their projected Top 24 slots.",
+    "Seeds 9–16 win the first played Top 24 lower round; seeds 17–24 are outside this conditional scenario.",
+  ],
+  matches: [
+    { id: "A", label: "Top 24 winners A", phase: "top16", bracket: "upper",
+      sourceSetId: "preview_3462537_3_0", sourceIdentifier: "A",
+      round: "winners-quarterfinal", sides: [seedSource(1), seedSource(8)] },
+    { id: "B", label: "Top 24 winners B", phase: "top16", bracket: "upper",
+      sourceSetId: "preview_3462537_3_1", sourceIdentifier: "B",
+      round: "winners-quarterfinal", sides: [seedSource(4), seedSource(5)] },
+    { id: "C", label: "Top 24 winners C", phase: "top16", bracket: "upper",
+      sourceSetId: "preview_3462537_3_2", sourceIdentifier: "C",
+      round: "winners-quarterfinal", sides: [seedSource(2), seedSource(7)] },
+    { id: "D", label: "Top 24 winners D", phase: "top16", bracket: "upper",
+      sourceSetId: "preview_3462537_3_3", sourceIdentifier: "D",
+      round: "winners-quarterfinal", sides: [seedSource(3), seedSource(6)] },
+    { id: "J", label: "Top 24 lower T", phase: "top16", bracket: "lower",
+      sourceSetId: "preview_3462537_-5_2", sourceIdentifier: "T",
+      round: "lower-initial", sides: [seedSource(12), seedSource(13)], loserPlacement: 13 },
+    { id: "K", label: "Top 24 lower U", phase: "top16", bracket: "lower",
+      sourceSetId: "preview_3462537_-5_3", sourceIdentifier: "U",
+      round: "lower-initial", sides: [seedSource(9), seedSource(16)], loserPlacement: 13 },
+    { id: "L", label: "Top 24 lower R", phase: "top16", bracket: "lower",
+      sourceSetId: "preview_3462537_-5_0", sourceIdentifier: "R",
+      round: "lower-initial", sides: [seedSource(11), seedSource(14)], loserPlacement: 13 },
+    { id: "M", label: "Top 24 lower S", phase: "top16", bracket: "lower",
+      sourceSetId: "preview_3462537_-5_1", sourceIdentifier: "S",
+      round: "lower-initial", sides: [seedSource(10), seedSource(15)], loserPlacement: 13 },
+    { id: "N", label: "Top 24 lower qualifier X", phase: "top16", bracket: "lower",
+      sourceSetId: "preview_3462537_-6_2", sourceIdentifier: "X",
+      round: "lower-round-2", sides: [matchSource("D", "loser"), matchSource("J", "winner")],
+      loserPlacement: 9 },
+    { id: "O", label: "Top 24 lower qualifier Y", phase: "top16", bracket: "lower",
+      sourceSetId: "preview_3462537_-6_3", sourceIdentifier: "Y",
+      round: "lower-round-2", sides: [matchSource("C", "loser"), matchSource("K", "winner")],
+      loserPlacement: 9 },
+    { id: "P", label: "Top 24 lower qualifier V", phase: "top16", bracket: "lower",
+      sourceSetId: "preview_3462537_-6_0", sourceIdentifier: "V",
+      round: "lower-round-2", sides: [matchSource("B", "loser"), matchSource("L", "winner")],
+      loserPlacement: 9 },
+    { id: "Q", label: "Top 24 lower qualifier W", phase: "top16", bracket: "lower",
+      sourceSetId: "preview_3462537_-6_1", sourceIdentifier: "W",
+      round: "lower-round-2", sides: [matchSource("A", "loser"), matchSource("M", "winner")],
+      loserPlacement: 9 },
+    { id: "WSF-A", label: "Winners semifinal A", phase: "top8", bracket: "upper",
+      sourceSetId: "preview_3462538_2_0", sourceIdentifier: "A",
+      round: "winners-semifinal", sides: [matchSource("A", "winner"), matchSource("B", "winner")] },
+    { id: "WSF-B", label: "Winners semifinal B", phase: "top8", bracket: "upper",
+      sourceSetId: "preview_3462538_2_1", sourceIdentifier: "B",
+      round: "winners-semifinal", sides: [matchSource("C", "winner"), matchSource("D", "winner")] },
+    { id: "LR1-A", label: "Lower round 1 F", phase: "top8", bracket: "lower",
+      sourceSetId: "preview_3462538_-3_0", sourceIdentifier: "F",
+      round: "lower-round-1", sides: [matchSource("Q", "winner"), matchSource("P", "winner")],
+      loserPlacement: 7 },
+    { id: "LR1-B", label: "Lower round 1 G", phase: "top8", bracket: "lower",
+      sourceSetId: "preview_3462538_-3_1", sourceIdentifier: "G",
+      round: "lower-round-1", sides: [matchSource("O", "winner"), matchSource("N", "winner")],
+      loserPlacement: 7 },
+    { id: "LQF-A", label: "Lower quarterfinal H", phase: "top8", bracket: "lower",
+      sourceSetId: "preview_3462538_-4_0", sourceIdentifier: "H",
+      round: "lower-quarterfinal", sides: [matchSource("WSF-B", "loser"), matchSource("LR1-A", "winner")],
+      loserPlacement: 5 },
+    { id: "LQF-B", label: "Lower quarterfinal I", phase: "top8", bracket: "lower",
+      sourceSetId: "preview_3462538_-4_1", sourceIdentifier: "I",
+      round: "lower-quarterfinal", sides: [matchSource("WSF-A", "loser"), matchSource("LR1-B", "winner")],
+      loserPlacement: 5 },
+    { id: "LSF", label: "Lower semifinal J", phase: "top8", bracket: "lower",
+      sourceSetId: "preview_3462538_-5_0", sourceIdentifier: "J",
+      round: "lower-semifinal", sides: [matchSource("LQF-A", "winner"), matchSource("LQF-B", "winner")],
+      loserPlacement: 4 },
+    { id: "WF", label: "Winners final C", phase: "top8", bracket: "upper",
+      sourceSetId: "preview_3462538_3_0", sourceIdentifier: "C",
+      round: "winners-final", sides: [matchSource("WSF-A", "winner"), matchSource("WSF-B", "winner")] },
+    { id: "LF", label: "Lower final K", phase: "top8", bracket: "lower",
+      sourceSetId: "preview_3462538_-6_0", sourceIdentifier: "K",
+      round: "lower-final", sides: [matchSource("WF", "loser"), matchSource("LSF", "winner")],
+      loserPlacement: 3 },
+    { id: "GF", label: "Grand final D", phase: "top8", bracket: "final",
+      sourceSetId: "preview_3462538_4_0", sourceIdentifier: "D",
+      round: "grand-final", sides: [matchSource("WF", "winner"), matchSource("LF", "winner")] },
+  ],
+  top8Qualifiers: [
+    { top8Seed: 1, sourceSeedId: "42098602", source: matchSource("A", "winner") },
+    { top8Seed: 2, sourceSeedId: "42098603", source: matchSource("C", "winner") },
+    { top8Seed: 3, sourceSeedId: "42098604", source: matchSource("D", "winner") },
+    { top8Seed: 4, sourceSeedId: "42098605", source: matchSource("B", "winner") },
+    { top8Seed: 5, sourceSeedId: "42098606", source: matchSource("P", "winner") },
+    { top8Seed: 6, sourceSeedId: "42098607", source: matchSource("N", "winner") },
+    { top8Seed: 7, sourceSeedId: "42098608", source: matchSource("O", "winner") },
+    { top8Seed: 8, sourceSeedId: "42098609", source: matchSource("Q", "winner") },
+  ],
+  championship: {
+    grandFinalId: "GF",
+    lowerSide: 1,
+    reset: { id: "GF-RESET", label: "Grand final reset E", phase: "top8", bracket: "final",
+      sourceSetId: "preview_3462538_4_1", sourceIdentifier: "E", round: "grand-final-reset" },
+  },
+});
+
 function validatePlayers(players, fieldSize) {
   if (!Array.isArray(players) || players.length !== fieldSize) {
     throw new Error(`Bracket projection requires exactly ${fieldSize} players`);

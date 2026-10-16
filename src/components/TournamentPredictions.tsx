@@ -204,7 +204,7 @@ function BacktestComparison({
       </div>
 
       <div className="tp-backtest-note" id="tp-backtest-note">
-        <b>Retrospective, not snapshot-verified.</b> {evidenceMode.description}. These are set-level results conditional on realized matchups, not bracket, Top-8, or title-odds backtests. Hyperparameters are selected only from earlier inner folds; no model family is automatically selected.
+        <b>Retrospective, not snapshot-verified.</b> {evidenceMode.description}. This saved historical comparison is separate from the selected tournament's training snapshot. These are set-level results conditional on realized matchups, not bracket, Top-8, or title-odds backtests. Hyperparameters are selected only from earlier inner folds; no model family is automatically selected.
       </div>
       <div className="tp-backtest-meta">
         <span>{TOURNAMENT_PREDICTION_BACKTEST.coverage.events} held-out events</span>
@@ -365,7 +365,7 @@ function Top8Bracket({
 }
 
 export function TournamentPredictions() {
-  const tournaments = TOURNAMENT_PREDICTIONS.tournaments;
+  const tournaments: readonly TournamentPrediction[] = TOURNAMENT_PREDICTIONS.tournaments;
   const initialTournament = tournaments[0];
   const [tournamentId, setTournamentId] = useState(initialTournament?.id ?? "");
   const [modelId, setModelId] = useState(initialTournament?.defaultModelId ?? "");
@@ -416,8 +416,8 @@ export function TournamentPredictions() {
       </div>
 
       <div className="tp-model-strip" id="tp-model-explanation">
-        <div><b>{model.shortName}</b><span>{model.explanation} The scores follow the evidence mode selected in the comparison below.</span></div>
-        <dl aria-label={`${evidenceMode.label} out-of-sample evaluation; lower Brier score and log loss are better`}>
+        <div><b>{model.shortName}</b><span>{model.explanation} Scores summarize the saved {TOURNAMENT_PREDICTION_BACKTEST.coverage.events}-event historical model comparison under the evidence mode selected below.</span></div>
+        <dl aria-label={`${evidenceMode.label} saved historical model comparison; lower Brier score and log loss are better`}>
           <div><dt>OOS Brier</dt><dd>{(modelEvidence?.eventMacro.brier ?? model.heldOut.brier).toFixed(3)}</dd></div>
           <div><dt>OOS log loss</dt><dd>{(modelEvidence?.eventMacro.logLoss ?? model.heldOut.logLoss).toFixed(3)}</dd></div>
           <div><dt>Test sets</dt><dd>{(modelEvidence?.outerSets ?? model.heldOut.predictions).toLocaleString()}</dd></div>
@@ -438,12 +438,14 @@ export function TournamentPredictions() {
 
       <div className="tp-caveat" id="tp-caveat">
         <b>{tournament.scenario.label}.</b> {tournament.scenario.explanation} This is an experimental path, not a confirmed later-round bracket, full-field simulation, title probability, or confidence interval. Entrants and routing can change while the event is {tournament.snapshot.state}.
+        {model.fit?.converged === false && <> This model fit did not converge; treat its estimates with additional caution.</>}
         {tournament.scenario.missingPoolNames.length > 0 && <> The snapshot has no set rows for {tournament.scenario.missingPoolNames.join(", ")} ({tournament.scenario.missingEntrantCount} entrants), so the complete upstream field cannot yet be simulated.</>}
       </div>
       <div className="tp-meta">
         <span>Snapshot {shortDate(tournament.snapshot.fetchedAt)}</span>
         <span>{tournament.snapshot.entrantCount.toLocaleString()} entrants</span>
         <span>{tournament.training.events} training events · {tournament.training.sets.toLocaleString()} sets</span>
+        {tournament.training.throughDate && <span>History through {shortDate(tournament.training.throughDate)}</span>}
         <a href={tournament.sourceUrl} target="_blank" rel="noreferrer">Start.gg source</a>
       </div>
 

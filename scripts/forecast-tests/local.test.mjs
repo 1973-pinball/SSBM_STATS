@@ -41,10 +41,11 @@ test("output roots cannot publish research data in this checkout or via symlink"
     await assert.rejects(researchRoot(path.join(ROOT, child)), /ignored .forecast/);
   }
   const link = path.join(dir, "web-output");
-  await symlink(path.join(ROOT, "public"), link);
+  // Junctions exercise the same directory escape without Windows symlink privileges.
+  await symlink(path.join(ROOT, "public"), link, process.platform === "win32" ? "junction" : "dir");
   await assert.rejects(researchRoot(path.join(link, "forecast")), /ignored .forecast/);
   assert.equal(await researchRoot(DEFAULT_ROOT), DEFAULT_ROOT);
-  assert.ok((await researchRoot(path.join(dir, "research"))).endsWith("/research"));
+  assert.equal(await researchRoot(path.join(dir, "research")), path.join(dir, "research"));
 });
 
 test("JSON artifacts are deterministic and SHA-checkable", async (t) => {

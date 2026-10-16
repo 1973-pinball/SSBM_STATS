@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { fitRegularizedBradleyTerryModel } from "../lib/forecast/regularized-bradley-terry.mjs";
+import { fitRegularizedBradleyTerryModel, restoreRegularizedBradleyTerryModel } from "../lib/forecast/regularized-bradley-terry.mjs";
 
 const event = (id, start, end) => ({ id, eligible: true, chronology: {
   reportedEventStartAt: start, reportedTournamentStartAt: start,
@@ -136,4 +136,51 @@ test("prediction never reads the target winner and strict seed policy is disclos
   target.winnerPlayerId = "bob";
   assert.deepEqual(model.predict(target), before);
   assert.equal(model.methodology.seedAvailability, "observed before cutoff only");
+});
+
+test("saved fitted state reproduces predictions without historical sets and accepts fresh event seeds", () => {
+  const fixture = historyFixture();
+  const seeds = seedIndex([["e1", "alice", 1], ["e1", "bob", 2], ["e2", "alice", 1],
+    ["e2", "bob", 2], ["e3", "alice", 2], ["e3", "bob", 1]]);
+  const model = fitRegularizedBradleyTerryModel({ ...fixture, events: fixture.events.slice(0, 2), seedIndex: seeds });
+  const exported = JSON.parse(JSON.stringify(model.snapshot));
+  const restored = restoreRegularizedBradleyTerryModel(exported, { seedIndex: seeds });
+  for (const [a, b] of [["alice", "bob"], ["bob", "alice"], ["alice", "new"], ["new", "other"]]) {
+    const target = game("target", "e3", a, b, a);
+    assert.deepEqual(restored.predict(target), model.predict(target));
+  }
+  assert.equal(restored.snapshot.cutoff, fixture.cutoff);
+  assert.deepEqual(restored.methodology.fit, model.methodology.fit);
+  const target = game("target", "e3", "alice", "bob", "alice");
+  const before = restored.predict(target);
+  exported.methodology.featureScales.seed = 0;
+  exported.abilities[0][1] = 900;
+  restored.snapshot.abilities[0][1] = -900;
+  assert.deepEqual(restored.predict(target), before, "caller mutations must not alter restored predictions");
+  const newSeeds = seedIndex([["new-event", "alice", 2], ["new-event", "bob", 1]]);
+  const newEvent = restoreRegularizedBradleyTerryModel(model.snapshot, { seedIndex: newSeeds });
+  assert.deepEqual(newEvent.predict(game("new", "new-event", "alice", "bob", "alice")), before);
+});
+
+test("fitted snapshot loading rejects malformed or incomplete player state", () => {
+  const fixture = historyFixture();
+  const model = fitRegularizedBradleyTerryModel({ ...fixture, events: fixture.events.slice(0, 2) });
+  for (const mutate of [
+    (value) => { value.schemaVersion = 2; },
+    (value) => { value.cutoff = null; },
+    (value) => { value.abilities.push(value.abilities[0]); },
+    (value) => { value.abilities[0][1] = null; },
+    (value) => { value.methodology.coefficients.seed = Infinity; },
+    (value) => { value.methodology.featureScales.form = 0; },
+    (value) => { value.targetForm.push(["unknown", 0]); },
+    (value) => { value.targetForm.pop(); },
+    (value) => { delete value.methodology.fit; },
+    (value) => { value.methodology.fit.converged = "true"; },
+    (value) => { value.methodology.fit.iterations = -1; },
+    (value) => { value.methodology.fit.objective = null; },
+  ]) {
+    const snapshot = model.snapshot;
+    mutate(snapshot);
+    assert.throws(() => restoreRegularizedBradleyTerryModel(snapshot, { seedIndex: fixture.seedIndex }), /snapshot/i);
+  }
 });
