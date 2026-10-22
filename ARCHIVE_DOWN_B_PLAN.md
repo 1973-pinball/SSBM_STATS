@@ -3,8 +3,14 @@
 Down B initiation counts require a new full replay parse. The published archive
 from before stats version 4 contains numeric `attempts: 0` placeholders for
 special moves. Those are not measurements and cannot be backfilled from landed
-hits or damage. Until a refreshed dataset is published, Down B attempt and
-outcome comparisons correctly remain unavailable for Venue, Tournament, and Pros.
+hits or damage. In those older datasets, Down B attempt and outcome comparisons
+correctly remain unavailable for Venue, Tournament, and Pros.
+
+The refreshed `nikki-2026-09-08-v9` dataset was published on October 22, 2026:
+67 original bundles, 159,965 replay files, 158,884 successful parses, and 158,530
+unique games, excluding only `ootb5`. All 27 named Pro players remain. Independent
+reconciliation passed for 829 global and 640 matchup aggregates, and the live
+Atlas and Execution rates and coverage notes matched the verified export.
 
 The same parser supports local replay imports and the archive. Every character's
 Down B can have measured initiations. Outcome counts are limited to moves whose
