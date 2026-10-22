@@ -1,5 +1,5 @@
 import Dexie, { type Table } from "dexie";
-import { CURRENT_STATS_VERSION, hasCurrentStats } from "./types";
+import { CURRENT_STATS_VERSION, hasCurrentStats, needsStatsRepair } from "./types";
 import type { Account, GameRecord } from "./types";
 import { dedupeRecords } from "./dedupe";
 import type { ReplayFolder } from "./folders";
@@ -300,6 +300,31 @@ class SsbmDb extends Dexie {
       .upgrade(async (tx) => {
         await tx.table("packs").clear();
         await tx.table("seen").clear();
+      });
+    // Down B starts/outcomes require replay frames (statsVersion 4). Release
+    // stale file markers so the remembered folder can reparse them. Preserve
+    // failure diagnostics and any current records restored before this upgrade.
+    this.version(17)
+      .stores({
+        games: "id, playedAt, stageId, gameType",
+        packs: "++id",
+        seen: "id",
+        kv: "key",
+      })
+      .upgrade(async (tx) => {
+        const packs = tx.table<RecordPack>("packs");
+        const staleIds: string[] = [];
+        for (const pack of await packs.toArray()) {
+          const kept = pack.records.filter((rec) => {
+            if (!needsStatsRepair(rec)) return true;
+            staleIds.push(rec.id);
+            return false;
+          });
+          if (kept.length === pack.records.length || pack.id === undefined) continue;
+          if (kept.length > 0) await packs.put({ ...pack, records: kept });
+          else await packs.delete(pack.id);
+        }
+        if (staleIds.length > 0) await tx.table("seen").bulkDelete(staleIds);
       });
   }
 }

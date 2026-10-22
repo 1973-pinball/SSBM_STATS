@@ -1,13 +1,14 @@
 import { CURRENT_STATS_VERSION } from "./types";
 import type { Account, ActionCounts, GameRecord, MoveAgg, PlayerSide, TechCounts } from "./types";
 import { INCLUDED_STAGE_IDS } from "./config";
+import { getDownBCapability } from "./downBSpecial";
 
 /**
  * Plausible per-move landed/damage/kill aggregates (keyed by Melee attack ID,
  * matching the parser). The demo player has a deliberate tell for the move-
  * impact analysis: side-B spam swells in losses, dair/bair carry wins.
  */
-function mkMoveStats(rand: () => number, minutes: number, kills: number, totalDamage: number, isMe: boolean, iWin: boolean, lcRate: number): Record<number, MoveAgg> {
+function mkMoveStats(rand: () => number, minutes: number, kills: number, totalDamage: number, isMe: boolean, iWin: boolean, lcRate: number, characterId: number): Record<number, MoveAgg> {
   // [moveId, weight, avgDmgPerHit]
   const mix: [number, number, number][] = [
     [2, 1.6, 3], // jab
@@ -33,7 +34,7 @@ function mkMoveStats(rand: () => number, minutes: number, kills: number, totalDa
     [18, isMe ? 5.5 : 2.5, 3], // neutral-b (laser: lots of hits, tiny damage)
     [19, isMe ? (iWin ? 1.85 : 2.15) : 1.0, 9], // side-b — the loss habit
     [20, 0.15, 12], // up-b — occasional recovery hit
-    [21, isMe ? 1.8 : 1.0, 7], // down-b — landed specials, with no attempt counter
+    [21, isMe ? 1.8 : 1.0, 7], // down-b — attempts plus outcomes for direct attacks
     [53, 0.5, 5], // fthrow
     [55, 0.7, 5], // uthrow
     [56, 0.9, 6], // dthrow
@@ -54,8 +55,18 @@ function mkMoveStats(rand: () => number, minutes: number, kills: number, totalDa
       lcFail = attempts - lcSuccess;
     }
     out[id] = { landed, damage, kills: 0, killPctSum: 0, openings: 0, openingDmg: 0, lcSuccess, lcFail };
-    // Attempts are tracked for normals + aerials only, mirroring the parser.
+    // Normals/aerials and Down B mirror the parser's capability split.
     if ((id >= 2 && id <= 17) || id === 6) out[id].attempts = Math.round(landed * (1.2 + rand() * 0.6));
+    if (id === 21) {
+      const attempts = Math.round(minutes * (isMe ? 9 : 6) * (0.7 + rand() * 0.6));
+      out[id].attempts = attempts;
+      if (getDownBCapability(characterId).outcomes) {
+        // Simulate per-use outcomes independently of conversion landed counts.
+        out[id].hitAttempts = Math.round(attempts * (0.35 + rand() * 0.2));
+        out[id].noHitAttempts = attempts - out[id].hitAttempts;
+        out[id].incompleteAttempts = 0;
+      }
+    }
     rawDmg += damage;
   }
   // Scale damages so the per-move sum matches the game's totalDamage.
@@ -239,7 +250,7 @@ export function generateDemoRecords(count = 1600, seed = 20260716): GameRecord[]
       const acts = mkActions(rand, minutes, techSkill);
       const totalDamage = kills * (95 + rand() * 40);
       return {
-        moveStats: mkMoveStats(rand, minutes, kills, totalDamage, isMe, isMe ? iWin : !iWin, isMe ? lcRate : 0.6 + rand() * 0.3),
+        moveStats: mkMoveStats(rand, minutes, kills, totalDamage, isMe, isMe ? iWin : !iWin, isMe ? lcRate : 0.6 + rand() * 0.3, isMe ? mine.id : oppChar),
         port: isMe ? 1 : 2,
         connectCode: isMe ? myCode : rival.code,
         displayName: isMe ? (myCode === DEMO_CODE ? "demo" : "demo alt") : rival.name,

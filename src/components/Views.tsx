@@ -6,11 +6,12 @@ import { matchupMatrix, byStage, byOpponent, byOppCharacter, computeSets, setsSu
 import type { ExecMetricKey, ExecutionSummary, GameSet, MoveMetricKey, MoveRow, SetsSummary } from "../lib/stats";
 import { pct, num, int, shortDate, duration, winRateColor, countNoun } from "../lib/format";
 import { charName, moveGroup, moveGroupTracksAttempts, stageName } from "../lib/melee";
+import { getDownBCapability } from "../lib/downBSpecial";
 import { Kpi } from "./Kpi";
 import { axisStyle, tooltipStyle, gridStyle, dayTick, OPP_SERIES_COLOR } from "./chartStyle";
 import { activateOnKey } from "../lib/a11y";
 import { demoCommunitySnapshot, fetchCommunitySnapshot, type CommunityBenchmarkRow, type CommunityExecutionRow, type CommunityMoveRow } from "../lib/community";
-import { archiveMoveBenchmark, communityMoveBenchmark, groupedArchiveMove, localMoveMetric } from "../lib/executionMoveBenchmarks";
+import { archiveMoveBenchmark, archiveMoveComparisonGames, archiveMoveSample, communityMoveBenchmark, groupedArchiveMove, localMoveComparisonGames, localMoveMetric, localMoveSample } from "../lib/executionMoveBenchmarks";
 import {
   fetchArchiveCommunityBenchmarks,
   fetchArchiveProAggregateAtlasRows,
@@ -1138,6 +1139,8 @@ function PerGameMetricChart({
 
 const MOVE_METRIC_CHOICES: { key: MoveMetricKey; label: string; unit: string; digits: number }[] = [
   { key: "attemptsPerGame", label: "Attempted / game", unit: "", digits: 1 },
+  { key: "noHitPerGame", label: "No-hit uses / game", unit: "", digits: 1 },
+  { key: "noHitRate", label: "No-hit rate", unit: "%", digits: 1 },
   { key: "landedPerGame", label: "Landed / game", unit: "", digits: 1 },
   { key: "dmgPerGame", label: "Dmg / game", unit: "", digits: 1 },
   { key: "dmgShare", label: "Dmg share", unit: "%", digits: 1 },
@@ -1155,7 +1158,9 @@ const MOVE_METRIC_CHOICES: { key: MoveMetricKey; label: string; unit: string; di
  */
 const MOVE_METRIC_EMPTY: Partial<Record<MoveMetricKey, string>> = {
   attemptsPerGame:
-    "Attempts are tracked for grounded normals and aerials only — specials and throws record landings, not initiations.",
+    "Attempts are tracked for normals, aerials, and Down B. Refresh your replays to add Down B attempts.",
+  noHitPerGame: "No-hit outcomes are available for direct offensive Down B attacks after refreshing replays. Utility and delayed attacks have attempts only.",
+  noHitRate: "No-hit rate needs completed, outcome-tracked Down B uses. Utility and delayed attacks have attempts only.",
   lCancelPct: "L-cancel only applies to aerials.",
   avgKillPct: "This move hasn't closed a stock in these games.",
 };
@@ -1207,8 +1212,16 @@ function hasOpponentMoveMetric(
   for (const game of games) {
     const moves = game.opp.moveStats;
     if (!moves) continue;
-    if (hasTrackedAttemptMove && (hasCurrentStats(game.rec) || Object.entries(moves).some(([moveId, move]) =>
+    if (hasTrackedAttemptMove && ((game.rec.statsVersion ?? 0) >= 1 || Object.entries(moves).some(([moveId, move]) =>
       move.attempts !== undefined && moveGroupTracksAttempts(moveGroup(Number(moveId)).key)))) return true;
+    if (moveKeys.has("down-b") && (game.rec.statsVersion ?? 0) >= 4 && moves[21]?.attempts !== undefined) {
+      if (metric === "attemptsPerGame") return true;
+      const downB = moves[21];
+      if (downB.hitAttempts !== undefined && downB.noHitAttempts !== undefined && downB.incompleteAttempts !== undefined) {
+        if (metric === "noHitPerGame") return true;
+        if (metric === "noHitRate" && downB.hitAttempts + downB.noHitAttempts > 0) return true;
+      }
+    }
     if (metric === "landedPerGame" || metric === "dmgPerGame" || metric === "killsPerGame") return true;
     for (const [moveId, move] of Object.entries(moves)) {
       const selected = moveKeys.has(moveGroup(Number(moveId)).key);
@@ -1238,12 +1251,14 @@ function MoveMetricChart({ games, moves, benchmarks, metric, setMetric }: {
 }) {
   const [moveKeys, setMoveKeys] = useState<Set<string>>(() => new Set(moves[0] ? [moves[0].key] : []));
   const [showOpp, setShowOpp] = useState(false);
+  const isNoHitMetric = metric === "noHitPerGame" || metric === "noHitRate";
   // Filters change which moves exist at all. Preserve selections that remain
   // available and fall back to the top move only when every held key is stale.
   const activeMoves = useMemo(() => {
+    if (isNoHitMetric) return moves.filter((move) => move.key === "down-b");
     const selected = moves.filter((move) => moveKeys.has(move.key));
     return selected.length > 0 ? selected : moves.slice(0, 1);
-  }, [moves, moveKeys]);
+  }, [moves, moveKeys, isNoHitMetric]);
   const def = MOVE_METRIC_CHOICES.find((m) => m.key === metric)!;
   const points = useMemo(
     () => moveMetricSeriesMany(games, activeMoves.map((move) => move.key), metric),
@@ -1332,7 +1347,7 @@ function MoveMetricChart({ games, moves, benchmarks, metric, setMetric }: {
                   <span>{moveSummary}</span><span className="move-picker-chevron" aria-hidden="true">▾</span>
                 </summary>
                 <div className="move-picker-menu">
-                  {moves.map((move) => {
+                  {moves.filter((move) => !isNoHitMetric || move.key === "down-b").map((move) => {
                     const checked = activeMoves.some((active) => active.key === move.key);
                     return (
                       <label className="move-picker-option" key={move.key}>
@@ -1447,7 +1462,7 @@ function MoveMetricChart({ games, moves, benchmarks, metric, setMetric }: {
             {games.length.toLocaleString()} games in this filter
             {games.length > MAX_SERIES_POINTS ? `, sampled down to ${MAX_SERIES_POINTS.toLocaleString()} points` : ""}.
             Attempted/game correctly reaches zero when you did not initiate the move; gaps mean the selected metric is
-            unavailable, such as initiation counts for specials and throws. SSBM Stats move rates are approximate because
+            unavailable, such as initiation counts for other specials and throws. SSBM Stats move rates are approximate because
             public game counts are privacy-rounded; damage and kill shares cover published move rows.
           </div>
           <BenchmarkFootnote benchmarks={benchmarks} />
@@ -1736,13 +1751,16 @@ function MovesSection({
     : 2;
   const visibleEffectivenessRows = useMemo(
     () => recent.rows.filter((row) => {
+      if (metric === "noHitPerGame" || metric === "noHitRate") return row.key === "down-b";
       if (moveFocus === "down-b") return row.key === "down-b";
       if (moveFocus === "specials") return ["neutral-b", "side-b", "up-b", "down-b"].includes(row.key);
+      if (metric === "attemptsPerGame" && (row.attempts ?? 0) > 0) return true;
       return (row.dmgShare ?? 0) * 100 >= minDamageShare;
     }),
-    [recent.rows, minDamageShare, moveFocus],
+    [recent.rows, minDamageShare, moveFocus, metric],
   );
   const metricDef = MOVE_METRIC_CHOICES.find((choice) => choice.key === metric)!;
+  const downBReason = benchmarks.characterId === null ? null : getDownBCapability(benchmarks.characterId).reason;
   const formatMoveMetric = (value: number | null) => value === null ? "—" : `${num(value, metricDef.digits)}${metricDef.unit}`;
   // The percentage threshold applies only to move share. Action usage is a
   // different unit (/min), so it stays visible at every threshold.
@@ -1839,13 +1857,11 @@ function MovesSection({
               const venueValue = archiveMoveBenchmark(benchmarks.venue, r.key, metric);
               const tournamentValue = archiveMoveBenchmark(benchmarks.tournament, r.key, metric);
               const comparisonValue = tournamentValue ?? venueValue;
-              const comparisonGames = tournamentValue !== null
-                ? benchmarks.tournament?.game_count ?? 0
-                : benchmarks.venue?.game_count ?? 0;
+              const comparisonGames = archiveMoveComparisonGames(tournamentValue !== null ? benchmarks.tournament : benchmarks.venue, r.key, metric);
               const comparisonLabel = tournamentValue !== null ? "tournament" : "venue";
               const difference = mine === null
                 ? null
-                : actionRateDifference(mine, comparisonValue, recent.covered, comparisonGames);
+                : actionRateDifference(mine, comparisonValue, localMoveComparisonGames(r, metric, recent.covered), comparisonGames);
               const localValue = formatMoveMetric(mine);
               return (
                 <tr key={r.key}>
@@ -1857,12 +1873,13 @@ function MovesSection({
                     aria-label={difference ? `${localValue}, ${difference.direction === "above" ? "higher" : "lower"} than the ${comparisonLabel} archive benchmark` : undefined}
                   >
                     {localValue}
+                    {localMoveSample(r, metric) && <span className="sample-note">{localMoveSample(r, metric)}</span>}
                     {difference && <span className="community-diff-cue" aria-hidden="true">{difference.direction === "above" ? "▲" : "▼"}</span>}
                   </td>
                   <td className="data">{formatMoveMetric(communityMoveBenchmark(benchmarks.communityMoves, r.key, metric))}</td>
-                  <td className="data">{formatMoveMetric(venueValue)}</td>
-                  <td className="data">{formatMoveMetric(tournamentValue)}</td>
-                  <td className="data">{formatMoveMetric(archiveMoveBenchmark(benchmarks.pro, r.key, metric))}</td>
+                  <td className="data">{formatMoveMetric(venueValue)}{archiveMoveSample(benchmarks.venue, r.key, metric) && <span className="sample-note">{archiveMoveSample(benchmarks.venue, r.key, metric)}</span>}</td>
+                  <td className="data">{formatMoveMetric(tournamentValue)}{archiveMoveSample(benchmarks.tournament, r.key, metric) && <span className="sample-note">{archiveMoveSample(benchmarks.tournament, r.key, metric)}</span>}</td>
+                  <td className="data">{formatMoveMetric(archiveMoveBenchmark(benchmarks.pro, r.key, metric))}{archiveMoveSample(benchmarks.pro, r.key, metric) && <span className="sample-note">{archiveMoveSample(benchmarks.pro, r.key, metric)}</span>}</td>
                   <td className="data">{pct(r.dmgShare, 0)}</td>
                   <td className="data">{pct(r.killShare, 0)}</td>
                   <td className="data" title={r.lCancelAttempts ? `${r.lCancelAttempts.toLocaleString()} attempts` : undefined}>
@@ -1874,24 +1891,21 @@ function MovesSection({
             })}
             {visibleEffectivenessRows.length === 0 && (
               <tr><td colSpan={9} className="empty-note">
-                {moveFocus === "all" ? "No moves meet this damage-share minimum. Lower the minimum to show more moves." : "No landed special-move data in your recent window for this selection."}
+                {moveFocus === "all" ? "No moves meet this damage-share minimum. Lower the minimum to show more moves." : "No special-move data in your recent window for this selection."}
               </td></tr>
             )}
           </tbody>
         </table></MatrixScroll>
+        {metric === "attemptsPerGame" && <div className="hint">Attempts count activations for normals, aerials, and every character's Down B. Refresh replays to add Down B tracking. Older archive samples need reprocessing; SSBM Stats does not yet publish Down B attempts.</div>}
+        {(metric === "noHitPerGame" || metric === "noHitRate") && <div className="hint">No-hit counts completed Down B uses with no opponent damage, including shield contact and defensive uses: a whiff proxy, not verified whiffs. Incomplete uses are excluded from the rate. Utility and delayed attacks have attempts only. Older archives need reprocessing; SSBM Stats does not publish outcomes.</div>}
+        {(metric === "noHitPerGame" || metric === "noHitRate") && downBReason && <div className="hint">{charName(benchmarks.characterId!)}: {downBReason}</div>}
         <div className="hint">
-          Your most recent {recent.covered.toLocaleString()} games in this filter — current habits, not
-          career averages. Choose a metric to compare the same measure across You, SSBM Stats, Venue, Tournament, and
-          aggregate Pro. This selection also updates the Move trend chart above. Specials, including Down B, support
-          landed hits, damage, and kills; their initiation counts and whiff rates are not tracked.
-          Attempted counts every initiation (whiffs included) for normals and aerials; specials and throws show "—".
-          L-cancel likewise counts every landing of that aerial (hover for attempts; it can differ a hair from the
-          headline rate, which corrects for edge-cancels). Venue, Tournament, and Pro show fixed {metricDef.label.toLowerCase()}{" "}
-          references for {archiveBenchmarkLabel(benchmarks)}; a dash means no published move sample for that matchup.
-          Your selected metric compares with Tournament, or Venue
-          when Tournament is unavailable; brighter red or blue means a larger difference, not better or worse play.
-          SSBM Stats follows Me across all opponents; its rates use privacy-rounded game counts and its shares cover
-          published move rows. {moveFocus === "all" ? `Moves below ${minDamageShare}% of your damage are hidden.` : "Special-move selections include every observed move regardless of damage share."}
+          Your most recent {recent.covered.toLocaleString()} games; the selected measure also updates the trend above.
+          Venue, Tournament, and Pro are fixed references for {archiveBenchmarkLabel(benchmarks)}.
+          Highlighting compares with Tournament, then Venue; stronger color means a larger difference, not better play.
+          SSBM Stats uses privacy-rounded game counts and published move rows.
+          {metric === "lCancelPct" && " L-cancel includes whiffed landings; the headline also corrects for edge-cancels."}
+          {moveFocus === "all" && metric !== "noHitPerGame" && metric !== "noHitRate" ? ` Moves below ${minDamageShare}% of your damage are hidden, except tracked attempts.` : " Special-move selections ignore the damage-share minimum."}
         </div>
       </div>
 

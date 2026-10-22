@@ -56,6 +56,16 @@ export interface ArchiveTournament {
 
 export interface ArchiveMoveMetrics {
   attempts: number;
+  /** Games with an explicit Down B initiation measurement; absent in older exports. */
+  attemptGames?: number;
+  /** Games with the Down B outcome schema, including measured games with no uses. */
+  outcomeGames?: number;
+  /** Distinct uses that damaged an opponent, independent of multi-hit landed counts. */
+  hitAttempts?: number;
+  /** Completed uses without opponent damage; includes shielded/defensive uses. */
+  noHitAttempts?: number;
+  /** Uses still active when the replay ended; excluded from outcome rates. */
+  incompleteAttempts?: number;
   landed: number;
   damage: number;
   kills: number;
@@ -662,6 +672,11 @@ function addArchiveMetrics(into: ArchiveMetrics, metrics: ArchiveMetrics): void 
       lCancelFail: 0,
     };
     aggregate.attempts += move.attempts;
+    // Older archives used numeric zero as a special-attempt placeholder. Only
+    // explicit coverage may turn that payload into an attempts/outcomes rate.
+    for (const field of ["attemptGames", "outcomeGames", "hitAttempts", "noHitAttempts", "incompleteAttempts"] as const) {
+      if (move[field] !== undefined) aggregate[field] = (aggregate[field] ?? 0) + move[field];
+    }
     aggregate.landed += move.landed;
     aggregate.damage += move.damage;
     aggregate.kills += move.kills;

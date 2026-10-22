@@ -20,6 +20,9 @@ export function groupedArchiveMove(row: ArchiveRollup | null, moveKey: string): 
     aggregate.openingDmg += value.openingDmg;
     aggregate.lCancelSuccess += value.lCancelSuccess;
     aggregate.lCancelFail += value.lCancelFail;
+    for (const key of ["attemptGames", "outcomeGames", "hitAttempts", "noHitAttempts", "incompleteAttempts"] as const) {
+      if (value[key] !== undefined) aggregate[key] = (aggregate[key] ?? 0) + value[key];
+    }
   }
   return aggregate;
 }
@@ -28,19 +31,60 @@ export function groupedArchiveMove(row: ArchiveRollup | null, moveKey: string): 
 export function localMoveMetric(move: MoveRow | undefined, metric: MoveMetricKey, coveredGames: number): number | null {
   if (!move) return null;
   if (metric === "killsPerGame") return coveredGames > 0 ? move.kills / coveredGames : null;
-  if (metric === "dmgShare" || metric === "killShare" || metric === "lCancelPct") {
+  if (metric === "dmgShare" || metric === "killShare" || metric === "lCancelPct" || metric === "noHitRate") {
     const value = move[metric];
     return value === null ? null : value * 100;
   }
   return move[metric];
 }
 
+export function localMoveSample(move: MoveRow | undefined, metric: MoveMetricKey): string | undefined {
+  if (move?.key !== "down-b") return undefined;
+  if (metric === "attemptsPerGame") return move.attemptGames > 0 ? `${move.attemptGames.toLocaleString()} tracked games` : "Refresh replays to track attempts";
+  if (metric === "noHitPerGame") return move.outcomeGames > 0 ? `${move.outcomeGames.toLocaleString()} outcome-tracked games` : "Outcome tracking unavailable";
+  if (metric === "noHitRate") return move.outcomeGames > 0 ? `${(move.outcomeAttempts ?? 0).toLocaleString()} completed uses` : "Outcome tracking unavailable";
+  return undefined;
+}
+
+export function archiveMoveSample(row: ArchiveRollup | null, moveKey: string, metric: MoveMetricKey): string | undefined {
+  if (moveKey !== "down-b" || !row) return undefined;
+  const move = groupedArchiveMove(row, moveKey);
+  if (metric === "attemptsPerGame") return (move?.attemptGames ?? 0) > 0 ? `${move!.attemptGames!.toLocaleString()} tracked games` : "Archive reparse needed";
+  if (metric === "noHitPerGame" || metric === "noHitRate") {
+    if (!(move?.outcomeGames && move.outcomeGames > 0)) return (move?.attemptGames ?? 0) > 0 ? "Outcome tracking unavailable" : "Archive reparse needed";
+    return metric === "noHitRate" ? `${((move.hitAttempts ?? 0) + (move.noHitAttempts ?? 0)).toLocaleString()} completed uses` : `${move.outcomeGames.toLocaleString()} outcome-tracked games`;
+  }
+  return undefined;
+}
+
+/** Highlighting must use the same capable-game sample as the displayed rate. */
+export function localMoveComparisonGames(move: MoveRow, metric: MoveMetricKey, coveredGames: number): number {
+  if (metric === "attemptsPerGame") return move.attemptGames;
+  if (metric === "noHitPerGame" || metric === "noHitRate") return move.outcomeGames;
+  return coveredGames;
+}
+
+export function archiveMoveComparisonGames(row: ArchiveRollup | null, moveKey: string, metric: MoveMetricKey): number {
+  if (!row) return 0;
+  const move = groupedArchiveMove(row, moveKey);
+  if (moveKey === "down-b" && metric === "attemptsPerGame") return move?.attemptGames ?? 0;
+  if (metric === "noHitPerGame" || metric === "noHitRate") return move?.outcomeGames ?? 0;
+  return row.game_count;
+}
+
 export function archiveMoveBenchmark(row: ArchiveRollup | null, moveKey: string, metric: MoveMetricKey): number | null {
   const move = groupedArchiveMove(row, moveKey);
   if (!row || row.game_count <= 0 || !move) return null;
   if (metric === "attemptsPerGame") {
+    if (moveKey === "down-b") return (move.attemptGames ?? 0) > 0 ? move.attempts / move.attemptGames! : null;
     if (!moveGroupTracksAttempts(moveKey)) return null;
     return move.attempts === 0 && move.landed > 0 ? null : move.attempts / row.game_count;
+  }
+  if (metric === "noHitPerGame" || metric === "noHitRate") {
+    if (moveKey !== "down-b" || !(move.outcomeGames && move.outcomeGames > 0)
+      || move.hitAttempts === undefined || move.noHitAttempts === undefined || move.incompleteAttempts === undefined) return null;
+    const denominator = metric === "noHitPerGame" ? move.outcomeGames : move.hitAttempts + move.noHitAttempts;
+    return denominator > 0 ? move.noHitAttempts / denominator * (metric === "noHitRate" ? 100 : 1) : null;
   }
   if (metric === "landedPerGame") return move.landed / row.game_count;
   if (metric === "dmgPerGame") return move.damage / row.game_count;
@@ -57,6 +101,8 @@ export function archiveMoveBenchmark(row: ArchiveRollup | null, moveKey: string,
 }
 
 export function communityMoveBenchmark(rows: CommunityMoveRow[], moveKey: string, metric: MoveMetricKey): number | null {
+  // The privacy-thresholded community feed does not publish per-use outcomes.
+  if (metric === "noHitPerGame" || metric === "noHitRate") return null;
   const moves = rows.filter((row) => row.moveKey === moveKey);
   if (moves.length === 0) return null;
   const gamesByCharacter = new Map<number, number>();

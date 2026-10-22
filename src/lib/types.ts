@@ -38,7 +38,7 @@ export interface TechCounts {
   wallMissed: number;
 }
 
-/** Per-move landed-hit aggregates for one player in one game (from conversions). */
+/** Per-move hit aggregates and available frame-derived usage counts for one player. */
 export interface MoveAgg {
   landed: number; // landed instances (a multi-hit move counts once per landing)
   damage: number;
@@ -49,9 +49,20 @@ export interface MoveAgg {
   /** L-cancels on this aerial's landing lag, whiffs included. Aerials only; 0 elsewhere. */
   lcSuccess: number;
   lcFail: number;
-  /** Times the move was initiated (from animation states), whiffs included.
-   *  Tracked for grounded normals and aerials only; undefined = not tracked. */
+  /** Times the move was initiated (from animation states), including no-hit uses.
+   *  Tracked for normals, aerials and Down B; undefined = unavailable.
+   *  A tracked Down B always has a row, including games with zero uses. */
   attempts?: number;
+  /** Down B activations with confirmed opponent damage while the move is active.
+   *  The complete outcome triple is present only when damage outcomes are meaningful
+   *  and frame coverage permits attribution. Utility/delayed-item moves omit it. */
+  hitAttempts?: number;
+  /** Completed Down B activations without confirmed opponent damage. Includes
+   *  shield contact; this is a no-hit count, not a verified whiff count. */
+  noHitAttempts?: number;
+  /** Activations with an unresolved outcome (e.g. the replay ends mid-move).
+   *  Excluded from the no-hit-rate denominator. */
+  incompleteAttempts?: number;
 }
 
 export interface PlayerSide {
@@ -140,7 +151,7 @@ export function hasFullStats(rec: GameRecord): boolean {
  * older cached/cloud record. The marker lives inside the cloud JSON payload,
  * so no Supabase schema migration is needed.
  */
-export const CURRENT_STATS_VERSION = 3;
+export const CURRENT_STATS_VERSION = 4;
 
 /** Only positive CPU evidence excludes a game; old records remain eligible. */
 export function hasKnownCpu(rec: GameRecord): boolean {

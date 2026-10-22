@@ -1,5 +1,5 @@
 import type { ActionCounts, Filters, GameRecord, GameType, PlayerSide, ResolvedGame, ResolvedTeamGame, TechCounts } from "./types";
-import { ACTION_LABELS, hasCurrentStats, hasFullStats, hasKnownCpu } from "./types";
+import { ACTION_LABELS, hasFullStats, hasKnownCpu } from "./types";
 import { INCLUDED_CHARACTER_ID_SET, INCLUDED_STAGE_ID_SET } from "./config";
 import { moveGroup, moveGroupTracksAttempts } from "./melee";
 
@@ -857,8 +857,14 @@ export function teamsRecords(games: ResolvedTeamGame[]): TeamsRecords {
 export interface MoveRow {
   key: string;
   label: string;
-  attempts: number | null; // null = not tracked for this move (specials, throws)
+  attempts: number | null; // null = no tracked initiation sample for this move
+  attemptGames: number;
   attemptsPerGame: number | null;
+  noHitAttempts: number | null;
+  outcomeGames: number;
+  outcomeAttempts: number | null; // completed uses; incomplete uses are excluded
+  noHitPerGame: number | null;
+  noHitRate: number | null;
   landed: number;
   landedPerGame: number;
   damage: number;
@@ -882,8 +888,18 @@ export interface MoveRow {
  * only when an actual normal/aerial attempt field proves that capability.
  */
 const hasMoveAttemptStats = (game: ResolvedGame, moves: PlayerSide["moveStats"]): boolean =>
-  moves !== undefined && (hasCurrentStats(game.rec) || Object.entries(moves).some(([moveId, move]) =>
+  moves !== undefined && hasFullStats(game.rec) && ((game.rec.statsVersion ?? 0) >= 1 || Object.entries(moves).some(([moveId, move]) =>
     move.attempts !== undefined && moveGroupTracksAttempts(moveGroup(Number(moveId)).key)));
+
+/** New Down B capability is independent of the older normal/aerial schema. */
+const hasDownBAttempts = (game: ResolvedGame, moves: PlayerSide["moveStats"]): boolean =>
+  hasFullStats(game.rec) && (game.rec.statsVersion ?? 0) >= 4 && moves?.[21]?.attempts !== undefined;
+
+const hasDownBOutcomes = (game: ResolvedGame, moves: PlayerSide["moveStats"]): boolean => {
+  const move = moves?.[21];
+  return hasDownBAttempts(game, moves) && move?.hitAttempts !== undefined
+    && move.noHitAttempts !== undefined && move.incompleteAttempts !== undefined;
+};
 
 /**
  * Aggregate the per-game move stats into one row per move group. `covered` is
@@ -891,13 +907,13 @@ const hasMoveAttemptStats = (game: ResolvedGame, moves: PlayerSide["moveStats"])
  * schema, and all teams games, have none).
  */
 export function moveTable(games: ResolvedGame[]): { rows: MoveRow[]; covered: number } {
-  const agg = new Map<string, { label: string; landed: number; damage: number; kills: number; killPctSum: number; openings: number; openingDmg: number; lcS: number; lcF: number; attempts: number | null }>();
+  const agg = new Map<string, { label: string; landed: number; damage: number; kills: number; killPctSum: number; openings: number; openingDmg: number; lcS: number; lcF: number; attempts: number | null; attemptGames: number; noHitAttempts: number; outcomeAttempts: number; outcomeGames: number }>();
   let covered = 0;
   let attemptCovered = 0;
   let totalDamage = 0, totalKills = 0, totalOpenings = 0;
   for (const g of games) {
     const ms = g.me.moveStats;
-    if (!ms) continue;
+    if (!ms || !hasFullStats(g.rec)) continue;
     covered++;
     const attemptsAvailable = hasMoveAttemptStats(g, ms);
     if (attemptsAvailable) attemptCovered++;
@@ -905,10 +921,20 @@ export function moveTable(games: ResolvedGame[]): { rows: MoveRow[]; covered: nu
       const grp = moveGroup(Number(idStr));
       let a = agg.get(grp.key);
       if (!a) {
-        a = { label: grp.label, landed: 0, damage: 0, kills: 0, killPctSum: 0, openings: 0, openingDmg: 0, lcS: 0, lcF: 0, attempts: null as number | null };
+        a = { label: grp.label, landed: 0, damage: 0, kills: 0, killPctSum: 0, openings: 0, openingDmg: 0, lcS: 0, lcF: 0, attempts: null as number | null, attemptGames: 0, noHitAttempts: 0, outcomeAttempts: 0, outcomeGames: 0 };
         agg.set(grp.key, a);
       }
-      if (attemptsAvailable && m.attempts !== undefined) a.attempts = (a.attempts ?? 0) + m.attempts;
+      if (grp.key === "down-b" && hasDownBAttempts(g, ms)) {
+        a.attempts = (a.attempts ?? 0) + m.attempts!;
+        a.attemptGames++;
+        if (hasDownBOutcomes(g, ms)) {
+          a.noHitAttempts += m.noHitAttempts!;
+          a.outcomeAttempts += m.hitAttempts! + m.noHitAttempts!;
+          a.outcomeGames++;
+        }
+      } else if (moveGroupTracksAttempts(grp.key) && attemptsAvailable && m.attempts !== undefined) {
+        a.attempts = (a.attempts ?? 0) + m.attempts;
+      }
       a.landed += m.landed;
       a.damage += m.damage;
       a.kills += m.kills;
@@ -923,14 +949,21 @@ export function moveTable(games: ResolvedGame[]): { rows: MoveRow[]; covered: nu
     }
   }
   const rows: MoveRow[] = Array.from(agg.entries())
-    .filter(([, a]) => a.landed > 0 || a.lcS + a.lcF > 0)
+    .filter(([key, a]) => a.landed > 0 || a.lcS + a.lcF > 0 || (a.attempts ?? 0) > 0 || (key === "down-b" && a.attemptGames > 0))
     .map(([key, a]) => {
-      const attempts = moveGroupTracksAttempts(key) && attemptCovered > 0 ? a.attempts ?? 0 : null;
+      const attemptGames = moveGroupTracksAttempts(key) ? attemptCovered : a.attemptGames;
+      const attempts = attemptGames > 0 ? a.attempts ?? 0 : null;
       return {
         key,
         label: a.label,
         attempts,
-        attemptsPerGame: attempts !== null ? attempts / attemptCovered : null,
+        attemptGames,
+        attemptsPerGame: attempts !== null ? attempts / attemptGames : null,
+        noHitAttempts: a.outcomeGames > 0 ? a.noHitAttempts : null,
+        outcomeGames: a.outcomeGames,
+        outcomeAttempts: a.outcomeGames > 0 ? a.outcomeAttempts : null,
+        noHitPerGame: a.outcomeGames > 0 ? a.noHitAttempts / a.outcomeGames : null,
+        noHitRate: a.outcomeAttempts > 0 ? a.noHitAttempts / a.outcomeAttempts : null,
         landed: a.landed,
         landedPerGame: covered ? a.landed / covered : 0,
         damage: a.damage,
@@ -954,6 +987,8 @@ export function moveTable(games: ResolvedGame[]): { rows: MoveRow[]; covered: nu
 /** One column of the move table, as a key the chart's metric picker passes back. */
 export type MoveMetricKey =
   | "attemptsPerGame"
+  | "noHitPerGame"
+  | "noHitRate"
   | "landedPerGame"
   | "dmgPerGame"
   | "dmgShare"
@@ -981,8 +1016,11 @@ const MV = {
   games: 8, // games carrying move data at all, the other per-game denominators
   allDamage: 9, // whole arsenal, for the share columns
   allKills: 10,
+  noHitAttempts: 11,
+  outcomeAttempts: 12,
+  outcomeGames: 13,
 } as const;
-const MV_STRIDE = 11;
+const MV_STRIDE = 14;
 
 /**
  * Each move-table column as a numerator/denominator pair, so a windowed value
@@ -994,6 +1032,8 @@ const MV_STRIDE = 11;
  */
 const MOVE_METRICS: Record<MoveMetricKey, { num: number; den: number; scale: number }> = {
   attemptsPerGame: { num: MV.attempts, den: MV.attemptGames, scale: 1 },
+  noHitPerGame: { num: MV.noHitAttempts, den: MV.outcomeGames, scale: 1 },
+  noHitRate: { num: MV.noHitAttempts, den: MV.outcomeAttempts, scale: 100 },
   landedPerGame: { num: MV.landed, den: MV.games, scale: 1 },
   dmgPerGame: { num: MV.damage, den: MV.games, scale: 1 },
   dmgShare: { num: MV.damage, den: MV.allDamage, scale: 100 },
@@ -1026,7 +1066,7 @@ function moveSlices(
   out.fill(0);
   let gameCount = 0, allDamage = 0, allKills = 0;
   const ms = g[side].moveStats;
-  if (ms) {
+  if (ms && hasFullStats(g.rec)) {
     gameCount = 1;
     const attemptsAvailable = hasMoveAttemptStats(g, ms);
     for (const idStr in ms) {
@@ -1034,11 +1074,21 @@ function moveSlices(
       if (!m) continue;
       allDamage += m.damage;
       allKills += m.kills;
-      const moveIndex = keyIndex.get(moveGroup(Number(idStr)).key);
+      const key = moveGroup(Number(idStr)).key;
+      const moveIndex = keyIndex.get(key);
       if (moveIndex === undefined) continue;
       const base = moveIndex * MV_STRIDE;
-      if (m.attempts !== undefined) {
+      if (m.attempts !== undefined && ((moveGroupTracksAttempts(key) && attemptsAvailable)
+        || (key === "down-b" && hasDownBAttempts(g, ms)))) {
         out[base + MV.attempts] = out[base + MV.attempts]! + m.attempts;
+      }
+      if (key === "down-b" && hasDownBAttempts(g, ms)) {
+        out[base + MV.attemptGames] = 1;
+        if (hasDownBOutcomes(g, ms)) {
+          out[base + MV.noHitAttempts] = m.noHitAttempts!;
+          out[base + MV.outcomeAttempts] = m.hitAttempts! + m.noHitAttempts!;
+          out[base + MV.outcomeGames] = 1;
+        }
       }
       out[base + MV.landed] = out[base + MV.landed]! + m.landed;
       out[base + MV.damage] = out[base + MV.damage]! + m.damage;
@@ -1049,8 +1099,8 @@ function moveSlices(
         out[base + MV.lCancelTotal]! + (m.lcSuccess ?? 0) + (m.lcFail ?? 0);
     }
     if (attemptsAvailable) {
-      for (let moveIndex = 0; moveIndex < moveCount; moveIndex++) {
-        out[moveIndex * MV_STRIDE + MV.attemptGames] = 1;
+      for (const [key, moveIndex] of keyIndex) {
+        if (moveGroupTracksAttempts(key)) out[moveIndex * MV_STRIDE + MV.attemptGames] = 1;
       }
     }
   }
@@ -1139,9 +1189,7 @@ export function moveMetricSeriesMany(
       index: i + 1,
       date: dayLabel(g.date),
       values: keys.map((_, moveIndex) =>
-        metric === "attemptsPerGame" && !moveGroupTracksAttempts(keys[moveIndex]!)
-          ? null
-          : denSums[moveIndex]! > 0 ? (numSums[moveIndex]! / denSums[moveIndex]!) * scale : null,
+        denSums[moveIndex]! > 0 ? (numSums[moveIndex]! / denSums[moveIndex]!) * scale : null,
       ),
     });
   }

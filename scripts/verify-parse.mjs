@@ -34,14 +34,27 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { File } from "node:buffer";
 import { basename, join } from "node:path";
 import { SlippiGame } from "@slippi/slippi-js";
-import {
+import { createServer } from "vite";
+
+// Resolve the same extensionless TypeScript imports as the browser/parser workers.
+const server = await createServer({
+  configFile: false, server: { middlewareMode: true, hmr: false }, appType: "custom",
+  optimizeDeps: { noDiscovery: true, include: [] },
+});
+let parser;
+try {
+  parser = await server.ssrLoadModule("/src/lib/parse.ts");
+} finally {
+  await server.close();
+}
+const {
   parseReplay,
   parseReplayRetainedForVerification,
   parseHeader,
   parseHeaderFile,
   dropUnreadComputers,
   IncompleteReplayError,
-} from "../src/lib/parse.ts";
+} = parser;
 
 /**
  * Every input gameKey() derives a game's identity from. Asserted instead of
@@ -161,6 +174,20 @@ for (const path of sample) {
   }
   if (JSON.stringify(full) !== JSON.stringify(retained)) {
     fail(path, "streaming parse differs", "bounded-frame parse changed a GameRecord from the retained-frame baseline");
+  }
+
+  for (const side of full.players) {
+    const downB = side.moveStats?.[21];
+    if (downB?.attempts === undefined) continue; // missing frames leave coverage unknown
+    if (!Number.isInteger(downB.attempts) || downB.attempts < 0) {
+      fail(path, "invalid Down B attempts", String(downB.attempts));
+    }
+    const outcomes = [downB.hitAttempts, downB.noHitAttempts, downB.incompleteAttempts];
+    if (outcomes.every((value) => value === undefined)) continue; // utility/delayed move
+    if (!outcomes.every((value) => Number.isInteger(value) && value >= 0)
+      || outcomes.reduce((sum, value) => sum + value, 0) !== downB.attempts) {
+      fail(path, "invalid Down B outcomes", JSON.stringify(downB));
+    }
   }
 
   // ---- invariant 1: header is a strict subset of full --------------------

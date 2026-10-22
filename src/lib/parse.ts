@@ -16,6 +16,7 @@ import {
 } from "@slippi/slippi-js";
 import type { FrameEntryType, FramesType, GameEndType, GameStartType, MetadataType } from "@slippi/slippi-js";
 import { CURRENT_STATS_VERSION } from "./types";
+import { addDownBFrame, createDownBAccumulator, finishDownBAccumulator } from "./downBSpecial";
 import { IncompleteReplayError, MAX_METADATA_BYTES, ReplayMetadataError, readReplayMetadata } from "./replayMetadata";
 import type { GameRecord, GameType, MoveAgg, PlayerSide, TechCounts } from "./types";
 
@@ -272,6 +273,25 @@ function applyAerialLC(acc: AerialLCAggregate, settings: GameStartType, players:
   });
 }
 
+function applyDownB(
+  acc: ReturnType<typeof createDownBAccumulator>,
+  settings: GameStartType,
+  players: PlayerSide[],
+): void {
+  if (!acc) return;
+  const counts = finishDownBAccumulator(acc);
+  settings.players.forEach((p, i) => {
+    const measured = counts.get(p.playerIndex);
+    if (!measured) return;
+    const byMove = (players[i]!.moveStats ??= {});
+    const move: MoveAgg = (byMove[21] ??= {
+      landed: 0, damage: 0, kills: 0, killPctSum: 0,
+      openings: 0, openingDmg: 0, lcSuccess: 0, lcFail: 0,
+    });
+    Object.assign(move, measured);
+  });
+}
+
 interface CrouchCancelAggregate {
   prevPost: Map<number, PostFrameUpdate | null>;
   counts: Map<number, number>;
@@ -320,12 +340,16 @@ class StreamingFrameSummary {
   private settings: GameStartType | null = null;
   private aerialLC: AerialLCAggregate | null = null;
   private crouchCancels: CrouchCancelAggregate | null = null;
+  private downB: ReturnType<typeof createDownBAccumulator> = null;
   private teams: TeamsAccumulator | null = null;
 
   setup(settings: GameStartType): void {
     this.settings = settings;
     this.aerialLC = createAerialLCAggregate(settings);
     this.crouchCancels = createCrouchCancelAggregate(settings);
+    this.downB = !settings.isTeams && settings.players.length === 2
+      ? createDownBAccumulator(settings.players)
+      : null;
     this.teams = createTeamsAccumulator(settings);
   }
 
@@ -333,11 +357,16 @@ class StreamingFrameSummary {
     if (!this.settings) return;
     if (this.aerialLC) addAerialLCFrame(this.aerialLC, this.settings, frame);
     if (this.crouchCancels) addCrouchCancelFrame(this.crouchCancels, this.settings, frame);
+    if (this.downB) addDownBFrame(this.downB, frame);
     if (this.teams) addTeamsFrame(this.teams, frame, frames);
   }
 
   applyAerialLC(players: PlayerSide[]): void {
     if (this.aerialLC && this.settings) applyAerialLC(this.aerialLC, this.settings, players);
+  }
+
+  applyDownB(players: PlayerSide[]): void {
+    if (this.settings) applyDownB(this.downB, this.settings, players);
   }
 
   teamsStats(): TeamsStats | null {
@@ -364,6 +393,7 @@ class StreamingFrameSummary {
 interface StreamingFrameController {
   flush: () => void;
   applyAerialLC: (players: PlayerSide[]) => void;
+  applyDownB: (players: PlayerSide[]) => void;
   teamsStats: () => TeamsStats | null;
   crouchCancelCounts: () => Map<number, number>;
 }
@@ -445,6 +475,7 @@ function installStreamingFrameSummary(game: SlippiGame): StreamingFrameControlle
   return {
     flush,
     applyAerialLC: (players) => summary.applyAerialLC(players),
+    applyDownB: (players) => summary.applyDownB(players),
     teamsStats: () => summary.teamsStats(),
     crouchCancelCounts: () => summary.crouchCancelCounts(),
   };
@@ -666,21 +697,25 @@ function parseReplayWithMode(id: string, path: string, buf: ArrayBuffer, bounded
   if (!isTeams && settings.players.length === 2) {
     if (streaming) {
       streaming.applyAerialLC(players);
+      streaming.applyDownB(players);
     } else {
       const aerialLC = createAerialLCAggregate(settings)!;
+      const downB = createDownBAccumulator(settings.players);
       const frames = game.getFrames();
       for (let fn = Frames.FIRST; fn <= durationFrames; fn++) {
         const frame = frames[fn];
         if (frame) addAerialLCFrame(aerialLC, settings, frame);
+        if (frame && downB) addDownBFrame(downB, frame);
       }
       applyAerialLC(aerialLC, settings, players);
+      applyDownB(downB, settings, players);
     }
   }
 
   // Per-move attempt counts (singles): slippi-js's action counter already
   // tallies initiations per normal/aerial from animation states — whiffs
-  // included. Specials, throws, getup and edge attacks aren't tracked there,
-  // so those stay undefined (rendered as "—", not 0). Combined jabs land on
+  // included. Down B is tracked by our frame accumulator above. Other specials,
+  // throws, getup and edge attacks stay undefined ("—", not 0). Combined jabs land on
   // move ID 2; the move table groups jab IDs anyway.
   if (!isTeams) {
     settings.players.forEach((p, i) => {

@@ -6,7 +6,8 @@ import type {
   CommunityMoveRow,
 } from "../lib/community";
 import { countNoun, pct, num, shortDate } from "../lib/format";
-import { charName, moveGroup, moveGroupLabel } from "../lib/melee";
+import { charName, moveGroup, moveGroupLabel, moveGroupTracksAttempts } from "../lib/melee";
+import { archiveMoveBenchmark, archiveMoveComparisonGames, localMoveComparisonGames } from "../lib/executionMoveBenchmarks";
 import {
   archiveRankingLabel,
   fetchArchiveCommunityBenchmarks,
@@ -433,7 +434,9 @@ export function ArchiveCommunityBenchmark({
             const ownMove = ownMoveByKey.get(key);
             const mine = localMoveMetric(ownMove, moveMetric, ownMoves.covered);
             const field = archiveMoveMetric(comparisonMoves.get(key), moveMetric, comparisonRow);
-            const difference = moveDifference(mine, field, moveMetric, ownMoves.covered, comparisonRow?.game_count ?? 0);
+            const localSample = moveMetric === "attempts" && ownMove ? localMoveComparisonGames(ownMove, "attemptsPerGame", ownMoves.covered) : ownMoves.covered;
+            const fieldSample = moveMetric === "attempts" ? archiveMoveComparisonGames(comparisonRow, key, "attemptsPerGame") : comparisonRow?.game_count ?? 0;
+            const difference = moveDifference(mine, field, moveMetric, localSample, fieldSample);
             const localValue = formatLocalMove(ownMove, moveMetric, ownMoves.covered);
             const comparisonLabel = benchmarks.conservative ? "tournament" : "venue";
             return <tr key={key}><td>{ownMove?.label ?? moveGroupLabel(key)}</td><td className={`data ${difference ? `community-diff-${difference.direction}` : ""}`} style={differenceStyle(difference)} title={difference ? `${difference.direction === "above" ? "Higher than" : "Lower than"} the ${comparisonLabel} archive benchmark; highlight intensity reflects the size of the difference` : undefined} aria-label={difference ? `${localValue}, ${difference.direction === "above" ? "higher" : "lower"} than the ${comparisonLabel} archive benchmark` : undefined}>{localValue}{difference && <span className="community-diff-cue" aria-hidden="true">{difference.direction === "above" ? "▲" : "▼"}</span>}</td><td className="data">{formatCommunityMove(communityMoveByKey.get(key), moveMetric, communityDamage)}</td><td className="data">{formatArchiveMove(moveSources.broad.get(key), moveMetric, benchmarks.broad)}</td><td className="data">{formatArchiveMove(moveSources.conservative.get(key), moveMetric, benchmarks.conservative)}</td><td className="data">{formatArchiveMove(moveSources.proAggregate.get(key), moveMetric, proAggregateBenchmark)}</td>{selectedPro && <td className="data">{formatArchiveMove(moveSources.pro.get(key), moveMetric, proBenchmark)}</td>}</tr>;
@@ -489,7 +492,7 @@ function formatArchiveMove(move: GroupedArchiveMove | undefined, metric: MoveMet
 
 function formatCommunityMove(move: CommunityMoveRow | undefined, metric: MoveMetric, totalDamage: number): string {
   if (!move || move.characterGames === 0) return "—";
-  if (metric === "attempts") return formatMoveMetric(move.attempts === null ? null : move.attempts / move.characterGames, metric);
+  if (metric === "attempts") return formatMoveMetric(!moveGroupTracksAttempts(move.moveKey) || move.attempts === null ? null : move.attempts / move.characterGames, metric);
   if (metric === "landed") return formatMoveMetric(move.landed / move.characterGames, metric);
   if (metric === "damage") return formatMoveMetric(ratio(move.damage, totalDamage), metric);
   if (metric === "kills") return formatMoveMetric(move.kills / move.characterGames, metric);
@@ -507,7 +510,7 @@ function localMoveMetric(move: ReturnType<typeof moveTable>["rows"][number] | un
 
 function archiveMoveMetric(move: GroupedArchiveMove | undefined, metric: MoveMetric, row: ArchiveRollup | null): number | null {
   if (!move || !row || row.game_count === 0) return null;
-  if (metric === "attempts") return move.attempts === 0 && move.landed > 0 ? null : move.attempts / row.game_count;
+  if (metric === "attempts") return archiveMoveBenchmark(row, move.key, "attemptsPerGame");
   if (metric === "landed") return move.landed / row.game_count;
   if (metric === "damage") return ratio(move.damage, row.metrics.damageTotal);
   if (metric === "kills") return move.kills / row.game_count;

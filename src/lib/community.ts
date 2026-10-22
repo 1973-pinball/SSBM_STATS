@@ -347,7 +347,7 @@ export function demoCommunitySnapshot(contributedGames: ResolvedGame[]): Communi
         characterGames: table.covered,
         contributors: 48,
         attempts: row.attempts,
-        attemptGames: row.attempts === null ? 0 : table.covered,
+        attemptGames: row.attemptGames,
         landed: row.landed,
         damage: row.damage,
         kills: row.kills,

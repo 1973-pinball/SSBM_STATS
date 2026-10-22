@@ -10,6 +10,8 @@ import { COMMUNITY_MIN_GAMES, COMMUNITY_MIN_PLAYERS } from "../lib/community";
 import { INCLUDED_STAGE_IDS } from "../lib/config";
 import { countNoun, num, pct, shortDate, winRateColor } from "../lib/format";
 import { charName, moveGroup, moveGroupLabel, moveGroupTracksAttempts, stageName } from "../lib/melee";
+import { archiveMoveBenchmark, archiveMoveComparisonGames, archiveMoveSample, localMoveComparisonGames, localMoveSample } from "../lib/executionMoveBenchmarks";
+import { getDownBCapability } from "../lib/downBSpecial";
 import {
   archiveRankingLabel,
   fetchArchiveCommunityAtlasRows,
@@ -502,13 +504,19 @@ function groupArchiveMoves(row: ArchiveRollup | null): Map<string, GroupedArchiv
     value.openingDmg += move.openingDmg;
     value.lCancelSuccess += move.lCancelSuccess;
     value.lCancelFail += move.lCancelFail;
+    for (const key of ["attemptGames", "outcomeGames", "hitAttempts", "noHitAttempts", "incompleteAttempts"] as const) {
+      if (move[key] !== undefined) value[key] = (value[key] ?? 0) + move[key];
+    }
     grouped.set(group.key, value);
   }
   return grouped;
 }
 
-type MoveMetric = "attempts" | "landed" | "damage" | "kills" | "killPct" | "openings" | "openingDamage";
+type MoveMetric = "attempts" | "noHitPerGame" | "noHitRate" | "landed" | "damage" | "kills" | "killPct" | "openings" | "openingDamage";
 type MoveSortKey = "move" | "you" | "community" | "venue" | "tournament" | "proAggregate" | "pro";
+
+const attemptMetric = (metric: MoveMetric) => metric === "attempts" ? "attemptsPerGame"
+  : metric === "noHitPerGame" || metric === "noHitRate" ? metric : null;
 
 function localMoveValue(move: ReturnType<typeof moveTable>["rows"][number] | undefined, metric: MoveMetric, games: number) {
   return formatMoveMetric(localMoveMetric(move, metric, games), metric);
@@ -518,13 +526,17 @@ function communityMoveValue(move: CommunityMoveRow | undefined, metric: MoveMetr
   return formatMoveMetric(communityMoveMetric(move, metric, totalDamage), metric);
 }
 
-function archiveMoveValue(move: GroupedArchiveMove | undefined, metric: MoveMetric, row: ArchiveRollup | null) {
-  return formatMoveMetric(archiveMoveMetric(move, metric, row), metric);
+function archiveMoveValue(move: GroupedArchiveMove | undefined, metric: MoveMetric, row: ArchiveRollup | null, moveKey: string) {
+  const measure = attemptMetric(metric);
+  const sample = measure ? archiveMoveSample(row, moveKey, measure) : undefined;
+  return <>{formatMoveMetric(archiveMoveMetric(move, metric, row), metric)}{sample && <span className="sample-note">{sample}</span>}</>;
 }
 
 function localMoveMetric(move: ReturnType<typeof moveTable>["rows"][number] | undefined, metric: MoveMetric, games: number): number | null {
   if (!move) return null;
   if (metric === "attempts") return move.attemptsPerGame;
+  if (metric === "noHitPerGame") return move.noHitPerGame;
+  if (metric === "noHitRate") return move.noHitRate;
   if (metric === "landed") return move.landedPerGame;
   if (metric === "damage") return move.dmgShare;
   if (metric === "kills") return games > 0 ? move.kills / games : null;
@@ -535,6 +547,7 @@ function localMoveMetric(move: ReturnType<typeof moveTable>["rows"][number] | un
 
 function communityMoveMetric(move: CommunityMoveRow | undefined, metric: MoveMetric, totalDamage: number): number | null {
   if (!move || move.characterGames === 0) return null;
+  if (metric === "noHitPerGame" || metric === "noHitRate") return null;
   if (metric === "attempts") return !moveGroupTracksAttempts(move.moveKey) || move.attempts === null ? null : move.attempts / move.characterGames;
   if (metric === "landed") return move.landed / move.characterGames;
   if (metric === "damage") return totalDamage > 0 ? move.damage / totalDamage : null;
@@ -546,7 +559,11 @@ function communityMoveMetric(move: CommunityMoveRow | undefined, metric: MoveMet
 
 function archiveMoveMetric(move: GroupedArchiveMove | undefined, metric: MoveMetric, row: ArchiveRollup | null): number | null {
   if (!move || !row || row.game_count === 0) return null;
-  if (metric === "attempts") return !moveGroupTracksAttempts(move.key) || (move.attempts === 0 && move.landed > 0) ? null : move.attempts / row.game_count;
+  const measure = attemptMetric(metric);
+  if (measure) {
+    const value = archiveMoveBenchmark(row, move.key, measure);
+    return value !== null && metric === "noHitRate" ? value / 100 : value;
+  }
   if (metric === "landed") return move.landed / row.game_count;
   if (metric === "damage") return row.metrics.damageTotal > 0 ? move.damage / row.metrics.damageTotal : null;
   if (metric === "kills") return move.kills / row.game_count;
@@ -557,7 +574,7 @@ function archiveMoveMetric(move: GroupedArchiveMove | undefined, metric: MoveMet
 
 function formatMoveMetric(value: number | null, metric: MoveMetric): string {
   if (value === null) return "—";
-  if (metric === "damage") return pct(value);
+  if (metric === "damage" || metric === "noHitRate") return pct(value);
   if (metric === "killPct") return `${num(value, 0)}%`;
   return num(value, metric === "kills" ? 3 : 2);
 }
@@ -571,7 +588,7 @@ function moveDifference(
 ): { direction: "above" | "below"; strength: number } | null {
   if (mine === null || field === null || localGames < 10 || fieldGames < 25) return null;
   const absoluteMinimum = {
-    attempts: 0.5, landed: 0.25, damage: 0.05, kills: 0.05,
+    attempts: 0.5, noHitPerGame: 0.5, noHitRate: 0.05, landed: 0.25, damage: 0.05, kills: 0.05,
     killPct: 10, openings: 0.25, openingDamage: 5,
   }[metric];
   const gap = mine - field;
@@ -662,6 +679,7 @@ export function ArchiveMoveAtlasComparison({
   const [sort, setSort] = useState<{ key: MoveSortKey; direction: SortDirection }>({ key: "you", direction: "desc" });
   const [minAttemptsInput, setMinAttemptsInput] = useState("1");
   const [minActionsInput, setMinActionsInput] = useState("1");
+  const downBCapability = getDownBCapability(characterId);
   const minAttempts = normalizedMinimum(minAttemptsInput);
   const minActions = normalizedMinimum(minActionsInput);
   const localGames = useMemo(
@@ -698,8 +716,7 @@ export function ArchiveMoveAtlasComparison({
     .filter((key) => {
       const move = localByKey.get(key);
       if (!move) return false;
-      // Specials and throws have landed data but no initiation counts. An
-      // attempts-only cutoff must not remove them from every other measure.
+      // Untracked moves must remain visible in landed/damage measures.
       const myAttempts = localMoveMetric(move, "attempts", localMoves.covered);
       return myAttempts === null || myAttempts >= minAttempts;
     })
@@ -812,21 +829,29 @@ export function ArchiveMoveAtlasComparison({
         <h3>Move profile</h3>
         <div className="acb-profile-controls">
           <label>Minimum tracked attempts / game<span className="number-suffix unitless"><input type="number" min="0" max="100" step="1" inputMode="numeric" value={minAttemptsInput} onChange={(event) => setMinAttemptsInput(event.target.value)} onBlur={() => setMinAttemptsInput(String(minAttempts))} /></span></label>
-          <label>Measure<select value={metric} onChange={(event) => setMetric(event.target.value as MoveMetric)}><option value="landed">Landed / game</option><option value="attempts">Attempts / game</option><option value="damage">Damage share</option><option value="kills">Kills / game</option><option value="killPct">Average kill %</option><option value="openings">Openings / game</option><option value="openingDamage">Damage / opening</option></select></label>
+          <label>Measure<select value={metric} onChange={(event) => setMetric(event.target.value as MoveMetric)}><option value="landed">Landed / game</option><option value="attempts">Attempts / game</option><option value="noHitPerGame">No-hit uses / game</option><option value="noHitRate">No-hit rate</option><option value="damage">Damage share</option><option value="kills">Kills / game</option><option value="killPct">Average kill %</option><option value="openings">Openings / game</option><option value="openingDamage">Damage / opening</option></select></label>
         </div>
       </div>
-      <div className="hint">Specials, including Down B, and throws remain visible when recorded in your games. Their attempts are not tracked; compare landed hits, damage, kills or openings instead. Damage / opening includes follow-up damage in the opening started by that move.</div>
+      {metric === "noHitPerGame" || metric === "noHitRate"
+        ? <div className="hint">No-hit counts completed Down B uses with no opponent damage, including shield contact and defensive uses: a whiff proxy, not verified whiffs. Incomplete uses are excluded from the rate. Utility and delayed attacks have attempts only; older archive samples need reprocessing.</div>
+        : <div className="hint">Down B attempts are tracked for every character after refreshing replays. Older archive samples need reprocessing. Damage / opening includes follow-up damage.</div>}
+      {(metric === "noHitPerGame" || metric === "noHitRate") && downBCapability.reason && <div className="hint">{charName(characterId)}: {downBCapability.reason}</div>}
       {moveKeys.length ? <div className="table-scroll"><table><thead><tr>{sortableMoveHeader("move", "Move")}{sortableMoveHeader("you", "You", `${localMoves.covered.toLocaleString()} games`)}{sortableMoveHeader("community", "SSBM Stats", communityGames === null ? "sample not yet publishable" : `${communityGames.toLocaleString()} player-games`)}{sortableMoveHeader("venue", "Venue archive", `${broadRow?.game_count.toLocaleString() ?? "—"} player-games`)}{sortableMoveHeader("tournament", "Tournament archive", `${conservativeRow?.game_count.toLocaleString() ?? "—"} player-games`)}{sortableMoveHeader("proAggregate", "Pro tournament archive", `${proAggregateRow?.game_count.toLocaleString() ?? "—"} player-games · ${countNoun(proAggregateRow?.identified_player_count, "pro")}`)}{archive.selectedPro && sortableMoveHeader("pro", archive.selectedPro.display_name, `${proRow?.game_count.toLocaleString() ?? "—"} games`)}</tr></thead><tbody>
         {moveKeys.map((key) => {
           const mine = localMoveMetric(localByKey.get(key), metric, localMoves.covered);
           const tournamentField = archiveMoveMetric(conservativeMoves.get(key), metric, conservativeRow);
           const venueField = archiveMoveMetric(broadMoves.get(key), metric, broadRow);
           const field = tournamentField ?? venueField;
-          const comparisonGames = tournamentField !== null ? conservativeRow?.game_count ?? 0 : broadRow?.game_count ?? 0;
-          const difference = moveDifference(mine, field, metric, localMoves.covered, comparisonGames);
+          const comparisonRow = tournamentField !== null ? conservativeRow : broadRow;
+          const measure = attemptMetric(metric);
+          const localMove = localByKey.get(key)!;
+          const comparisonGames = measure ? archiveMoveComparisonGames(comparisonRow, key, measure) : comparisonRow?.game_count ?? 0;
+          const localSampleGames = measure ? localMoveComparisonGames(localMove, measure, localMoves.covered) : localMoves.covered;
+          const difference = moveDifference(mine, field, metric, localSampleGames, comparisonGames);
           const localValue = localMoveValue(localByKey.get(key), metric, localMoves.covered);
           const comparisonLabel = tournamentField !== null ? "tournament" : "venue";
-          return <tr key={key}><td>{localByKey.get(key)?.label ?? moveGroupLabel(key)}</td><td className={`data ${difference ? `community-diff-${difference.direction}` : ""}`} style={differenceStyle(difference)} title={difference ? `${difference.direction === "above" ? "Higher than" : "Lower than"} the ${comparisonLabel} archive benchmark; highlight intensity reflects the size of the difference` : undefined} aria-label={difference ? `${localValue}, ${difference.direction === "above" ? "higher" : "lower"} than the ${comparisonLabel} archive benchmark` : undefined}>{localValue}{difference && <span className="community-diff-cue" aria-hidden="true">{difference.direction === "above" ? "▲" : "▼"}</span>}</td><td className="data">{communityMoveValue(communityByKey.get(key), metric, communityDamage)}</td><td className="data">{archiveMoveValue(broadMoves.get(key), metric, broadRow)}</td><td className="data">{archiveMoveValue(conservativeMoves.get(key), metric, conservativeRow)}</td><td className="data">{archiveMoveValue(proAggregateMoves.get(key), metric, proAggregateRow)}</td>{archive.selectedPro && <td className="data">{archiveMoveValue(proMoves.get(key), metric, proRow)}</td>}</tr>;
+          const sample = measure ? localMoveSample(localByKey.get(key), measure) : undefined;
+          return <tr key={key}><td>{localByKey.get(key)?.label ?? moveGroupLabel(key)}</td><td className={`data ${difference ? `community-diff-${difference.direction}` : ""}`} style={differenceStyle(difference)} title={difference ? `${difference.direction === "above" ? "Higher than" : "Lower than"} the ${comparisonLabel} archive benchmark; highlight intensity reflects the size of the difference` : undefined} aria-label={difference ? `${localValue}, ${difference.direction === "above" ? "higher" : "lower"} than the ${comparisonLabel} archive benchmark` : undefined}>{localValue}{sample && <span className="sample-note">{sample}</span>}{difference && <span className="community-diff-cue" aria-hidden="true">{difference.direction === "above" ? "▲" : "▼"}</span>}</td><td className="data">{communityMoveValue(communityByKey.get(key), metric, communityDamage)}</td><td className="data">{archiveMoveValue(broadMoves.get(key), metric, broadRow, key)}</td><td className="data">{archiveMoveValue(conservativeMoves.get(key), metric, conservativeRow, key)}</td><td className="data">{archiveMoveValue(proAggregateMoves.get(key), metric, proAggregateRow, key)}</td>{archive.selectedPro && <td className="data">{archiveMoveValue(proMoves.get(key), metric, proRow, key)}</td>}</tr>;
         })}
       </tbody></table></div> : <div className="empty-note">No recorded moves match this view. Lower the tracked-attempt minimum or broaden your game selection.</div>}
 

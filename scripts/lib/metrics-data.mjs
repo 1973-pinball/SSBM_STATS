@@ -71,7 +71,11 @@ export const SECTIONS = [
     items: [
       {
         term: "Special moves (including Down B)",
-        def: "Neutral B, Side B, Up B, and Down B are grouped by direction for the selected character. Landed hits, damage, kills, and openings are measured when they connect. Special-move attempts and whiffs are not counted, so attempt rates show a dash. The Move Atlas keeps observed specials visible regardless of its minimum tracked-attempt filter.",
+        def: "Neutral B, Side B, Up B, and Down B are grouped by direction for the selected character. Landed hits, damage, kills, and openings are measured when they connect. Down B also tracks activations for all 26 characters after replay refresh; other special-move attempts remain unavailable. Held, ground/air, landing, and transformation phases count as one activation, not separate button presses. Ice Climbers count the leader only.",
+      },
+      {
+        term: "Down B attempts and no-hit rates",
+        def: "Attempts/game divides move starts by games with measured attempts, including measured zero-use games. Eleven direct attacks also track uses with and without opponent damage. No-hit rate is no-hit uses divided by completed uses; incomplete uses are excluded. This includes shield contact and defensive uses, so it is not a verified whiff rate or attempts minus landed hits. Utility, counter, and delayed/item moves have attempts only. Venue and Pro comparisons need a reparsed archive; missing coverage stays unavailable rather than zero.",
       },
       {
         term: "Move comparisons",
