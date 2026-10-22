@@ -10,11 +10,11 @@ import { Kpi } from "./Kpi";
 import { axisStyle, tooltipStyle, gridStyle, dayTick, OPP_SERIES_COLOR } from "./chartStyle";
 import { activateOnKey } from "../lib/a11y";
 import { demoCommunitySnapshot, fetchCommunitySnapshot, type CommunityBenchmarkRow, type CommunityExecutionRow, type CommunityMoveRow } from "../lib/community";
+import { archiveMoveBenchmark, communityMoveBenchmark, groupedArchiveMove, localMoveMetric } from "../lib/executionMoveBenchmarks";
 import {
   fetchArchiveCommunityBenchmarks,
   fetchArchiveProAggregateAtlasRows,
   fetchLatestArchiveDataset,
-  type ArchiveMoveMetrics,
   type ArchiveRollup,
 } from "../lib/publicArchive";
 
@@ -653,28 +653,40 @@ function useExecutionBenchmarks(
     setBenchmarks(base);
     if (games.length === 0) return;
     let alive = true;
-    void Promise.all([isDemo ? Promise.resolve(demoCommunitySnapshot(games)) : fetchCommunitySnapshot(), fetchLatestArchiveDataset()])
-      .then(async ([community, dataset]) => {
-        const archive = dataset
-          ? await Promise.all([
-            fetchArchiveCommunityBenchmarks(dataset.id, selectedCharacterId, "singles", selectedOpponentCharacterId),
-            fetchArchiveProAggregateAtlasRows(dataset.id, selectedCharacterId, "singles", selectedOpponentCharacterId),
-          ])
-          : null;
+    // Each source can publish independently: an archive outage must not hide
+    // healthy community rows, nor a failed pro query hide the venue sample.
+    void (isDemo ? Promise.resolve(demoCommunitySnapshot(games)) : fetchCommunitySnapshot())
+      .then((community) => {
         if (!alive) return;
-        const proRows = archive?.[1] ?? [];
         const communityCharacterId = selectedCharacterId ?? -1;
-        setBenchmarks({
-          ...base,
+        setBenchmarks((previous) => ({
+          ...previous,
           communityBenchmark: community?.benchmarks.find((row) => row.characterId === communityCharacterId) ?? null,
           communityExecution: community?.execution.find((row) =>
             row.lookbackDays === null && row.characterId === communityCharacterId) ?? null,
           communityMoves: community?.moves.filter((row) =>
             row.lookbackDays === null && (selectedCharacterId === null || row.characterId === selectedCharacterId)) ?? [],
-          venue: archive?.[0].broad ?? null,
-          tournament: archive?.[0].conservative ?? null,
-          pro: proRows.find((row) => row.opponent_character_id === selectedOpponentCharacterId && row.stage_id === null) ?? null,
-        });
+        }));
+      })
+      .catch(() => { /* Archive comparisons remain usable without community data. */ });
+    void fetchLatestArchiveDataset()
+      .then((dataset) => {
+        if (!alive || !dataset) return;
+        void fetchArchiveCommunityBenchmarks(dataset.id, selectedCharacterId, "singles", selectedOpponentCharacterId)
+          .then((archive) => {
+            if (!alive) return;
+            setBenchmarks((previous) => ({ ...previous, venue: archive.broad, tournament: archive.conservative }));
+          })
+          .catch(() => { /* Other sources remain visible without field archive data. */ });
+        void fetchArchiveProAggregateAtlasRows(dataset.id, selectedCharacterId, "singles", selectedOpponentCharacterId)
+          .then((proRows) => {
+            if (!alive) return;
+            setBenchmarks((previous) => ({
+              ...previous,
+              pro: proRows.find((row) => row.opponent_character_id === selectedOpponentCharacterId && row.stage_id === null) ?? null,
+            }));
+          })
+          .catch(() => { /* Other sources remain visible without pro archive data. */ });
       })
       .catch(() => { /* Charts remain fully usable without remote benchmarks. */ });
     return () => { alive = false; };
@@ -1160,52 +1172,6 @@ const MOVE_TREND_COLORS = [
   "#f2985e",
 ];
 
-function groupedArchiveMove(row: ArchiveRollup | null, moveKey: string): ArchiveMoveMetrics | null {
-  let aggregate: ArchiveMoveMetrics | null = null;
-  for (const [moveId, value] of Object.entries(row?.metrics.moves ?? {})) {
-    if (moveGroup(Number(moveId)).key !== moveKey) continue;
-    aggregate ??= {
-      attempts: 0,
-      landed: 0,
-      damage: 0,
-      kills: 0,
-      killPctSum: 0,
-      openings: 0,
-      openingDmg: 0,
-      lCancelSuccess: 0,
-      lCancelFail: 0,
-    };
-    aggregate.attempts += value.attempts;
-    aggregate.landed += value.landed;
-    aggregate.damage += value.damage;
-    aggregate.kills += value.kills;
-    aggregate.killPctSum += value.killPctSum;
-    aggregate.openings += value.openings;
-    aggregate.openingDmg += value.openingDmg;
-    aggregate.lCancelSuccess += value.lCancelSuccess;
-    aggregate.lCancelFail += value.lCancelFail;
-  }
-  return aggregate;
-}
-
-function archiveMoveBenchmark(row: ArchiveRollup | null, moveKey: string, metric: MoveMetricKey): number | null {
-  const move = groupedArchiveMove(row, moveKey);
-  if (!row || row.game_count <= 0 || !move) return null;
-  if (metric === "attemptsPerGame") return move.attempts === 0 && move.landed > 0 ? null : move.attempts / row.game_count;
-  if (metric === "landedPerGame") return move.landed / row.game_count;
-  if (metric === "dmgPerGame") return move.damage / row.game_count;
-  if (metric === "dmgShare") return row.metrics.damageTotal > 0 ? 100 * move.damage / row.metrics.damageTotal : null;
-  if (metric === "avgDmgPerHit") return move.landed > 0 ? move.damage / move.landed : null;
-  if (metric === "killsPerGame") return move.kills / row.game_count;
-  if (metric === "killShare") {
-    const total = Object.values(row.metrics.moves ?? {}).reduce((sum, value) => sum + value.kills, 0);
-    return total > 0 ? 100 * move.kills / total : null;
-  }
-  if (metric === "avgKillPct") return move.kills > 0 ? move.killPctSum / move.kills : null;
-  const attempts = move.lCancelSuccess + move.lCancelFail;
-  return attempts > 0 ? 100 * move.lCancelSuccess / attempts : null;
-}
-
 function archiveMoveOpeningsPerGame(row: ArchiveRollup | null, moveKey: string): number | null {
   if (!row || row.game_count <= 0 || row.metrics.moves === null) return null;
   return (groupedArchiveMove(row, moveKey)?.openings ?? 0) / row.game_count;
@@ -1220,42 +1186,6 @@ function archiveMoveOpeningShare(row: ArchiveRollup | null, moveKey: string): nu
 function archiveBenchmarkSample(row: ArchiveRollup | null, includeProCount = false): string {
   const games = `${row?.game_count.toLocaleString() ?? "—"} player-games`;
   return includeProCount ? `${games} · ${countNoun(row?.identified_player_count, "pro")}` : games;
-}
-
-function communityMoveBenchmark(rows: CommunityMoveRow[], moveKey: string, metric: MoveMetricKey): number | null {
-  const moves = rows.filter((row) => row.moveKey === moveKey);
-  if (moves.length === 0) return null;
-  const gamesByCharacter = new Map<number, number>();
-  for (const row of rows) {
-    gamesByCharacter.set(row.characterId, Math.max(gamesByCharacter.get(row.characterId) ?? 0, row.characterGames));
-  }
-  const characterGames = [...gamesByCharacter.values()].reduce((sum, games) => sum + games, 0);
-  if (characterGames <= 0) return null;
-  const attempts = moves.some((move) => move.attempts === null)
-    ? null
-    : moves.reduce((sum, move) => sum + (move.attempts ?? 0), 0);
-  const landed = moves.reduce((sum, move) => sum + move.landed, 0);
-  const damage = moves.reduce((sum, move) => sum + move.damage, 0);
-  const kills = moves.reduce((sum, move) => sum + move.kills, 0);
-  const killPctSum = moves.reduce((sum, move) => sum + move.killPctSum, 0);
-  const lCancelSuccess = moves.reduce((sum, move) => sum + move.lCancelSuccess, 0);
-  const lCancelFail = moves.reduce((sum, move) => sum + move.lCancelFail, 0);
-  if (metric === "attemptsPerGame") return attempts === null ? null : attempts / characterGames;
-  if (metric === "landedPerGame") return landed / characterGames;
-  if (metric === "dmgPerGame") return damage / characterGames;
-  if (metric === "dmgShare") {
-    const total = rows.reduce((sum, row) => sum + row.damage, 0);
-    return total > 0 ? 100 * damage / total : null;
-  }
-  if (metric === "avgDmgPerHit") return landed > 0 ? damage / landed : null;
-  if (metric === "killsPerGame") return kills / characterGames;
-  if (metric === "killShare") {
-    const total = rows.reduce((sum, row) => sum + row.kills, 0);
-    return total > 0 ? 100 * kills / total : null;
-  }
-  if (metric === "avgKillPct") return kills > 0 ? killPctSum / kills : null;
-  const lCancelAttempts = lCancelSuccess + lCancelFail;
-  return lCancelAttempts > 0 ? 100 * lCancelSuccess / lCancelAttempts : null;
 }
 
 function moveBenchmarkValue(
@@ -1299,9 +1229,14 @@ function hasOpponentMoveMetric(
  * over the window ending at every game, so its right edge is that table and
  * the line behind it is how the number got there.
  */
-function MoveMetricChart({ games, moves, benchmarks }: { games: ResolvedGame[]; moves: MoveRow[]; benchmarks: ExecutionBenchmarks }) {
+function MoveMetricChart({ games, moves, benchmarks, metric, setMetric }: {
+  games: ResolvedGame[];
+  moves: MoveRow[];
+  benchmarks: ExecutionBenchmarks;
+  metric: MoveMetricKey;
+  setMetric: (metric: MoveMetricKey) => void;
+}) {
   const [moveKeys, setMoveKeys] = useState<Set<string>>(() => new Set(moves[0] ? [moves[0].key] : []));
-  const [metric, setMetric] = useState<MoveMetricKey>("attemptsPerGame");
   const [showOpp, setShowOpp] = useState(false);
   // Filters change which moves exist at all. Preserve selections that remain
   // available and fall back to the top move only when every held key is stale.
@@ -1552,6 +1487,7 @@ export function Execution({
   selectedCharacterId: number | null;
   selectedOpponentCharacterId: number | null;
 }) {
+  const [moveMetric, setMoveMetric] = useState<MoveMetricKey>("landedPerGame");
   // The charts cover the whole filter; everything under them describes current
   // form, so it reads the trailing window the charts smooth over. The same
   // number on purpose — see ROLLING_WINDOW.
@@ -1578,7 +1514,7 @@ export function Execution({
 
       <RollingExecChart games={games} benchmarks={benchmarks} />
 
-      <MoveMetricChart games={games} moves={career.rows} benchmarks={benchmarks} />
+      <MoveMetricChart games={games} moves={career.rows} benchmarks={benchmarks} metric={moveMetric} setMetric={setMoveMetric} />
 
       <PerGameMetricChart
         title={`Actions — per game, ${ROLLING_WINDOW}-game rolling average`}
@@ -1725,7 +1661,7 @@ export function Execution({
         )}
       </div>
 
-      <MovesSection games={games} career={career} recent={recentMoves} benchmarks={benchmarks} />
+      <MovesSection games={games} career={career} recent={recentMoves} benchmarks={benchmarks} metric={moveMetric} setMetric={setMoveMetric} />
     </>
   );
 }
@@ -1743,16 +1679,21 @@ function MovesSection({
   career,
   recent,
   benchmarks,
+  metric,
+  setMetric,
 }: {
   games: ResolvedGame[];
   career: { rows: MoveRow[]; covered: number };
   recent: { rows: MoveRow[]; covered: number };
   benchmarks: ExecutionBenchmarks;
+  metric: MoveMetricKey;
+  setMetric: (metric: MoveMetricKey) => void;
 }) {
   type OpeningSortKey = "openings" | "venue" | "tournament" | "pro" | "share" | "venueShare" | "damage";
   const [minMoveUsageInput, setMinMoveUsageInput] = useState("3");
   const [minOpeningShareInput, setMinOpeningShareInput] = useState("3");
   const [minDamageShareInput, setMinDamageShareInput] = useState("2");
+  const [moveFocus, setMoveFocus] = useState("all");
   const [openingSortKey, setOpeningSortKey] = useState<OpeningSortKey | null>(null);
   // Moves and actions ride the same heavy-vs-light analysis, one sorted table.
   const impact = useMemo(
@@ -1794,9 +1735,15 @@ function MovesSection({
     ? Math.min(100, Math.max(0, Math.round(damageShareValue * 10) / 10))
     : 2;
   const visibleEffectivenessRows = useMemo(
-    () => recent.rows.filter((row) => (row.dmgShare ?? 0) * 100 >= minDamageShare),
-    [recent.rows, minDamageShare],
+    () => recent.rows.filter((row) => {
+      if (moveFocus === "down-b") return row.key === "down-b";
+      if (moveFocus === "specials") return ["neutral-b", "side-b", "up-b", "down-b"].includes(row.key);
+      return (row.dmgShare ?? 0) * 100 >= minDamageShare;
+    }),
+    [recent.rows, minDamageShare, moveFocus],
   );
+  const metricDef = MOVE_METRIC_CHOICES.find((choice) => choice.key === metric)!;
+  const formatMoveMetric = (value: number | null) => value === null ? "—" : `${num(value, metricDef.digits)}${metricDef.unit}`;
   // The percentage threshold applies only to move share. Action usage is a
   // different unit (/min), so it stays visible at every threshold.
   const visibleImpact = useMemo(
@@ -1838,6 +1785,22 @@ function MovesSection({
           <h2 className="panel-title">Move effectiveness (past {recent.covered.toLocaleString()} games)</h2>
           <div className="panel-controls">
             <label>
+              Compare metric
+              <select value={metric} onChange={(e) => setMetric(e.target.value as MoveMetricKey)}>
+                {MOVE_METRIC_CHOICES.map((choice) => (
+                  <option key={choice.key} value={choice.key}>{choice.label}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Moves
+              <select value={moveFocus} onChange={(e) => setMoveFocus(e.target.value)}>
+                <option value="all">All moves</option>
+                <option value="specials">Special moves</option>
+                <option value="down-b">Down B</option>
+              </select>
+            </label>
+            <label>
               Minimum damage share
               <span className="number-suffix">
                 <input
@@ -1846,6 +1809,7 @@ function MovesSection({
                   max="100"
                   step="1"
                   inputMode="decimal"
+                  disabled={moveFocus !== "all"}
                   value={minDamageShareInput}
                   onChange={(e) => setMinDamageShareInput(e.target.value)}
                   onBlur={() => setMinDamageShareInput(String(minDamageShare))}
@@ -1855,33 +1819,34 @@ function MovesSection({
             </label>
           </div>
         </div>
-        <table>
+        <MatrixScroll><table>
           <thead>
             <tr>
               <th>Move</th>
-              <th className="data">Attempted / game</th>
-              <th className="data metric-header-wrap">Venue / game<span className="sample-note">{archiveBenchmarkSample(benchmarks.venue)}</span></th>
-              <th className="data metric-header-wrap">Tournament / game<span className="sample-note">{archiveBenchmarkSample(benchmarks.tournament)}</span></th>
-              <th className="data metric-header-wrap">Pro / game<span className="sample-note">{archiveBenchmarkSample(benchmarks.pro, true)}</span></th>
-              <th className="data">Landed / game</th>
-              <th className="data">Dmg share</th>
-              <th className="data">Kill share</th>
-              <th className="data">L-cancel</th>
+              <th className="data metric-header-wrap">You<span className="sample-note">{metricDef.label}</span></th>
+              <th className="data metric-header-wrap">SSBM Stats<span className="sample-note">{metricDef.label}</span></th>
+              <th className="data metric-header-wrap">Venue<span className="sample-note">{metricDef.label}</span><span className="sample-note">{archiveBenchmarkSample(benchmarks.venue)}</span></th>
+              <th className="data metric-header-wrap">Tournament<span className="sample-note">{metricDef.label}</span><span className="sample-note">{archiveBenchmarkSample(benchmarks.tournament)}</span></th>
+              <th className="data metric-header-wrap">Pro<span className="sample-note">{metricDef.label}</span><span className="sample-note">{archiveBenchmarkSample(benchmarks.pro, true)}</span></th>
+              <th className="data">My dmg share</th>
+              <th className="data">My kill share</th>
+              <th className="data">My L-cancel</th>
             </tr>
           </thead>
           <tbody>
             {visibleEffectivenessRows.map((r) => {
-              const venueAttempts = archiveMoveBenchmark(benchmarks.venue, r.key, "attemptsPerGame");
-              const tournamentAttempts = archiveMoveBenchmark(benchmarks.tournament, r.key, "attemptsPerGame");
-              const comparisonAttempts = tournamentAttempts ?? venueAttempts;
-              const comparisonGames = tournamentAttempts !== null
+              const mine = localMoveMetric(r, metric, recent.covered);
+              const venueValue = archiveMoveBenchmark(benchmarks.venue, r.key, metric);
+              const tournamentValue = archiveMoveBenchmark(benchmarks.tournament, r.key, metric);
+              const comparisonValue = tournamentValue ?? venueValue;
+              const comparisonGames = tournamentValue !== null
                 ? benchmarks.tournament?.game_count ?? 0
                 : benchmarks.venue?.game_count ?? 0;
-              const comparisonLabel = tournamentAttempts !== null ? "tournament" : "venue";
-              const difference = r.attemptsPerGame === null
+              const comparisonLabel = tournamentValue !== null ? "tournament" : "venue";
+              const difference = mine === null
                 ? null
-                : actionRateDifference(r.attemptsPerGame, comparisonAttempts, recent.covered, comparisonGames);
-              const localValue = r.attemptsPerGame !== null ? num(r.attemptsPerGame, 1) : "—";
+                : actionRateDifference(mine, comparisonValue, recent.covered, comparisonGames);
+              const localValue = formatMoveMetric(mine);
               return (
                 <tr key={r.key}>
                   <td>{r.label}</td>
@@ -1894,10 +1859,10 @@ function MovesSection({
                     {localValue}
                     {difference && <span className="community-diff-cue" aria-hidden="true">{difference.direction === "above" ? "▲" : "▼"}</span>}
                   </td>
-                  <td className="data">{num(venueAttempts, 1)}</td>
-                  <td className="data">{num(tournamentAttempts, 1)}</td>
-                  <td className="data">{num(archiveMoveBenchmark(benchmarks.pro, r.key, "attemptsPerGame"), 1)}</td>
-                  <td className="data">{num(r.landedPerGame, 1)}</td>
+                  <td className="data">{formatMoveMetric(communityMoveBenchmark(benchmarks.communityMoves, r.key, metric))}</td>
+                  <td className="data">{formatMoveMetric(venueValue)}</td>
+                  <td className="data">{formatMoveMetric(tournamentValue)}</td>
+                  <td className="data">{formatMoveMetric(archiveMoveBenchmark(benchmarks.pro, r.key, metric))}</td>
                   <td className="data">{pct(r.dmgShare, 0)}</td>
                   <td className="data">{pct(r.killShare, 0)}</td>
                   <td className="data" title={r.lCancelAttempts ? `${r.lCancelAttempts.toLocaleString()} attempts` : undefined}>
@@ -1907,18 +1872,26 @@ function MovesSection({
                 </tr>
               );
             })}
+            {visibleEffectivenessRows.length === 0 && (
+              <tr><td colSpan={9} className="empty-note">
+                {moveFocus === "all" ? "No moves meet this damage-share minimum. Lower the minimum to show more moves." : "No landed special-move data in your recent window for this selection."}
+              </td></tr>
+            )}
           </tbody>
-        </table>
+        </table></MatrixScroll>
         <div className="hint">
           Your most recent {recent.covered.toLocaleString()} games in this filter — current habits, not
-          career averages. Attempted counts every initiation (whiffs included) and is tracked for normals and aerials
-          only — specials and throws show "—", not zero. The gap between attempted and landed is your whiff rate.
+          career averages. Choose a metric to compare the same measure across You, SSBM Stats, Venue, Tournament, and
+          aggregate Pro. This selection also updates the Move trend chart above. Specials, including Down B, support
+          landed hits, damage, and kills; their initiation counts and whiff rates are not tracked.
+          Attempted counts every initiation (whiffs included) for normals and aerials; specials and throws show "—".
           L-cancel likewise counts every landing of that aerial (hover for attempts; it can differ a hair from the
-          headline rate, which corrects for edge-cancels). Venue, Tournament, and Pro show fixed attempted-per-game
+          headline rate, which corrects for edge-cancels). Venue, Tournament, and Pro show fixed {metricDef.label.toLowerCase()}{" "}
           references for {archiveBenchmarkLabel(benchmarks)}; a dash means no published move sample for that matchup.
-          Your attempted-per-game cell compares with Tournament, or Venue
-          when Tournament is unavailable; brighter red or blue means a larger difference. Moves below {minDamageShare}%
-          of your damage are hidden.
+          Your selected metric compares with Tournament, or Venue
+          when Tournament is unavailable; brighter red or blue means a larger difference, not better or worse play.
+          SSBM Stats follows Me across all opponents; its rates use privacy-rounded game counts and its shares cover
+          published move rows. {moveFocus === "all" ? `Moves below ${minDamageShare}% of your damage are hidden.` : "Special-move selections include every observed move regardless of damage share."}
         </div>
       </div>
 
@@ -1999,7 +1972,7 @@ function MovesSection({
           damage-per-opening moves are the neutral wins worth hunting; pair with openings/kill above to see whether
           you're converting them. A short window makes rare openings noisy. Moves below {minOpeningShare}% of your
           openings are hidden. Your openings-per-game cell uses the same red-above/blue-below benchmark gradient as
-          attempted move usage.
+          the selected move metric above.
         </div>
       </div>
 

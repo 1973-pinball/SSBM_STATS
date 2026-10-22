@@ -32,6 +32,8 @@ function mkMoveStats(rand: () => number, minutes: number, kills: number, totalDa
     [17, isMe ? (iWin ? 2.9 : 2.5) : 2.0, 12], // dair — carries wins
     [18, isMe ? 5.5 : 2.5, 3], // neutral-b (laser: lots of hits, tiny damage)
     [19, isMe ? (iWin ? 1.85 : 2.15) : 1.0, 9], // side-b — the loss habit
+    [20, 0.15, 12], // up-b — occasional recovery hit
+    [21, isMe ? 1.8 : 1.0, 7], // down-b — landed specials, with no attempt counter
     [53, 0.5, 5], // fthrow
     [55, 0.7, 5], // uthrow
     [56, 0.9, 6], // dthrow
@@ -67,7 +69,7 @@ function mkMoveStats(rand: () => number, minutes: number, kills: number, totalDa
     a.kills++;
     a.killPctSum += 75 + rand() * 65;
   }
-  const openers = [13, 17, 18, 9, 56].filter((id) => out[id]);
+  const openers = [13, 17, 18, 21, 9, 56].filter((id) => out[id]);
   const openings = Math.floor(6 + rand() * 10);
   for (let o = 0; o < openings && openers.length; o++) {
     // !: same in-bounds/filter argument as killers above.

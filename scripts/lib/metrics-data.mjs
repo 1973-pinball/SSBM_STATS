@@ -70,6 +70,14 @@ export const SECTIONS = [
     title: "Execution",
     items: [
       {
+        term: "Special moves (including Down B)",
+        def: "Neutral B, Side B, Up B, and Down B are grouped by direction for the selected character. Landed hits, damage, kills, and openings are measured when they connect. Special-move attempts and whiffs are not counted, so attempt rates show a dash. The Move Atlas keeps observed specials visible regardless of its minimum tracked-attempt filter.",
+      },
+      {
+        term: "Move comparisons",
+        def: "Choose a measure to compare your move effectiveness with SSBM Stats, Venue, Tournament, and Pro samples. Landed per game is the default; damage, kill, and other available measures use the same selection in the Move trend chart. Your Execution values cover the most recent rolling window after filters; reference values are fixed aggregates over their published samples. Missing measurements stay blank rather than counting as zero.",
+      },
+      {
         term: "L-cancel %",
         def: "Successful L-cancels ÷ attempts, where an attempt is any aerial landing that allowed one. Success halves your landing lag.",
       },
