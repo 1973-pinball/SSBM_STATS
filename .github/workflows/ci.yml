@@ -54,6 +54,9 @@ jobs:
       - name: Verify known CPU filtering
         run: npm run verify:cpu
 
+      - name: Verify replay retries and metadata recovery
+        run: npm run verify:replays
+
       - name: Local forecast pipeline tests (fixtures only; no credentials)
         run: npm run test:forecast
 

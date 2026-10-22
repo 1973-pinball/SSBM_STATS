@@ -13,6 +13,7 @@
     "bench:parse": "node --experimental-strip-types scripts/benchmark-parse-workers.mjs",
     "verify:large": "node scripts/verify-large-library.mjs",
     "verify:cpu": "node scripts/verify-known-cpu-filter.mjs",
+    "verify:replays": "node scripts/verify-replay-retry.mjs && node scripts/verify-replay-metadata.mjs",
     "verify:slpz": "node --experimental-strip-types scripts/verify-slpz.mjs",
     "archive:build": "node scripts/build-nikki-public-archive.mjs",
     "archive:load": "node scripts/load-public-archive.mjs",

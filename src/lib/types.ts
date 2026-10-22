@@ -163,12 +163,23 @@ export function hasCurrentStats(rec: GameRecord): boolean {
  *
  * Parse-failure tombstones deliberately have no players or execution fields,
  * so `hasCurrentStats()` is false for them too. They are not repairable schema
- * rows, though: retrying one only recreates the same tombstone and leaves the
- * refresh warning pinned forever. Keep that distinction explicit anywhere a
- * caller decides to forget a cached id and re-parse its file.
+ * rows, though: automatic schema repair must not repeatedly retry corruption.
+ * Explicit failed-replay retries are handled separately by the parse pipeline.
  */
 export function needsStatsRepair(rec: GameRecord): boolean {
   return rec.parseError === undefined && hasFullStats(rec) && !hasCurrentStats(rec);
+}
+
+/** Failed file versions with no successful cached copy of that same version. */
+export function failedReplayIds(records: readonly GameRecord[]): Set<string> {
+  const failed = new Set<string>();
+  const parsed = new Set<string>();
+  for (const rec of records) {
+    if (rec.parseError !== undefined) failed.add(rec.id);
+    else if (hasFullStats(rec)) parsed.add(rec.id);
+  }
+  for (const id of parsed) failed.delete(id);
+  return failed;
 }
 
 /**
@@ -322,22 +333,20 @@ export interface ParseProgress {
   /** Files omitted before this pass because their exact version is cached. */
   skippedCached: number;
   /**
-   * Parsed and failed. A tombstone was cached and its id is in `seen`, so these
-   * files are skipped by every future scan — a refresh will never pick them up.
-   * Kept apart from `unreadable` and `deferred` for exactly that reason: the
-   * three used to share one counter, and the UI told the user to refresh over
-   * the sum of them, which is false for this one.
+   * Parsed and failed. A tombstone is cached so background scans skip this
+   * exact file version. Explicit Refresh or file/folder picks can retry it.
    */
   failed: number;
   /**
    * Could not be opened or read this time — locked, or gone since discovery.
-   * Nothing was cached, so the next scan comes back for them.
+   * No new record is cached. New files retry on the next scan; an explicit
+   * retry of an earlier parse failure retains that old cached diagnostic.
    */
   unreadable: number;
   /**
    * Left unparsed on purpose this run: a replay Slippi was still writing, or one
-   * that changed under the scan. Nothing is cached for them — not even a
-   * tombstone — so the next scan picks them up once the game has finished.
+   * that changed under the scan. No new record is cached; an earlier failed
+   * parse, if any, remains cached until an explicit retry produces a result.
    */
   deferred: number;
 }

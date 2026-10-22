@@ -1,6 +1,6 @@
 import { Component, Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Account, Filters, GameRecord, ParseProgress } from "./lib/types";
-import { DEFAULT_FILTERS, hasFullStats, hasKnownCpu, needsStatsRepair } from "./lib/types";
+import { DEFAULT_FILTERS, failedReplayIds, hasFullStats, hasKnownCpu, needsStatsRepair } from "./lib/types";
 import {
   discoverFromHandle,
   discoverFromFolders,
@@ -128,33 +128,31 @@ const navUrl = (tab: Tab, overlay: Overlay = null) => {
 };
 
 /**
- * The three ways a scan can leave a file unparsed. Two are retryable and one
- * is not, which is the whole point of keeping them apart.
+ * The three ways a scan can leave a file unparsed. Failed parses are cached
+ * until an explicit retry; unreadable and unfinished files retry automatically.
  */
 type SkipTally = Pick<ParseProgress, "failed" | "unreadable" | "deferred">;
 
 /**
  * Why the last refresh left files unparsed, in the user's terms.
  *
- * The retryable and the permanent are described in separate sentences and never
- * summed. They used to share one counter under one sentence promising a refresh
- * would pick everything up, which is false for a replay that parsed and failed:
- * that one is tombstoned and its id is in `seen`, so no refresh will revisit it.
+ * A retry can still be unfinished or unreadable while an earlier parse failure
+ * is cached, so do not promise that every skipped file has no cached record.
  */
 function skippedDetail({ failed, unreadable, deferred }: SkipTally): string {
   const retryable: string[] = [];
   if (deferred > 0) {
-    retryable.push(`${deferred.toLocaleString()} replay${deferred === 1 ? " was" : "s were"} still being written`);
+    retryable.push(`${deferred.toLocaleString()} replay${deferred === 1 ? " was" : "s were"} incomplete or still being written`);
   }
   if (unreadable > 0) retryable.push(`${unreadable.toLocaleString()} couldn't be opened`);
 
   const sentences: string[] = [];
   if (retryable.length > 0) {
-    sentences.push(`${retryable.join(", ")}. Nothing was cached for them — refresh once Slippi has finished writing and they'll be picked up.`);
+    sentences.push(`${retryable.join(", ")}. Refresh to retry once the files are available and Slippi has finished writing.`);
   }
   if (failed > 0) {
     sentences.push(
-      `${failed.toLocaleString()} couldn't be parsed and ${failed === 1 ? "was" : "were"} set aside — ${failed === 1 ? "it" : "they"} won't be retried, so refreshing won't change this.`,
+      `${failed.toLocaleString()} couldn't be parsed. Refresh or add the replay files or folder again to retry. Automatic scans leave failed replays set aside.`,
     );
   }
   return sentences.join(" ");
@@ -338,6 +336,7 @@ export default function App() {
       for (const rec of incoming) {
         const cur = byId.get(rec.id);
         if (cur === rec) continue;
+        if (cur && hasFullStats(cur) && cur.parseError === undefined && rec.parseError !== undefined) continue;
         // Never let a preview overwrite the full record it was standing in for:
         // a late-delivered header batch can arrive after the full pass has
         // already replaced that game.
@@ -544,6 +543,7 @@ export default function App() {
             if (!onDashboard) setProgress(p);
           },
           controller.signal,
+          { retryFailed: true },
         );
         if (generation.current !== gen) return;
         markScanned();
@@ -607,7 +607,8 @@ export default function App() {
    * added since the last scan actually parse.
    */
   const syncFolders = useCallback(
-    async (selected: readonly ReplayFolder[], repairIds: readonly string[] = [], requestAccess = false) => {
+    async (selected: readonly ReplayFolder[], repairIds: readonly string[] = [], options: { requestAccess?: boolean; retryFailed?: boolean } = {}) => {
+      const { requestAccess = false, retryFailed = false } = options;
       if (scanBusy.current) return;
       scanBusy.current = true;
       lastFolderSyncAt.current = Date.now();
@@ -674,6 +675,7 @@ export default function App() {
             appendRecords(newRecords);
           },
           controller.signal,
+          { retryFailed },
         );
         if (generation.current !== gen) return;
         markScanned();
@@ -738,6 +740,7 @@ export default function App() {
             appendRecords(newRecords);
           },
           controller.signal,
+          { retryFailed: true },
         );
         const done = tally.last;
         if (generation.current === gen) {
@@ -822,7 +825,7 @@ export default function App() {
 
   const onRefresh = useCallback(() => {
     const repairIds = records.filter(needsStatsRepair).map((rec) => rec.id);
-    void syncFolders(folders, repairIds, true);
+    void syncFolders(folders, repairIds, { requestAccess: true, retryFailed: true });
   }, [folders, records, syncFolders]);
 
   const onPickDirectory = useCallback(() => {
@@ -896,7 +899,7 @@ export default function App() {
         pickerBusy.current = false;
         setPickingFolder(false);
         const repairIds = records.filter(needsStatsRepair).map((rec) => rec.id);
-        await syncFolders(added.folders, repairIds);
+        await syncFolders(added.folders, repairIds, { retryFailed: true });
         if (!saved && generation.current === gen) {
           setPipelineError("These folders work for this visit, but couldn't be remembered. Add them again next time.");
         }
@@ -993,6 +996,9 @@ export default function App() {
   // the same game can arrive under different file keys. Collapse before
   // resolving so no aggregate ever counts a game twice.
   const deduped = useMemo(() => dedupeRecords(records), [records]);
+  // Failures remain actionable after a background scan or page reload. They
+  // are separate from the latest attempt's unreadable/unfinished file counts.
+  const failedReplayCount = useMemo(() => failedReplayIds(deduped).size, [deduped]);
   const myCodes = useMemo(() => new Set(accounts.map((a) => a.code)), [accounts]);
   const shouldResolveDashboard = phase === "dashboard";
   const allResolved = useMemo(
@@ -1162,9 +1168,14 @@ export default function App() {
                   e.currentTarget.value = "";
                 }}
               />
-              {!isDemo && !syncing && syncSkipped && (
-                <span className="tag" title={skippedDetail(syncSkipped)}>
-                  {(syncSkipped.failed + syncSkipped.unreadable + syncSkipped.deferred).toLocaleString()} skipped
+              {!isDemo && !syncing && failedReplayCount > 0 && (
+                <span className="tag" title={skippedDetail({ failed: failedReplayCount, unreadable: 0, deferred: 0 })}>
+                  {failedReplayCount.toLocaleString()} failed replay{failedReplayCount === 1 ? "" : "s"}
+                </span>
+              )}
+              {!isDemo && !syncing && syncSkipped && syncSkipped.unreadable + syncSkipped.deferred > 0 && (
+                <span className="tag" title={skippedDetail({ ...syncSkipped, failed: 0 })}>
+                  {(syncSkipped.unreadable + syncSkipped.deferred).toLocaleString()} skipped
                 </span>
               )}
               <CloudSync

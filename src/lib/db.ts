@@ -324,9 +324,22 @@ export async function forgetCachedRecordIds(ids: Iterable<string>): Promise<void
   if (unique.length > 0) await db.seen.bulkDelete(unique);
 }
 
-export async function putRecords(records: GameRecord[]): Promise<void> {
+export async function putRecords(records: GameRecord[], replaceFailedIds?: ReadonlySet<string>): Promise<void> {
   if (!records.length) return;
   await db.transaction("rw", db.packs, db.seen, async () => {
+    // A deliberate retry replaces its old failure only once a new parse
+    // result is ready to commit. Unreadable, unfinished, and aborted attempts
+    // therefore retain the old diagnostic and cannot start background loops.
+    // Remove only failed rows, never another source's successful copy.
+    const replacing = new Set(records.filter((rec) => replaceFailedIds?.has(rec.id)).map((rec) => rec.id));
+    if (replacing.size > 0) {
+      for (const pack of await db.packs.toArray()) {
+        const kept = pack.records.filter((rec) => rec.parseError === undefined || !replacing.has(rec.id));
+        if (kept.length === pack.records.length || pack.id === undefined) continue;
+        if (kept.length > 0) await db.packs.put({ ...pack, records: kept });
+        else await db.packs.delete(pack.id);
+      }
+    }
     await db.seen.bulkPut(records.map((r) => ({ id: r.id })));
     const queue = [...records];
     // Top up the trailing partial pack before opening new ones.

@@ -46,6 +46,13 @@ const server = await createServer({
         import { generateDemoRecords, DEMO_ACCOUNTS } from '/src/lib/demo.ts';
         window.checkDb = db;
         window.checkErrors = [];
+        window.checkWorkerAttempts = 0;
+        window.checkScans = 0;
+        const seenCollection = db.db.seen.toCollection.bind(db.db.seen);
+        db.db.seen.toCollection = (...args) => {
+          window.checkScans++;
+          return seenCollection(...args);
+        };
         window.addEventListener('error', e => window.checkErrors.push(e.message));
         window.addEventListener('unhandledrejection', e => window.checkErrors.push(String(e.reason)));
         await db.clearAll();
@@ -64,7 +71,14 @@ const server = await createServer({
           onmessage = null;
           onerror = null;
           postMessage(job) {
-            setTimeout(() => this.onmessage?.({ data: { ok: false, id: job.id, path: job.path, error: 'synthetic parse failed' } }), 0);
+            window.checkWorkerAttempts++;
+            const data = window.checkParseSucceeds
+              ? { ok: true, id: job.id, path: job.path, record: {
+                  ...generateDemoRecords(1)[0], id: job.id, path: job.path,
+                  playedAt: new Date(job.file.lastModified).toISOString(),
+                } }
+              : { ok: false, id: job.id, path: job.path, error: 'synthetic parse failed' };
+            setTimeout(() => this.onmessage?.({ data }), 0);
           }
           terminate() {}
         }
@@ -142,6 +156,13 @@ try {
     await send("DOM.setFileInputFiles", { nodeId, files: [path] });
   };
   const savedIds = () => evaluate("checkDb.allRecords().then(records => records.map(r => r.id).sort())");
+  const failedBadge = () => evaluate("Array.from(document.querySelectorAll('.tag')).find(e => e.textContent.trim() === '1 failed replay')?.title ?? null");
+  const selectFiles = async (path) => {
+    await click("Add replay files");
+    const { root } = await send("DOM.getDocument");
+    const { nodeId } = await send("DOM.querySelector", { nodeId: root.nodeId, selector: "input[type=file]:not([webkitdirectory])" });
+    await send("DOM.setFileInputFiles", { nodeId, files: [path] });
+  };
 
   await send("Page.enable");
   await send("Page.setInterceptFileChooserDialog", { enabled: true });
@@ -192,6 +213,45 @@ try {
   await waitFor("checkDb.allRecords().then(records => records.some(r => r.path.endsWith('/manual-refresh.slp') && r.parseError))");
   await ready("Refresh");
   const refreshedIds = await savedIds();
+  assert.ok((await failedBadge())?.includes("again to retry"));
+  const firstAttempts = await evaluate("window.checkWorkerAttempts");
+  const firstScans = await evaluate("window.checkScans");
+  await evaluate("Date.now = () => window.checkRealDateNow() + 80_000; window.dispatchEvent(new Event('focus'))");
+  await waitFor(`window.checkScans > ${firstScans}`);
+  await ready("Refresh");
+  assert.equal(await evaluate("window.checkWorkerAttempts"), firstAttempts, "background refresh leaves corruption cached");
+  assert.ok(await failedBadge(), "background scans preserve the cached failure warning");
+  await click("Refresh");
+  await ready("Refresh");
+  assert.equal(await evaluate("window.checkWorkerAttempts"), firstAttempts + 1, "explicit Refresh retries the same failed version");
+  assert.deepEqual(await savedIds(), refreshedIds, "repeated failures do not accumulate rows");
+  assert.ok(await failedBadge(), "an unsuccessful retry remains visible");
+  await click("Add folder");
+  await ready("Refresh");
+  assert.equal(await evaluate("window.checkWorkerAttempts"), firstAttempts + 2, "re-picking the same folder retries failures");
+  assert.deepEqual(await savedIds(), refreshedIds);
+  await evaluate("window.checkParseSucceeds = true");
+  await click("Refresh");
+  await ready("Refresh");
+  assert.equal(await evaluate("window.checkWorkerAttempts"), firstAttempts + 3);
+  assert.deepEqual(await savedIds(), refreshedIds, "successful retry replaces the failed same-ID row");
+  assert.equal(await failedBadge(), null, "successful recovery removes the cached failure warning");
+  assert.equal(await evaluate("checkDb.allRecords().then(records => records.filter(r => r.parseError).length)"), 0);
+
+  const pickedReplay = join(temp, "picked-retry.slp");
+  await writeFile(pickedReplay, "Synthetic selected replay");
+  await evaluate("window.checkParseSucceeds = false");
+  await selectFiles(pickedReplay);
+  await ready("Refresh");
+  await waitFor("checkDb.allRecords().then(records => records.some(r => r.path === 'picked-retry.slp' && r.parseError))");
+  const pickedIds = await savedIds();
+  const pickedAttempts = await evaluate("window.checkWorkerAttempts");
+  await evaluate("window.checkParseSucceeds = true");
+  await selectFiles(pickedReplay);
+  await ready("Refresh");
+  assert.equal(await evaluate("window.checkWorkerAttempts"), pickedAttempts + 1, "re-selecting files retries their failed version");
+  assert.deepEqual(await savedIds(), pickedIds);
+  assert.equal(await failedBadge(), null);
   await evaluate("window.checkNextFolder = 'Slippi-B'");
   await click("Add folder");
   await ready("Refresh");
@@ -203,9 +263,9 @@ try {
   await evaluate("window.checkNextFolder = null");
   await click("Add folder");
   await ready("Add folder");
-  assert.deepEqual(await savedIds(), refreshedIds, "adding, re-picking and cancelling preserve cached stats");
+  assert.deepEqual(await savedIds(), pickedIds, "adding, re-picking and cancelling preserve cached stats");
   assert.deepEqual(await evaluate("checkErrors"), []);
-  console.log("Folder picker checks passed: empty and unsupported fallback selections, cancel recovery, native add/re-pick/cancel, and preservation of cached stats.");
+  console.log("Folder picker checks passed: empty/cancel recovery, explicit folder/file retries, background skips, persistent failure warnings, successful recovery without duplicate rows, and preservation of cached stats.");
 } finally {
   socket?.close();
   if (chrome && chrome.exitCode === null) {
