@@ -42,16 +42,29 @@ interface ArchiveAtlasState {
   error: string | null;
 }
 
+interface ArchiveFieldResult {
+  datasetId: string;
+  characterId: number;
+  fieldRows: ArchiveRollup[];
+  proAggregateRows: ArchiveRollup[];
+  error: string | null;
+}
+
+interface ArchivePlayerResult {
+  datasetId: string;
+  characterId: number;
+  playerId: string;
+  rows: ArchiveRollup[];
+}
+
 function useArchiveAtlas(characterId: number): ArchiveAtlasState {
   const [dataset, setDataset] = useState<ArchiveDataset | null>(null);
   const [pros, setPros] = useState<ArchiveProOption[]>([]);
-  const [fieldRows, setFieldRows] = useState<ArchiveRollup[]>([]);
-  const [proAggregateRows, setProAggregateRows] = useState<ArchiveRollup[]>([]);
-  const [proRows, setProRows] = useState<ArchiveRollup[]>([]);
+  const [fieldResult, setFieldResult] = useState<ArchiveFieldResult | null>(null);
+  const [playerResult, setPlayerResult] = useState<ArchivePlayerResult | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [catalogLoading, setCatalogLoading] = useState(true);
-  const [rowsLoading, setRowsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -61,13 +74,13 @@ function useArchiveAtlas(characterId: number): ArchiveAtlasState {
         if (!alive) return;
         setDataset(nextDataset);
         if (!nextDataset) {
-          setError("No historical tournament archive is published yet.");
+          setCatalogError("No historical tournament archive is published yet.");
           return;
         }
         const nextPros = await fetchArchiveCommunityProOptions(nextDataset.id);
         if (alive) setPros(nextPros);
       })
-      .catch(() => { if (alive) setError("Historical tournament comparisons are temporarily unavailable."); })
+      .catch(() => { if (alive) setCatalogError("Historical tournament comparisons are temporarily unavailable."); })
       .finally(() => { if (alive) setCatalogLoading(false); });
     return () => { alive = false; };
   }, []);
@@ -82,47 +95,58 @@ function useArchiveAtlas(characterId: number): ArchiveAtlasState {
   }, [characterPros, playerId]);
 
   useEffect(() => {
+    setFieldResult(null);
     if (!dataset || characterId < 0) {
-      setFieldRows([]);
-      setProAggregateRows([]);
       return;
     }
     let alive = true;
-    setRowsLoading(true);
+    const selection = { datasetId: dataset.id, characterId };
     void Promise.all([
       fetchArchiveCommunityAtlasRows(dataset.id, characterId),
       fetchArchiveProAggregateAtlasRows(dataset.id, characterId),
     ])
-      .then(([rows, proAggregate]) => { if (alive) { setFieldRows(rows); setProAggregateRows(proAggregate); setError(null); } })
-      .catch(() => { if (alive) { setFieldRows([]); setProAggregateRows([]); setError("Historical tournament comparisons are temporarily unavailable."); } })
-      .finally(() => { if (alive) setRowsLoading(false); });
+      .then(([fieldRows, proAggregateRows]) => {
+        if (alive) setFieldResult({ ...selection, fieldRows, proAggregateRows, error: null });
+      })
+      .catch(() => {
+        if (alive) setFieldResult({
+          ...selection, fieldRows: [], proAggregateRows: [],
+          error: "Historical tournament comparisons are temporarily unavailable.",
+        });
+      });
     return () => { alive = false; };
   }, [characterId, dataset]);
 
   useEffect(() => {
+    setPlayerResult(null);
     if (!dataset || characterId < 0 || !playerId) {
-      setProRows([]);
       return;
     }
     let alive = true;
     void fetchArchivePlayerAtlasRows(dataset.id, playerId, characterId)
-      .then((rows) => { if (alive) setProRows(rows); })
-      .catch(() => { if (alive) setProRows([]); });
+      .then((rows) => { if (alive) setPlayerResult({ datasetId: dataset.id, characterId, playerId, rows }); })
+      .catch(() => { if (alive) setPlayerResult({ datasetId: dataset.id, characterId, playerId, rows: [] }); });
     return () => { alive = false; };
   }, [characterId, dataset, playerId]);
+
+  // Guard during render, before effects clear old rows or start the next request.
+  const currentField = fieldResult?.datasetId === dataset?.id && fieldResult?.characterId === characterId
+    ? fieldResult : null;
+  const currentPlayer = playerResult?.datasetId === dataset?.id && playerResult?.characterId === characterId
+    && playerResult?.playerId === playerId ? playerResult : null;
 
   return {
     dataset,
     pros,
-    fieldRows,
-    proAggregateRows,
-    proRows,
+    fieldRows: currentField?.fieldRows ?? [],
+    proAggregateRows: currentField?.proAggregateRows ?? [],
+    proRows: currentPlayer?.rows ?? [],
     characterPros,
     selectedPro: characterPros.find((player) => player.id === playerId) ?? null,
     playerId,
     setPlayerId,
-    loading: catalogLoading || rowsLoading,
-    error,
+    loading: catalogLoading || (!!dataset && characterId >= 0 && !currentField),
+    error: currentField ? currentField.error : catalogError,
   };
 }
 

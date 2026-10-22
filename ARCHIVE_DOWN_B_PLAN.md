@@ -24,9 +24,10 @@ source machine. Default cache locations are:
 
 The checked-in event, series, and verified player registries remain the identity
 sources. Do not substitute personal replays or synthetic stats for archive games.
-The complete cache is not present on the Windows development machine as of
-October 22, 2026. The original runbook identifies a macOS cache. The public bundle
-metadata links to `https://replays.nikki.sh/`, which opens the public OneDrive
+The original runbook identifies a macOS cache. On October 22, 2026, all 67 retained
+original bundles were reacquired and byte-verified in the Windows cache; `ootb5`
+still requires the laptop copy. The public bundle metadata links to
+`https://replays.nikki.sh/`, which opens the public OneDrive
 folder in a normal browser. Single-file Download works without signing in;
 Copy link requests sign-in. Windows' built-in `tar` can extract these 7z bundles.
 
