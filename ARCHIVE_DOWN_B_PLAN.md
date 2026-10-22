@@ -14,9 +14,9 @@ result as a whiff percentage or infer it by subtracting landed hits from attempt
 
 ## Source requirements
 
-Use the complete original Nikki archive cache, including downloaded bundles,
-extracted replay folders, and the previous curation report. Raw replay bytes stay
-on the source machine. Default cache locations are:
+Use the reviewed source population, its downloaded bundles and extracted replay
+folders, and a newly generated curation report. Raw replay bytes stay on the
+source machine. Default cache locations are:
 
 - macOS: `~/Library/Caches/SSBM_DASHBOARD_nikki_archive`
 - Windows/Linux: `~/.cache/SSBM_DASHBOARD_nikki_archive`
@@ -33,9 +33,21 @@ Copy link requests sign-in. Windows' built-in `tar` can extract these 7z bundles
 The published `nikki-2026-09-08-v8` dataset contains 68 bundles, 66,151,744,566
 compressed bytes, and 161,510 replay files. The current public folder has 67 of
 those bundle stems: `ootb5` (816,744,003 compressed bytes; 1,545 replay files) is
-missing, while a new `supernova-2026.7z` is present. Exact backfill requires the
-missing original bundle. Adding/removing source events requires a reviewed new
-curation population, updated registries, and honest dataset provenance.
+missing, while a new `supernova-2026.7z` is present. On October 22, 2026 the user
+approved a new immutable revision containing **all 67 available original bundles,
+excluding `ootb5` and adding no new events**. The retained original population is
+65,335,000,563 compressed bytes and 159,965 replay files. Parsed, failed, duplicate,
+usable-game, and named-player totals must be measured by the new run; they cannot
+be copied from the previous revision. Track restoration of Out of the Blue 5 in
+[GitHub issue #3](https://github.com/1973-pinball/SSBM_STATS/issues/3).
+
+Keep the checked-in historical registries intact. The builder filters public
+event and series rows to the included sources and ignores identity rules for an
+explicitly omitted event. Every retained exact-game identity rule must still
+match. All eleven players with Out of the Blue 5 alias evidence also have approved
+evidence at other retained events, but confirm actual surviving mapped games and
+the named-player directory after the complete rebuild; evidence alone is not a
+guarantee that every prior player remains represented.
 
 A local CEO 2024 sample was downloaded and verified against the published byte
 count (24,379,928). Its 46 replays parse successfully with stats version 4 and
@@ -52,7 +64,23 @@ their matched source filenames.
 
 ## Reparse and build
 
-1. For each original source bundle, run the current parser against its extracted
+The resumable local runner can process completed downloads as they arrive:
+
+```bash
+node scripts/backfill-nikki-archive.mjs \
+  --cache /path/to/cache \
+  --audit /path/to/cache/source-audit-2026-10-22.json \
+  --workers 8 --watch true
+```
+
+It validates source sizes, archive members, replay counts, stats versions, and
+outcome totals before installing each result. Originals stay in `downloads/`;
+only its marked extraction staging is removed after a successful parse. Resume
+receipts bind results to the parser and immutable source-audit hashes. Keep the
+audit and parser inputs unchanged during a run; save progress notes separately.
+Its `backfill-v4/state.json` records completion, failures, and the active stage.
+
+1. For each of the 67 retained original source bundles, run the current parser against its extracted
    folder. Keep results separate from the old version-3 parse:
 
    ```bash
@@ -63,10 +91,15 @@ their matched source filenames.
      --workers 8
    ```
 
-2. Verify replay, parsed, failed, and duplicate totals against the prior complete
-   run. Successful records must have `statsVersion: 4`. Do not silently omit an
-   unavailable bundle. If the source population changes, regenerate and review
-   curation with `scripts/curate-nikki-archive.mjs` before building.
+2. Successful records must have `statsVersion: 4`. Check the 159,965 retained
+   replay-file count, then regenerate curation from exactly those 67 results:
+
+   ```bash
+   node scripts/curate-nikki-archive.mjs /path/to/cache/results-v4 /path/to/cache/archive-curation-v4.json
+   ```
+
+   Inspect parsed, failed, and duplicate totals. Do not mix the old full-population
+   curation with this subset, omit another source, or add Supernova 2026.
 
 3. Build a fresh immutable dataset id, retaining the source data's actual
    `data-as-of` date and choosing an unused dataset version. For the existing
@@ -76,13 +109,21 @@ their matched source filenames.
    npm run archive:build -- \
      --results /path/to/cache/results-v4 \
      --downloads /path/to/cache/downloads \
-     --curation /path/to/cache/archive-curation.json \
+     --curation /path/to/cache/archive-curation-v4.json \
+     --source-audit /path/to/cache/source-audit-2026-10-22.json \
+     --exclude-bundles ootb5 \
      --output /path/to/cache/public-export-v9 \
      --data-as-of 2026-09-08 \
      --version v9
    ```
 
-   The builder rejects old stats versions and incomplete/invalid outcome
+   The source-audit option checks that the result set is exactly the original
+   68-bundle list minus `ootb5`, with unchanged per-bundle replay and compressed
+   byte counts. Extra downloads do not enter the export or its byte total. The
+   manifest and QA report record `sourcePopulation`; the existing dataset notes
+   disclose the excluded event in the live Atlas and archive Sources panel.
+
+   The builder also rejects old stats versions and incomplete/invalid outcome
    triples. `metrics.moves["21"].attemptGames` counts games with an explicit
    initiation measurement, including games with zero uses. `outcomeGames` counts
    games with all three outcome fields: `hitAttempts`, `noHitAttempts`, and
@@ -112,3 +153,15 @@ the new dataset is the live catalog selection, then check Move Atlas and
 Execution with Venue and Pro comparisons. Compare displayed attempts/game with
 `attempts / attemptGames`; compare no-hit rates with the completed-use formula
 above. Confirm an old dataset's missing coverage still displays “—”.
+
+Compare new per-player conservative counts against the prior dataset, especially
+Ginger, Hungrybox, Jmook, Joshman, Krudo, Magi, moky, Ossify, Spark, Wizzrobe, and
+Zain. Their Out of the Blue games must disappear; other verified events and exact
+identity matches must remain. No `ootb5` tournament, bundle, game, set, or rollup
+may appear under the new dataset id. The previous published revision remains
+immutable and available for its existing consumers.
+
+This archive refresh does not regenerate the bundled Tournament Predictions
+research data or publish a new forecast. Existing forecasts remain tied to their
+original dataset/hash. Any future forecast using this cohort must be rebuilt from
+the new export; never relabel an old forecast as belonging to the new revision.

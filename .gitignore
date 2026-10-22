@@ -40,3 +40,6 @@ public/share/
 # Local tournament research: API responses, normalized data, reports, models.
 # Nothing under this directory belongs in the app bundle or source control.
 .forecast/
+
+# Temporary compiled parser used by the local archive backfill.
+.nikki-full-parse-*/

@@ -530,6 +530,7 @@ function SourcesPanel({ catalog, selectedEvent, selectedSeries, seriesEditions, 
         The {population === "broad" ? "venue" : "tournament"} benchmark is selected. Raw .slp files, local paths,
         unresolved identities, and private connect codes are not included in this public dataset. Event years come from
         the cited event references rather than replay-system clocks.
+        {dataset.notes && <div>{dataset.notes}</div>}
       </div>
     </section>
   );

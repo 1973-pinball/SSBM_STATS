@@ -11,13 +11,14 @@
 
 import { createHash } from "node:crypto";
 import { createWriteStream } from "node:fs";
-import { mkdir, mkdtemp, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
 import { once } from "node:events";
 import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { computeArchiveContentSha256 } from "./lib/archive-content-hash.mjs";
 import { ARCHIVE_STATS_VERSION, addArchiveDownBOutcomes, assertArchiveDownBMeasurements } from "./lib/archive-move-coverage.mjs";
+import { archiveBundleStem, planArchiveSourcePopulation, assertArchiveSourcePayload, assertArchiveSourceDownload } from "./lib/archive-source-population.mjs";
 import { readDataset } from "./lib/liquipedia-data.mjs";
 import { displayName as canonicalDisplay, playerKey } from "./lib/liquipedia-parse.mjs";
 
@@ -41,6 +42,8 @@ const DEFAULTS = {
   output: path.join(CACHE_ROOT, "public-export"),
   dataAsOf: localDate(),
   version: "v1",
+  sourceAudit: null,
+  excludeBundles: "",
 };
 
 const args = { ...DEFAULTS };
@@ -48,7 +51,7 @@ for (let index = 2; index < process.argv.length; index += 2) {
   const key = process.argv[index];
   const value = process.argv[index + 1];
   if (!key?.startsWith("--") || value === undefined) {
-    throw new Error("Usage: build-nikki-public-archive.mjs [--results DIR] [--downloads DIR] [--curation FILE] [--events FILE] [--series FILE] [--identities FILE] [--output DIR] [--data-as-of YYYY-MM-DD] [--version vN]");
+    throw new Error("Usage: build-nikki-public-archive.mjs [--results DIR] [--downloads DIR] [--curation FILE] [--events FILE] [--series FILE] [--identities FILE] [--output DIR] [--data-as-of YYYY-MM-DD] [--version vN] [--source-audit FILE] [--exclude-bundles STEM,...]");
   }
   const name = key.slice(2).replace(/-([a-z])/g, (_, char) => char.toUpperCase());
   if (!(name in args)) throw new Error(`Unknown option ${key}`);
@@ -56,6 +59,7 @@ for (let index = 2; index < process.argv.length; index += 2) {
 }
 
 if (!/^v[1-9]\d*$/.test(args.version)) throw new Error("--version must look like v1, v2, …");
+if (args.excludeBundles && !args.sourceAudit) throw new Error("--exclude-bundles requires --source-audit to verify every retained bundle");
 const DATASET_ID = `nikki-${args.dataAsOf}-${args.version}`;
 const SOURCE_URL = "https://replays.nikki.sh/";
 const MIN_GAME_FRAMES = 30 * 60;
@@ -177,6 +181,14 @@ const eventDoc = await readJson(args.events);
 const seriesDoc = await readJson(args.series);
 const identityDoc = await readJson(args.identities);
 const curation = await readJson(args.curation);
+const resultFiles = (await readdir(args.results)).filter((name) => name.endsWith(".json")).sort();
+const sourceAuditText = args.sourceAudit ? await readFile(args.sourceAudit, "utf8") : null;
+const sourcePlan = sourceAuditText ? planArchiveSourcePopulation(JSON.parse(sourceAuditText),
+  args.excludeBundles.split(",").map((name) => name.trim()).filter(Boolean), resultFiles) : null;
+const sourcePopulation = sourcePlan ? { ...sourcePlan.metadata, sourceAuditSha256: hash(sourceAuditText) } : null;
+const includedEventIds = new Set(resultFiles.map((name) => eventIdFor(`${archiveBundleStem(name)}.7z`)));
+const excludedEventIds = new Set((sourcePopulation?.excludedBundles ?? [])
+  .map((stem) => eventIdFor(`${stem}.7z`)).filter((eventId) => !includedEventIds.has(eventId)));
 const eventById = new Map(eventDoc.events.map((event) => [event.id, event]));
 const seriesIdByEvent = new Map();
 for (const series of seriesDoc.series) {
@@ -334,6 +346,9 @@ for (const override of identityOverrides) {
   if (!['verified', 'probable'].includes(override.resolution)) {
     throw new Error(`Identity override has invalid resolution ${override.resolution}`);
   }
+  // An explicitly omitted event supplies no identity evidence to this revision.
+  // Every exact-game override in retained events still has to match below.
+  if (excludedEventIds.has(override.eventId)) continue;
   if (override.kind === "event_character") {
     if (!VERIFIED_EVENTS.has(override.eventId)) {
       throw new Error(`event_character identity overrides are limited to explicitly verified two-player exhibitions: ${override.eventId}`);
@@ -369,7 +384,6 @@ for (const override of identityOverrides) {
   throw new Error(`Unsupported identity override kind ${override.kind}`);
 }
 
-const resultFiles = (await readdir(args.results)).filter((name) => name.endsWith(".json")).sort();
 const gamesByKey = new Map();
 const candidateMappings = new Map();
 let replayFiles = 0;
@@ -411,6 +425,7 @@ const approvedRankedIdentity = (player, eventId, rawGameKey, slot) => {
 console.log(`Pass 1/2: indexing ${resultFiles.length} parsed bundles…`);
 for (const [fileIndex, name] of resultFiles.entries()) {
   const payload = await readJson(path.join(args.results, name));
+  if (sourcePlan) assertArchiveSourcePayload(sourcePlan, name, payload);
   const eventId = eventIdFor(payload.bundle);
   const event = eventById.get(eventId);
   if (!event) throw new Error(`No event registry row for ${eventId}`);
@@ -729,6 +744,30 @@ const addScopeRows = (scope, population, extras, record, player, opponent, slot)
 
 const outputTarget = path.resolve(args.output);
 await mkdir(path.dirname(outputTarget), { recursive: true });
+const outputParent = await realpath(path.dirname(outputTarget));
+let existingOutput = null;
+try { existingOutput = await lstat(outputTarget); } catch (error) {
+  if (error?.code !== "ENOENT") throw error;
+}
+if (existingOutput) {
+  if (!existingOutput.isDirectory() || existingOutput.isSymbolicLink()) {
+    throw new Error("Archive output must be a real directory, not a file or symbolic link");
+  }
+  if ((await readdir(outputTarget)).length) {
+    // Rebuilding may replace a prior export, but a mistaken --output must never
+    // turn an unrelated directory (such as the raw replay cache) into a backup
+    // that is recursively removed after the new export succeeds.
+    let priorManifest;
+    try { priorManifest = await readJson(path.join(outputTarget, "manifest.json")); } catch {
+      throw new Error("Refusing to replace a nonempty output directory without an archive export manifest");
+    }
+    if (priorManifest.schemaVersion !== 1 || typeof priorManifest.datasetId !== "string"
+      || priorManifest.tableCounts?.archive_datasets !== 1
+      || !priorManifest.loadOrder?.includes("archive_rollups")) {
+      throw new Error("Refusing to replace a directory that is not a recognized archive export");
+    }
+  }
+}
 const buildOutput = await mkdtemp(path.join(path.dirname(outputTarget), `.${path.basename(outputTarget)}.build-`));
 args.output = buildOutput;
 const gameWriter = new NdjsonWriter(path.join(args.output, "archive_games.ndjson"));
@@ -934,7 +973,6 @@ for (const row of rollups.values()) {
 const downloadFiles = await readdir(args.downloads);
 const compressedByBundle = new Map();
 for (const name of downloadFiles) compressedByBundle.set(name, (await stat(path.join(args.downloads, name))).size);
-const totalCompressedBytes = [...compressedByBundle.values()].reduce((sum, bytes) => sum + bytes, 0);
 const curationBundleByName = new Map(curation.bundles.map((bundle) => [bundle.bundle, bundle]));
 const bundleRows = resultFiles.map((name) => {
   const bundle = curationBundleByName.get(name.replace(/\.json$/, ".7z"))
@@ -943,6 +981,10 @@ const bundleRows = resultFiles.map((name) => {
   if (!bundle) throw new Error(`No curation bundle row for ${name}`);
   const compressedBytes = compressedByBundle.get(bundle.bundle);
   if (compressedBytes === undefined) throw new Error(`No compressed file for ${bundle.bundle}`);
+  if (sourcePlan) {
+    assertArchiveSourcePayload(sourcePlan, name, { bundle: bundle.bundle, replayFiles: bundle.replayFiles });
+    assertArchiveSourceDownload(sourcePlan, bundle.bundle, compressedBytes);
+  }
   return {
     id: `${DATASET_ID}:${bundle.bundle.replace(/\.(?:7z|zip)$/i, "")}`,
     dataset_id: DATASET_ID,
@@ -956,8 +998,9 @@ const bundleRows = resultFiles.map((name) => {
     published: false,
   };
 });
+const totalCompressedBytes = bundleRows.reduce((sum, row) => sum + row.compressed_bytes, 0);
 
-const tournamentRows = eventDoc.events.map((event) => ({
+const tournamentRows = eventDoc.events.filter((event) => includedEventIds.has(event.id)).map((event) => ({
   id: tournamentId(event.id),
   dataset_id: DATASET_ID,
   event_key: event.id,
@@ -976,7 +1019,9 @@ const tournamentRows = eventDoc.events.map((event) => ({
   published: false,
 }));
 
-const seriesRows = seriesDoc.series.map((series) => ({
+const includedSeries = seriesDoc.series.map((series) => ({ ...series, eventIds: series.eventIds.filter((id) => includedEventIds.has(id)) }))
+  .filter((series) => series.eventIds.length > 0);
+const seriesRows = includedSeries.map((series) => ({
   id: series.id,
   canonical_name: series.name,
   source_url: series.sourceUrl ?? null,
@@ -1024,7 +1069,12 @@ const datasetRow = {
   data_as_of: args.dataAsOf,
   import_counts: {},
   content_sha256: null,
-  notes: "Raw replays, paths, filenames, unresolved tags, connect codes, and private user identifiers are excluded. Broad games feed Community aggregates; conservative games feed Tournament aggregates.",
+  notes: [
+    sourcePopulation ? `Source cohort: ${sourcePopulation.includedBundles.length} of ${sourcePopulation.originalBundleCount} original bundles from ${sourcePopulation.baseDatasetId}.`
+      + (sourcePopulation.excludedBundles.length ? ` Excluded because the original source is unavailable: ${[...excludedEventIds].map((id) => eventById.get(id)?.name ?? id).join(", ") || sourcePopulation.excludedBundles.join(", ")}.` : "")
+      + " No new source events were added." : null,
+    "Raw replays, paths, filenames, unresolved tags, connect codes, and private user identifiers are excluded. Broad games feed Venue aggregates; conservative games feed Tournament aggregates.",
+  ].filter(Boolean).join(" "),
   published: false,
   published_at: null,
 };
@@ -1093,6 +1143,7 @@ const qa = {
   contentSha256,
   generatedAt: new Date().toISOString(),
   source: SOURCE_URL,
+  sourcePopulation,
   input: {
     compressedBytes: totalCompressedBytes,
     bundles: bundleRows.length,
@@ -1186,6 +1237,7 @@ await writeFile(path.join(args.output, "manifest.json"), `${JSON.stringify({
   datasetId: DATASET_ID,
   contentSha256,
   generatedAt: qa.generatedAt,
+  sourcePopulation,
   loadOrder: [
     "archive_datasets", "archive_tournament_series", "archive_tournaments", "archive_bundles",
     "archive_players", "archive_player_aliases", "archive_player_rankings", "archive_sets",
@@ -1197,7 +1249,8 @@ await writeFile(path.join(args.output, "manifest.json"), `${JSON.stringify({
 // The complete export becomes visible only after every table, QA report, and
 // manifest has been written. A failed build therefore leaves the prior export
 // intact instead of exposing a mixed or truncated dataset to validators/loaders.
-const previousOutput = `${outputTarget}.previous-${process.pid}-${Date.now()}`;
+const previousOutput = path.join(outputParent, `${path.basename(outputTarget)}.previous-${process.pid}-${Date.now()}`);
+if (path.dirname(previousOutput) !== outputParent) throw new Error("Archive backup escaped the selected output directory's parent");
 let movedPrevious = false;
 try {
   try {
@@ -1207,7 +1260,13 @@ try {
     if (error?.code !== "ENOENT") throw error;
   }
   await rename(buildOutput, outputTarget);
-  if (movedPrevious) await rm(previousOutput, { recursive: true, force: true });
+  if (movedPrevious) {
+    const resolvedPrevious = await realpath(previousOutput);
+    if (path.dirname(resolvedPrevious) !== outputParent || (await lstat(previousOutput)).isSymbolicLink()) {
+      throw new Error("Refusing archive backup cleanup outside the selected output directory's parent");
+    }
+    await rm(resolvedPrevious, { recursive: true, force: false });
+  }
 } catch (error) {
   if (movedPrevious) {
     try {
