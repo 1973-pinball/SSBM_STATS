@@ -150,6 +150,20 @@ Its `backfill-v4/state.json` records completion, failures, and the active stage.
    Anonymous Venue games are reconstructed from the local derived parse files;
    they are intentionally absent from the public per-game export.
 
+   Generate expected live table values with the production selectors and formatters:
+
+   ```bash
+   node scripts/report-archive-down-b-spot-check.mjs \
+     --dir /path/to/cache/public-export-v9 \
+     --verification /path/to/cache/down-b-v9-verification.json \
+     --report /path/to/cache/down-b-v9-spot-check.json
+   ```
+
+   The report includes Venue, Tournament, and aggregate Pro rows for Fox, Falco,
+   Peach, Marth, and Bowser, plus named Moky, Magi, and lloD comparisons. It checks
+   the completed export fingerprint and performs no network requests or writes
+   to the public database. Use its rates and coverage notes for the live UI check.
+
    Also run `node scripts/verify-archive-move-coverage.mjs`, inspect
    `qa.json` → `moveCoverage.downB`, and compare the manifest and privacy checks
    with the old export. Spot-check community/broad, community/conservative, and

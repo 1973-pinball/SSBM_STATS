@@ -207,7 +207,7 @@ const identityFor = (player, event) => player.connectCode ? `code:${player.conne
 const sourceGames = new Map();
 let parsed = 0, failed = 0, duplicates = 0;
 const resultFiles = (await readdir(args.results)).filter((name) => name.endsWith(".json")).sort();
-assert.deepEqual(resultFiles.map(stem), included, "local results match the reviewed source cohort");
+assert.deepEqual(resultFiles.map(stem).sort(), included, "local results match the reviewed source cohort");
 for (const [index, filename] of resultFiles.entries()) {
   const payload = await json(path.join(args.results, filename));
   const source = sourceByStem.get(stem(filename)), eventId = eventFor(payload.bundle), event = eventById.get(eventId);
