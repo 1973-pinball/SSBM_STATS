@@ -4,7 +4,8 @@
  * Raw replay bytes stay local; this script performs no network requests.
  *
  * node scripts/backfill-nikki-archive.mjs --cache CACHE --audit AUDIT.json --watch true
- * --workers is capped at 8; --limit can bound a smoke run; --results overrides
+ * --workers is capped at 8; one next archive extracts during the current parse.
+ * At most two owned extraction directories exist. --limit can bound a smoke run; --results overrides
  * results-v4. Missing source filenames (e.g. ootb5) remain explicitly excluded.
  * Originals are retained. Only this script's marked extraction staging is
  * removed, and only after an independently validated result is installed.
@@ -72,13 +73,18 @@ const state = {
   startedAt: new Date().toISOString(), updatedAt: null, pid: process.pid,
   auditSha256: createHash("sha256").update(auditText).digest("hex"), parserSha256: parserHash,
   workers, expectedBundles: sources.length, expectedReplayFiles: sources.reduce((sum, source) => sum + source.replay_file_count, 0),
-  excluded, current: null, completed: [], failures: [], pending: [],
+  excluded, current: null, prefetch: null, completed: [], failures: [], pending: [],
 };
-async function save() {
+let saveChain = Promise.resolve();
+function save() {
   state.updatedAt = new Date().toISOString();
-  const temporary = `${statePath}.partial`;
-  await writeFile(temporary, `${JSON.stringify(state, null, 2)}\n`);
-  await rename(temporary, statePath);
+  const snapshot = `${JSON.stringify(state, null, 2)}\n`;
+  saveChain = saveChain.then(async () => {
+    const temporary = `${statePath}.partial`;
+    await writeFile(temporary, snapshot);
+    await rename(temporary, statePath);
+  });
+  return saveChain;
 }
 function command(program, arguments_, { capture = false, log = null } = {}) {
   return new Promise((resolve, reject) => {
@@ -93,7 +99,10 @@ function command(program, arguments_, { capture = false, log = null } = {}) {
     });
     child.stderr.on("data", (chunk) => { errors = (errors + chunk).slice(-16000); if (!capture) process.stderr.write(chunk); log?.write(chunk); });
     child.once("error", reject);
-    child.once("exit", (code, signal) => code === 0 ? resolve(output) : reject(new Error(`${program} exited ${code ?? signal}: ${errors.trim()}`)));
+    // The process can exit before its piped output finishes draining. Archive
+    // member counts must use all bytes, and extraction cleanup must wait for
+    // every child handle to close.
+    child.once("close", (code, signal) => code === 0 ? resolve(output) : reject(new Error(`${program} exited ${code ?? signal}: ${errors.trim()}`)));
   });
 }
 const replayName = (name) => /\.slp(?:z)?$/i.test(name);
@@ -169,82 +178,151 @@ async function removeOwnedExtraction(directory, source) {
   await rm(target, { recursive: true, force: false });
 }
 const completed = new Set(), failed = new Set();
-let processed = 0;
-try {
-  while (completed.size + failed.size < sources.length && processed < limit) {
-    let progressed = false;
-    state.pending = [];
-    for (const source of sources) {
-      const bundle = source.sourceFilename;
-      if (completed.has(bundle) || failed.has(bundle)) continue;
-      const archive = path.join(downloads, bundle);
-      let download;
-      try { download = await stat(archive); } catch (error) { if (error.code !== "ENOENT") throw error; }
-      if (!download || download.size !== source.compressed_bytes) { state.pending.push({ bundle, expectedBytes: source.compressed_bytes, currentBytes: download?.size ?? null }); continue; }
-      progressed = true;
-      const stem = bundle.replace(/\.(7z|zip)$/i, "");
-      const output = path.join(results, `${stem}.json`);
-      const receiptPath = path.join(receipts, `${stem}.json`);
-      const directory = path.join(extractionRoot, stem);
-      try {
-        state.current = { bundle, stage: "validating-existing-result" }; await save();
-        let summary = null;
-        if (existsSync(output) && existsSync(receiptPath)) {
-          const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
-          if (receipt.parserSha256 === parserHash && receipt.auditSha256 === state.auditSha256 &&
-              receipt.bundle === bundle && receipt.compressedBytes === source.compressed_bytes &&
-              receipt.output === output && receipt.outputSha256 === await fileHash(output)) {
-            summary = await validateResult(output, source);
-            if (existsSync(directory)) await removeOwnedExtraction(directory, source);
-          }
-        }
-        if (!summary) {
-          if (await parserFingerprint() !== parserHash) throw new Error("Parser source changed during the backfill; restart to use one consistent parser");
-          state.current = { bundle, stage: "inspecting-archive" }; await save();
-          const inspection = await inspectArchive(archive, source);
-          if (inspection.compressedReplayFiles) throw new Error(`Archive has ${inspection.compressedReplayFiles} .slpz files; analyzer must decode them before processing`);
-          if (existsSync(directory)) await removeOwnedExtraction(directory, source);
-          await mkdir(directory);
-          await writeFile(path.join(directory, OWNER), JSON.stringify({ bundle, auditSha256: state.auditSha256 }));
-          state.current = { bundle, stage: "extracting", ...inspection }; await save();
-          await command("tar", ["-xf", archive, "-C", directory]);
-          const extractedCount = await inspectExtraction(directory);
-          if (extractedCount !== source.replay_file_count) throw new Error(`Extracted ${extractedCount} replays; expected ${source.replay_file_count}`);
-          state.current = { bundle, stage: "parsing", ...inspection }; await save();
-          const temporaryOutput = `${output}.partial-${process.pid}`;
-          const log = createWriteStream(path.join(work, `${stem}.log`), { flags: "a" });
-          try { await command(process.execPath, [path.join(repo, "scripts/analyze-nikki-bundle.mjs"), "--bundle", bundle, "--dir", directory, "--output", temporaryOutput, "--workers", String(workers)], { log }); }
-          finally { log.end(); }
-          if (await parserFingerprint() !== parserHash) throw new Error("Parser source changed while processing this bundle; its output was not installed");
-          summary = await validateResult(temporaryOutput, source);
-          const outputSha256 = await fileHash(temporaryOutput);
-          await rename(temporaryOutput, output);
-          summary.output = output;
-          const receiptTemporary = `${receiptPath}.partial`;
-          await writeFile(receiptTemporary, `${JSON.stringify({ bundle, compressedBytes: source.compressed_bytes,
-            parserSha256: parserHash, auditSha256: state.auditSha256, output, outputSha256, validatedAt: new Date().toISOString() }, null, 2)}\n`);
-          await rename(receiptTemporary, receiptPath);
-          await removeOwnedExtraction(directory, source);
-        }
-        completed.add(bundle); processed++;
-        state.completed.push({ ...summary, auditedCompressedBytes: source.compressed_bytes, completedAt: new Date().toISOString() });
-        process.stdout.write(`COMPLETED ${bundle}: ${summary.parsed}/${summary.replayFiles} parsed, ${summary.failed} failed; ${completed.size}/${sources.length} bundles\n`);
-      } catch (error) {
-        failed.add(bundle);
-        const message = error instanceof Error ? error.message : String(error);
-        state.failures.push({ bundle, message, at: new Date().toISOString() });
-        process.stderr.write(`FAILED ${bundle}: ${message}\n`);
-      }
-      state.current = null; await save();
-      if (processed >= limit) break;
+let processed = 0, stopRequested = false;
+process.on("SIGINT", () => { stopRequested = true; process.stderr.write("Stopping after the current parse and pending extraction finish.\n"); });
+process.on("SIGTERM", () => { stopRequested = true; });
+function locations(source) {
+  const bundle = source.sourceFilename, stem = bundle.replace(/\.(7z|zip)$/i, "");
+  return { bundle, stem, archive: path.join(downloads, bundle), output: path.join(results, `${stem}.json`),
+    receiptPath: path.join(receipts, `${stem}.json`), directory: path.join(extractionRoot, stem) };
+}
+async function finish(source, summary, reused = false) {
+  completed.add(source.sourceFilename); processed++;
+  state.completed.push({ ...summary, auditedCompressedBytes: source.compressed_bytes, reused, completedAt: new Date().toISOString() });
+  process.stdout.write(`${reused ? "REUSED" : "COMPLETED"} ${source.sourceFilename}: ${summary.parsed}/${summary.replayFiles} parsed, ${summary.failed} failed; ${completed.size}/${sources.length} bundles\n`);
+  await save();
+}
+async function resumeResult(source) {
+  const { bundle, output, receiptPath, directory } = locations(source);
+  if (!existsSync(output) || !existsSync(receiptPath)) return false;
+  const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+  if (receipt.parserSha256 !== parserHash || receipt.auditSha256 !== state.auditSha256 ||
+      receipt.bundle !== bundle || receipt.compressedBytes !== source.compressed_bytes ||
+      receipt.output !== output || receipt.outputSha256 !== await fileHash(output)) return false;
+  const summary = await validateResult(output, source);
+  if (existsSync(directory)) await removeOwnedExtraction(directory, source);
+  await finish(source, summary, true);
+  return true;
+}
+async function nextSource(reserved = null) {
+  state.pending = [];
+  // Prioritize leftover owned staging after an interrupted extraction. This keeps
+  // a resumed run within its two-directory bound before starting fresh staging.
+  const ordered = [...sources].sort((a, b) => Number(existsSync(locations(b).directory)) - Number(existsSync(locations(a).directory)));
+  for (const source of ordered) {
+    const { bundle, archive } = locations(source);
+    if (source === reserved || completed.has(bundle) || failed.has(bundle)) continue;
+    let download;
+    try { download = await stat(archive); } catch (error) { if (error.code !== "ENOENT") throw error; }
+    if (!download || download.size !== source.compressed_bytes) {
+      state.pending.push({ bundle, expectedBytes: source.compressed_bytes, currentBytes: download?.size ?? null });
+      continue;
     }
-    state.current = null; await save();
-    if (!watch || completed.size + failed.size === sources.length || processed >= limit) break;
-    if (!progressed) await new Promise((resolve) => setTimeout(resolve, 5000));
+    return source;
+  }
+  return null;
+}
+async function progress(job, stage, inspection = job.inspection ?? {}) {
+  job.progress = { bundle: job.source.sourceFilename, stage, ...inspection };
+  state[job.role] = job.progress;
+  await save();
+}
+async function prepare(job) {
+  const { source } = job, { bundle, archive, directory } = locations(source);
+  if (await parserFingerprint() !== parserHash) throw new Error("Parser source changed during the backfill; restart to use one consistent parser");
+  await progress(job, "inspecting-archive");
+  const inspection = await inspectArchive(archive, source);
+  job.inspection = inspection;
+  if (inspection.compressedReplayFiles) throw new Error(`Archive has ${inspection.compressedReplayFiles} .slpz files; analyzer must decode them before processing`);
+  if (existsSync(directory)) await removeOwnedExtraction(directory, source);
+  // The current bundle is fully extracted before prefetch starts. Its complete
+  // footprint is already charged against statfs free space, reserving room for
+  // both bundles plus 8 GiB. Only one tar process can run at a time.
+  const existing = await readdir(extractionRoot, { withFileTypes: true });
+  if (existing.filter((entry) => entry.isDirectory()).length >= 2) throw new Error("Refusing to create more than two extraction directories");
+  await mkdir(directory);
+  await writeFile(path.join(directory, OWNER), JSON.stringify({ bundle, auditSha256: state.auditSha256 }));
+  await progress(job, "extracting");
+  await command("tar", ["-xf", archive, "-C", directory]);
+  const extractedCount = await inspectExtraction(directory);
+  if (extractedCount !== source.replay_file_count) throw new Error(`Extracted ${extractedCount} replays; expected ${source.replay_file_count}`);
+  await progress(job, "ready");
+}
+function startPreparation(source, role) {
+  const job = { source, role, progress: null, inspection: null, promise: null };
+  // Resolve failures into values immediately so a failed lookahead never creates
+  // an unhandled rejection while the current parser is still running.
+  job.promise = prepare(job).then(() => ({ ok: true }), (error) => ({ ok: false, error }));
+  return job;
+}
+async function parsePrepared(job) {
+  const { source } = job, { bundle, stem, output, receiptPath, directory } = locations(source);
+  await progress(job, "parsing");
+  if (await parserFingerprint() !== parserHash) throw new Error("Parser source changed before parsing this bundle");
+  const temporaryOutput = `${output}.partial-${process.pid}`;
+  const log = createWriteStream(path.join(work, `${stem}.log`), { flags: "a" });
+  try { await command(process.execPath, [path.join(repo, "scripts/analyze-nikki-bundle.mjs"), "--bundle", bundle, "--dir", directory, "--output", temporaryOutput, "--workers", String(workers)], { log }); }
+  finally { log.end(); }
+  if (await parserFingerprint() !== parserHash) throw new Error("Parser source changed while processing this bundle; its output was not installed");
+  const summary = await validateResult(temporaryOutput, source);
+  const outputSha256 = await fileHash(temporaryOutput);
+  await rename(temporaryOutput, output);
+  summary.output = output;
+  const receiptTemporary = `${receiptPath}.partial`;
+  await writeFile(receiptTemporary, `${JSON.stringify({ bundle, compressedBytes: source.compressed_bytes,
+    parserSha256: parserHash, auditSha256: state.auditSha256, output, outputSha256, validatedAt: new Date().toISOString() }, null, 2)}\n`);
+  await rename(receiptTemporary, receiptPath);
+  await removeOwnedExtraction(directory, source);
+  await finish(source, summary);
+}
+let current = null, prefetch = null;
+try {
+  // Validate every reusable receipt before scheduling extraction. No v4 output
+  // is trusted merely because its shape or numeric stats version matches.
+  for (const source of sources) {
+    if (processed >= limit || stopRequested) break;
+    await resumeResult(source);
+  }
+  while (completed.size < sources.length && processed < limit && !stopRequested) {
+    if (!current) {
+      const source = await nextSource();
+      if (!source) {
+        state.current = null; state.prefetch = null; await save();
+        if (!watch) break;
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+        continue;
+      }
+      current = startPreparation(source, "current");
+    }
+    const prepared = await current.promise;
+    if (!prepared.ok) throw prepared.error;
+    const next = !stopRequested && processed + 1 < limit ? await nextSource(current.source) : null;
+    if (next) prefetch = startPreparation(next, "prefetch");
+    await parsePrepared(current);
+    current = prefetch; prefetch = null;
+    if (current) current.role = "current";
+    state.current = current?.progress ?? null; state.prefetch = null; await save();
+  }
+  // A graceful stop waits for the one pending extraction to close its files.
+  // It leaves marked staging for the next run and never kills a parser.
+  if (current) {
+    const prepared = await current.promise;
+    if (!prepared.ok) throw prepared.error;
   }
   state.finishedAt = new Date().toISOString(); await save();
-  process.stdout.write(`${JSON.stringify({ completed: completed.size, failed: failed.size, pending: sources.length - completed.size - failed.size, state: statePath })}\n`);
-  if (failed.size) process.exitCode = 1;
+  process.stdout.write(`${JSON.stringify({ completed: completed.size, failed: failed.size, pending: sources.length - completed.size - failed.size, stopped: stopRequested, state: statePath })}\n`);
+} catch (error) {
+  // Keep a failed extraction for diagnosis, but stop rather than accumulate a
+  // third staging directory. Wait for the other owned child before unlocking.
+  if (prefetch) await prefetch.promise;
+  if (current) await current.promise;
+  const bundle = current?.source.sourceFilename ?? null;
+  const message = error instanceof Error ? error.message : String(error);
+  if (bundle) failed.add(bundle);
+  state.failures.push({ bundle, message, at: new Date().toISOString() });
+  state.finishedAt = new Date().toISOString(); await save();
+  process.stderr.write(`FAILED ${bundle ?? "resume"}: ${message}\n`);
+  process.exitCode = 1;
 } finally {
   if (JSON.parse(readFileSync(lockPath, "utf8")).pid === process.pid) unlinkSync(lockPath);
 }

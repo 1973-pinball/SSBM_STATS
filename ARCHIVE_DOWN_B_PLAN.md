@@ -74,7 +74,9 @@ node scripts/backfill-nikki-archive.mjs \
 ```
 
 It validates source sizes, archive members, replay counts, stats versions, and
-outcome totals before installing each result. Originals stay in `downloads/`;
+outcome totals before installing each result. One next archive extracts while
+the current bundle parses, with at most two owned staging directories and eight
+parser workers. Originals stay in `downloads/`;
 only its marked extraction staging is removed after a successful parse. Resume
 receipts bind results to the parser and immutable source-audit hashes. Keep the
 audit and parser inputs unchanged during a run; save progress notes separately.
@@ -131,7 +133,23 @@ Its `backfill-v4/state.json` records completion, failures, and the active stage.
    even when attempts are measured. No-hit percentage uses
    `noHitAttempts / (hitAttempts + noHitAttempts)`, excluding unfinished uses.
 
-4. Run `node scripts/verify-archive-move-coverage.mjs`, inspect
+4. Run the independent full-export verifier before publication:
+
+   ```bash
+   node scripts/verify-archive-down-b-export.mjs \
+     --dir /path/to/cache/public-export-v9 \
+     --results /path/to/cache/results-v4 \
+     --audit /path/to/cache/source-audit-2026-10-22.json \
+     --report /path/to/cache/down-b-v9-verification.json
+   ```
+
+   It checks the exact source cohort, actual retained named-player coverage,
+   identity evidence, public row completeness, and every global character and
+   eligible matchup comparison against independently reconstructed totals.
+   Anonymous Venue games are reconstructed from the local derived parse files;
+   they are intentionally absent from the public per-game export.
+
+   Also run `node scripts/verify-archive-move-coverage.mjs`, inspect
    `qa.json` → `moveCoverage.downB`, and compare the manifest and privacy checks
    with the old export. Spot-check community/broad, community/conservative, and
    player/conservative rollups for several characters, including an unused
