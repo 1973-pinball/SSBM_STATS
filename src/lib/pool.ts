@@ -197,7 +197,13 @@ export async function runParsePipeline(
   // a pipeline that keeps committing after clearAll() resurrects the old
   // folder's records into the wiped cache and the fresh React state.
   signal?: AbortSignal,
-  options: { retryFailed?: boolean } = {},
+  options: {
+    retryFailed?: boolean;
+    /** Full parse outcomes for local diagnostics, including memory-safe runs.
+     * Called before storage; consumers must wait for pipeline success before
+     * presenting a completed import. Never receives header previews. */
+    onParsedRecord?: (record: GameRecord) => void;
+  } = {},
 ): Promise<void> {
   const cached = await cachedIds();
   // Only an explicit user retry revisits failures. Keep their seen markers in
@@ -397,7 +403,10 @@ export async function runParsePipeline(
           progress.done++;
           const res = e.data as WorkerResult;
           if (res.ok && res.record) {
-            if (persist) pendingDb.push(res.record);
+            if (persist) {
+              pendingDb.push(res.record);
+              options.onParsedRecord?.(res.record);
+            }
             // Medium runs stream their useful header preview and full records.
             // A memory-safe run has no header pass and keeps authoritative rows
             // out of React's whole-library recompute loop; the final storage

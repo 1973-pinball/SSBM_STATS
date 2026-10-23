@@ -167,6 +167,60 @@ try {
   assert.equal((await allRecords())[0].parseError, "preserve on write failure");
   assert.ok(seen.has(first.id));
 
+  // Completion reporting must observe every authoritative parse once, even
+  // when large imports suppress full-record delivery to React. Header previews
+  // cannot count as newly parsed games, and cached files produce no callback.
+  for (const count of [250, 5000]) {
+    packs.clear(); seen.clear();
+    const files = Array.from({ length: count }, (_, i) => replay(`observed-${count}-${i}.slp`));
+    const observed = [];
+    let headerDeliveries = 0;
+    let fullDeliveries = 0;
+    verdict = (job) => {
+      const result = success(job);
+      if (job.mode === "header") result.record.statsLevel = "header";
+      return result;
+    };
+    await runParsePipeline(files, (progress, delivered) => {
+      if (progress.pass === "header") headerDeliveries += delivered.length;
+      else fullDeliveries += delivered.length;
+    }, undefined, {
+      onParsedRecord: (record) => {
+        assert.equal(record.statsLevel, undefined, "only full parses reach the observer");
+        observed.push(record.id);
+      },
+    });
+    assert.deepEqual(observed, files.map((file) => file.id), `${count} full parses are observed exactly once`);
+    assert.equal(headerDeliveries, count, "the header preview pass actually ran");
+    assert.equal(fullDeliveries, count === 5000 ? 0 : count,
+      "large imports report full parses even when their UI records are withheld");
+    assert.equal((await allRecords()).length, count, "observed full parses are persisted");
+
+    observed.length = 0;
+    let cachedProgress;
+    await runParsePipeline(files, (progress) => { cachedProgress = progress; }, undefined, {
+      onParsedRecord: (record) => observed.push(record.id),
+    });
+    assert.equal(cachedProgress.total, 0);
+    assert.equal(cachedProgress.skippedCached, count);
+    assert.deepEqual(observed, [], "cached repeats do not report new parses");
+  }
+
+  packs.clear(); seen.clear();
+  const unsuccessful = [replay("failed.slp"), replay("unfinished.slp"), replay("unreadable.slp")];
+  verdict = (job) => job.path === "failed.slp" ? { ok: false, error: "synthetic parse failure" }
+    : job.path === "unfinished.slp" ? { ok: false, incomplete: true }
+    : { ok: false, readFailed: true };
+  let unsuccessfulProgress;
+  let unsuccessfulObservations = 0;
+  await runParsePipeline(unsuccessful, (progress) => { unsuccessfulProgress = progress; }, undefined, {
+    onParsedRecord: () => { unsuccessfulObservations++; },
+  });
+  assert.equal(unsuccessfulProgress.failed, 1);
+  assert.equal(unsuccessfulProgress.deferred, 1);
+  assert.equal(unsuccessfulProgress.unreadable, 1);
+  assert.equal(unsuccessfulObservations, 0, "failed, incomplete, and unreadable files never report a parsed game");
+
   // While one batch is saving, later batches may queue behind it. Aborting
   // must prevent those queued transactions from starting after a reset.
   packs.clear(); seen.clear();
@@ -201,7 +255,7 @@ try {
   assert.equal(transactions, 1, "aborted queued batches never begin storage transactions");
   assert.equal((await allRecords()).length, 250, "only the already-started transaction can finish");
 
-  console.log("Replay retry checks passed: explicit/background selection, repeated failure, deferred/unreadable/cancelled attempts, dateless and timestamped recovery, healthy-copy protection, deduplication, failed-save rollback, and queued-write cancellation.");
+  console.log("Replay retry checks passed: explicit/background selection, repeated failure, deferred/unreadable/cancelled attempts, dateless and timestamped recovery, healthy-copy protection, deduplication, failed-save rollback, full-parse observation for preview/large/cached/failed imports, and queued-write cancellation.");
 } finally {
   await server.close();
   await rm(temp, { recursive: true, force: true });

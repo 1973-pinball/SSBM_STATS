@@ -14,6 +14,8 @@ import { accessibleReplayFolders, addReplayFolder, type ReplayFolder } from "./l
 import { codeGameCounts, resolveGames, resolveTeamGames, applyFilters, applyTeamFilters } from "./lib/stats";
 import { dedupeRecords, mergeCpuStatus } from "./lib/dedupe";
 import { generateDemoRecords, DEMO_ACCOUNTS } from "./lib/demo";
+import { createImportReport, type ReplayImportReport } from "./lib/importReport";
+import { ReplayImportNotice } from "./components/ReplayImportNotice";
 import { Landing } from "./components/Landing";
 import { ProgressBar, IdentityPicker } from "./components/ProgressAndIdentity";
 import { FilterBar } from "./components/FilterBar";
@@ -188,6 +190,7 @@ export default function App() {
   // they are genuinely pending rather than lost — but a silent skip is exactly
   // what makes "my new games didn't show up" impossible to diagnose.
   const [syncSkipped, setSyncSkipped] = useState<SkipTally | null>(null);
+  const [importReport, setImportReport] = useState<ReplayImportReport | null>(null);
   const [pipelineError, setPipelineError] = useState<string | null>(null);
   // Null means idle; a number is the count streamed down so a first visit on a
   // new origin never looks frozen while a large cloud library is restoring.
@@ -467,6 +470,7 @@ export default function App() {
   const startPipeline = useCallback(
     async (discover: () => Promise<DiscoveredFile[]>) => {
       setPhase("parsing");
+      setImportReport(null);
       setPipelineError(null);
       setSyncSkipped(null);
       const gen = generation.current;
@@ -611,6 +615,7 @@ export default function App() {
       const { requestAccess = false, retryFailed = false } = options;
       if (scanBusy.current) return;
       scanBusy.current = true;
+      if (requestAccess || retryFailed) setImportReport(null);
       lastFolderSyncAt.current = Date.now();
       setSyncing({ pass: "full", total: 0, done: 0, skippedCached: 0, failed: 0, unreadable: 0, deferred: 0 });
       setSyncSkipped(null);
@@ -723,6 +728,13 @@ export default function App() {
     async (files: DiscoveredFile[]) => {
       if (files.length === 0 || scanBusy.current) return;
       scanBusy.current = true;
+      setImportReport(null);
+      // Report this selection even when an older library already displays
+      // normally. A whole-library empty check misses missing recent games.
+      const selectedCodes = new Set(accounts.map((a) => a.code));
+      const format = filters.format === "teams"
+        && resolveTeamGames(dedupeRecords(records), selectedCodes, true).length > 0 ? "teams" : "singles";
+      const report = createImportReport(accounts, filters, format);
       setSyncing({ pass: "full", total: 0, done: 0, skippedCached: 0, failed: 0, unreadable: 0, deferred: 0 });
       setSyncSkipped(null);
       setPipelineError(null);
@@ -740,7 +752,7 @@ export default function App() {
             appendRecords(newRecords);
           },
           controller.signal,
-          { retryFailed: true },
+          { retryFailed: true, onParsedRecord: report.observe },
         );
         const done = tally.last;
         if (generation.current === gen) {
@@ -749,9 +761,22 @@ export default function App() {
               ? { failed: done.failed, unreadable: done.unreadable, deferred: done.deferred }
               : null,
           );
-          if (done && done.done > 0) {
-            const cached = await pruneDuplicates(await allRecords());
-            if (generation.current === gen) setRecords(cached);
+          if (done) {
+            const cached = await allRecords();
+            if (generation.current !== gen) return;
+            // Inspect an already-scanned selection when its exact stored file
+            // version survives. A pruned copy may have only a seen marker; do
+            // not guess which cached game that missing record represented.
+            const selectedIds = new Set(files.map((file) => file.id));
+            for (const record of cached) {
+              if (selectedIds.has(record.id)) report.observeCached(record);
+            }
+            if (done.done > 0) {
+              const pruned = await pruneDuplicates(cached);
+              if (generation.current === gen) setRecords(pruned);
+            }
+            // Successful parsing alone does not establish that the cache saved.
+            if (generation.current === gen) setImportReport(report.finish(done));
           }
         }
       } catch (err) {
@@ -770,7 +795,7 @@ export default function App() {
         }
       }
     },
-    [appendRecords],
+    [accounts, appendRecords, filters, records],
   );
 
   // Warm the lazy view chunks once the dashboard is idle so the first click
@@ -979,6 +1004,7 @@ export default function App() {
     setSyncing(null);
     setPipelineError(null);
     setSyncSkipped(null);
+    setImportReport(null);
     autoSyncDone.current = false;
     setPhase("landing");
     selectTab("overview", true);
@@ -1217,6 +1243,23 @@ export default function App() {
             Reload
           </button>
         </div>
+      )}
+
+      {!publicView && phase === "dashboard" && importReport && (
+        <ReplayImportNotice
+          report={importReport}
+          onDismiss={() => setImportReport(null)}
+          onAccounts={() => { setImportReport(null); openOverlay("accounts"); }}
+          onClearFilters={() => {
+            setImportReport(null);
+            setFilters((f) => ({ ...DEFAULT_FILTERS, format: f.format, includeCpuGames: f.includeCpuGames }));
+          }}
+          onIncludeCpu={() => { setImportReport(null); setFilters((f) => ({ ...f, includeCpuGames: true })); }}
+          onSwitchFormat={() => {
+            setImportReport(null);
+            setFilters((f) => ({ ...DEFAULT_FILTERS, format: importReport.format === "singles" ? "teams" : "singles", includeCpuGames: f.includeCpuGames }));
+          }}
+        />
       )}
 
       {!isDemo && !publicView && phase === "dashboard" && folderIssues.length > 0 && (

@@ -23,6 +23,12 @@ others. Other browsers support adding folders one at a time and require picking
 them again to import new replays. **Change folders** starts over and clears the
 local library.
 
+After **Add replay files**, an import report shows files parsed or already
+scanned, recorded game dates, and why inspected games did not match your accounts
+or filters. When the exact selected file version remains in the cache, the
+report can inspect it without reparsing. A newer file's modified date does not
+necessarily mean its recorded game date is newer.
+
 ## Community and tournament benchmarks
 
 The Community section compares your local character stats against four separate samples:

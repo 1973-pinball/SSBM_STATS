@@ -5,7 +5,7 @@
  */
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile, rm, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, mkdir, writeFile, utimes } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import WebSocket from "ws";
@@ -25,7 +25,7 @@ const server = await createServer({
   server: { host: "127.0.0.1", port: 0 },
   optimizeDeps: {
     noDiscovery: true,
-    include: ["react", "react-dom/client", "react/jsx-runtime", "react/jsx-dev-runtime", "dexie", "recharts"],
+    include: ["react", "react-dom/client", "react/jsx-runtime", "react/jsx-dev-runtime", "dexie", "recharts", "@slippi/slippi-js"],
   },
   plugins: [{
     name: "folder-picker-check",
@@ -42,6 +42,7 @@ const server = await createServer({
       return `
         import React from 'react';
         import { createRoot } from 'react-dom/client';
+        import '/src/index.css';
         import * as db from '/src/lib/db.ts';
         import { generateDemoRecords, DEMO_ACCOUNTS } from '/src/lib/demo.ts';
         window.checkDb = db;
@@ -56,7 +57,9 @@ const server = await createServer({
         window.addEventListener('error', e => window.checkErrors.push(e.message));
         window.addEventListener('unhandledrejection', e => window.checkErrors.push(String(e.reason)));
         await db.clearAll();
-        await db.putRecords(generateDemoRecords(3));
+        await db.putRecords(generateDemoRecords(3).map((r, i) => ({ ...r,
+          playedAt: new Date(Date.UTC(2026, 9, 6, 12, i)).toISOString(),
+        })));
         await db.setMyAccounts(DEMO_ACCOUNTS);
         if (new URL(location.href).searchParams.has('native')) {
           window.showDirectoryPicker = async () => {
@@ -76,6 +79,9 @@ const server = await createServer({
               ? { ok: true, id: job.id, path: job.path, record: {
                   ...generateDemoRecords(1)[0], id: job.id, path: job.path,
                   playedAt: new Date(job.file.lastModified).toISOString(),
+                  ...(window.checkUnmatched ? { players: generateDemoRecords(1)[0].players.map((p, i) => ({
+                    ...p, connectCode: 'OTHER#' + i,
+                  })) } : {}),
                 } }
               : { ok: false, id: job.id, path: job.path, error: 'synthetic parse failed' };
             setTimeout(() => this.onmessage?.({ data }), 0);
@@ -252,6 +258,36 @@ try {
   assert.equal(await evaluate("window.checkWorkerAttempts"), pickedAttempts + 1, "re-selecting files retries their failed version");
   assert.deepEqual(await savedIds(), pickedIds);
   assert.equal(await failedBadge(), null);
+  await waitFor("document.querySelector('[aria-label=\"Replay import report\"]')?.textContent.includes('1 file parsed')");
+
+  // Mark's failure mode: an older library remains visible, a newer file parses
+  // without any error badge, yet the user's accounts match none of its players.
+  const newerReplay = join(temp, "after-cutoff.slp");
+  await writeFile(newerReplay, "Synthetic newer replay with another account");
+  await utimes(newerReplay, new Date("2026-10-07T12:00:00Z"), new Date("2026-10-07T12:00:00Z"));
+  await evaluate("window.checkUnmatched = true");
+  await selectFiles(newerReplay);
+  await ready("Refresh");
+  await waitFor("document.querySelector('[aria-label=\"Replay import report\"]')?.textContent.includes('no player matching your saved accounts')");
+  const reportText = await evaluate("document.querySelector('[aria-label=\"Replay import report\"]').textContent");
+  assert.ok(reportText.includes("1 file parsed"));
+  assert.ok(reportText.includes("0 of 1 inspected games"));
+  assert.ok(reportText.includes("Oct 7, 2026"), "report dates come from the selected replay");
+  assert.equal(await failedBadge(), null, "account mismatches are not parse failures");
+  await ready("Check my accounts");
+  if (process.env.IMPORT_REPORT_SCREENSHOT) {
+    const shot = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
+    await writeFile(process.env.IMPORT_REPORT_SCREENSHOT, Buffer.from(shot.data, "base64"));
+  }
+  const afterNewerIds = await savedIds();
+  const attemptsBeforeCached = await evaluate("window.checkWorkerAttempts");
+  await selectFiles(newerReplay);
+  await ready("Refresh");
+  await waitFor("document.querySelector('[aria-label=\"Replay import report\"]')?.textContent.includes('0 files parsed · 1 already scanned')");
+  assert.ok(await evaluate("document.querySelector('[aria-label=\"Replay import report\"]').textContent.includes('no player matching your saved accounts')"), "a repeated selection still explains its cached game's exclusion");
+  assert.ok(await evaluate("document.querySelector('[aria-label=\"Replay import report\"]').textContent.includes('1 previously cached game')"));
+  assert.equal(await evaluate("window.checkWorkerAttempts"), attemptsBeforeCached);
+  assert.deepEqual(await savedIds(), afterNewerIds, "cached-only report preserves imported and older games");
   await evaluate("window.checkNextFolder = 'Slippi-B'");
   await click("Add folder");
   await ready("Refresh");
@@ -263,9 +299,9 @@ try {
   await evaluate("window.checkNextFolder = null");
   await click("Add folder");
   await ready("Add folder");
-  assert.deepEqual(await savedIds(), pickedIds, "adding, re-picking and cancelling preserve cached stats");
+  assert.deepEqual(await savedIds(), afterNewerIds, "adding, re-picking and cancelling preserve cached stats");
   assert.deepEqual(await evaluate("checkErrors"), []);
-  console.log("Folder picker checks passed: empty/cancel recovery, explicit folder/file retries, background skips, persistent failure warnings, successful recovery without duplicate rows, and preservation of cached stats.");
+  console.log("Folder picker checks passed: empty/cancel recovery, explicit folder/file retries, background skips, persistent failure warnings, successful recovery, per-file import reports with an older library, cached-only reports, and preservation of cached stats.");
 } finally {
   socket?.close();
   if (chrome && chrome.exitCode === null) {
