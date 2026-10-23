@@ -56,9 +56,9 @@ export interface ArchiveTournament {
 
 export interface ArchiveMoveMetrics {
   attempts: number;
-  /** Games with an explicit Down B initiation measurement; absent in older exports. */
+  /** Games with an explicit special initiation measurement; absent in older exports. */
   attemptGames?: number;
-  /** Games with the Down B outcome schema, including measured games with no uses. */
+  /** Games with this special's outcome schema, including measured games with no uses. */
   outcomeGames?: number;
   /** Distinct uses that damaged an opponent, independent of multi-hit landed counts. */
   hitAttempts?: number;

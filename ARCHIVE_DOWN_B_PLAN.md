@@ -1,5 +1,10 @@
 # Archive Down B benchmark refresh
 
+This records the completed stats-v4/v9 refresh. For the current parser and the
+all-four-special rebuild workflow, use [Archive special-move benchmark refresh](ARCHIVE_SPECIAL_MOVES_PLAN.md).
+The v4 commands below describe the historical run; current analyzer/build defaults
+and validation require stats version 5.
+
 Down B initiation counts require a new full replay parse. The published archive
 from before stats version 4 contains numeric `attempts: 0` placeholders for
 special moves. Those are not measurements and cannot be backfilled from landed

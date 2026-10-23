@@ -6,7 +6,7 @@
  * node scripts/backfill-nikki-archive.mjs --cache CACHE --audit AUDIT.json --watch true
  * --workers is capped at 8; one next archive extracts during the current parse.
  * At most two owned extraction directories exist. --limit can bound a smoke run; --results overrides
- * results-v4. Missing source filenames (e.g. ootb5) remain explicitly excluded.
+ * results-v5. Missing source filenames (e.g. ootb5) remain explicitly excluded.
  * Originals are retained. Only this script's marked extraction staging is
  * removed, and only after an independently validated result is installed.
  */
@@ -16,6 +16,7 @@ import { createReadStream, createWriteStream, existsSync, readFileSync, unlinkSy
 import { lstat, mkdir, readFile, readdir, realpath, rename, rm, stat, statfs, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { ARCHIVE_STATS_VERSION, ARCHIVE_SPECIAL_MOVE_IDS, assertArchiveSpecialMeasurements } from "./lib/archive-move-coverage.mjs";
 
 const args = new Map();
 for (let i = 2; i < process.argv.length; i += 2) {
@@ -26,16 +27,21 @@ if (!args.has("cache") || !args.has("audit")) throw new Error("Usage: backfill-n
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const cache = path.resolve(args.get("cache"));
 const downloads = path.join(cache, "downloads");
-const work = path.join(cache, "backfill-v4");
+const work = path.join(cache, `backfill-v${ARCHIVE_STATS_VERSION}`);
 const extractionRoot = path.join(work, "extracted");
 const receipts = path.join(work, "receipts");
-const results = path.resolve(args.get("results") ?? path.join(cache, "results-v4"));
+const results = path.resolve(args.get("results") ?? path.join(cache, `results-v${ARCHIVE_STATS_VERSION}`));
+const immutableV4 = path.resolve(cache, "results-v4");
+const relativeToV4 = path.relative(immutableV4, results);
+if (!relativeToV4 || (!relativeToV4.startsWith("..") && !path.isAbsolute(relativeToV4))) {
+  throw new Error("Stats-v4 results are immutable; select a separate stats-v5 results directory");
+}
 const statePath = path.join(work, "state.json");
 const lockPath = path.join(work, "pipeline.lock");
 const watch = args.get("watch") === "true";
 const workers = Math.max(1, Math.min(8, Number(args.get("workers") ?? 8) || 8));
 const limit = Math.max(1, Number(args.get("limit") ?? Infinity));
-const OWNER = ".__down_b_extraction_owner.json";
+const OWNER = ".__special_moves_extraction_owner.json";
 const auditText = await readFile(path.resolve(args.get("audit")), "utf8");
 const audit = JSON.parse(auditText);
 const sources = audit.sources.filter((source) => source.sourceFilename).sort((a, b) => a.compressed_bytes - b.compressed_bytes);
@@ -45,7 +51,11 @@ for (const source of sources) {
   if (!Number.isSafeInteger(source.compressed_bytes) || source.compressed_bytes <= 0 || !Number.isSafeInteger(source.replay_file_count)) throw new Error(`Invalid audited counts: ${source.sourceFilename}`);
 }
 await Promise.all([mkdir(downloads, { recursive: true }), mkdir(extractionRoot, { recursive: true }), mkdir(receipts, { recursive: true }), mkdir(results, { recursive: true })]);
-const parserInputs = ["src/lib/parse.ts", "src/lib/downBSpecial.ts", "src/lib/types.ts", "src/lib/replayMetadata.ts", "scripts/analyze-nikki-bundle.mjs", "package-lock.json"];
+if (existsSync(immutableV4)) {
+  const relative = path.relative(await realpath(immutableV4), await realpath(results));
+  if (!relative || (!relative.startsWith("..") && !path.isAbsolute(relative))) throw new Error("Results destination resolves into immutable stats-v4 results");
+}
+const parserInputs = ["src/lib/parse.ts", "src/lib/specialMoves.ts", "src/lib/downBSpecial.ts", "src/lib/types.ts", "src/lib/replayMetadata.ts", "scripts/analyze-nikki-bundle.mjs", "scripts/lib/archive-move-coverage.mjs", "package-lock.json"];
 async function parserFingerprint() {
   const hash = createHash("sha256");
   for (const name of parserInputs) { hash.update(name); hash.update(await readFile(path.join(repo, name))); }
@@ -72,6 +82,7 @@ process.once("exit", () => {
 const state = {
   startedAt: new Date().toISOString(), updatedAt: null, pid: process.pid,
   auditSha256: createHash("sha256").update(auditText).digest("hex"), parserSha256: parserHash,
+  statsVersion: ARCHIVE_STATS_VERSION, specialMoveIds: ARCHIVE_SPECIAL_MOVE_IDS,
   workers, expectedBundles: sources.length, expectedReplayFiles: sources.reduce((sum, source) => sum + source.replay_file_count, 0),
   excluded, current: null, prefetch: null, completed: [], failures: [], pending: [],
 };
@@ -139,33 +150,35 @@ async function inspectExtraction(root) {
   await walk(root);
   return replays;
 }
-function count(value) { return Number.isSafeInteger(value) && value >= 0; }
 async function validateResult(filename, source) {
   const payload = JSON.parse(await readFile(filename, "utf8"));
-  if (payload.schemaVersion !== 2 || payload.bundle !== source.sourceFilename || payload.statProfile !== "dashboard-full-derived-v1") throw new Error("Result profile or source identity does not match");
+  if (payload.schemaVersion !== 2 || payload.statsVersion !== ARCHIVE_STATS_VERSION || payload.bundle !== source.sourceFilename || payload.statProfile !== "dashboard-full-derived-v1") throw new Error("Result profile, stats version, or source identity does not match");
   if (payload.replayFiles !== source.replay_file_count || payload.records?.length !== source.replay_file_count) throw new Error("Result replay count does not match audit");
-  let parsed = 0, failed = 0, attemptSides = 0, outcomeSides = 0, playerSides = 0, attempts = 0, hitAttempts = 0, noHitAttempts = 0, incompleteAttempts = 0;
+  let parsed = 0, failed = 0, playerSides = 0;
+  const specialMoves = Object.fromEntries(ARCHIVE_SPECIAL_MOVE_IDS.map((id) => [id, {
+    attemptSides: 0, outcomeSides: 0, attempts: 0, hitAttempts: 0, noHitAttempts: 0, incompleteAttempts: 0,
+  }]));
   const errorCounts = new Map();
   for (const record of payload.records) {
     if (!record.ok) { failed++; errorCounts.set(record.error, (errorCounts.get(record.error) ?? 0) + 1); continue; }
     parsed++;
-    if (record.statsVersion !== 4) throw new Error(`Stale stats version ${record.statsVersion}`);
+    assertArchiveSpecialMeasurements(record, `${source.sourceFilename}/${record.file}`);
     for (const side of record.players) {
       playerSides++;
-      const downB = side.moveStats?.[21];
-      if (downB?.attempts !== undefined) {
-        if (!count(downB.attempts)) throw new Error("Invalid Down-B attempt count");
-        attemptSides++; attempts += downB.attempts;
-      }
-      const fields = [downB?.hitAttempts, downB?.noHitAttempts, downB?.incompleteAttempts];
-      if (fields.some((value) => value !== undefined)) {
-        if (!fields.every(count) || !count(downB.attempts) || fields.reduce((sum, n) => sum + n, 0) !== downB.attempts) throw new Error("Down-B outcome partition does not equal attempts");
-        outcomeSides++; hitAttempts += fields[0]; noHitAttempts += fields[1]; incompleteAttempts += fields[2];
+      for (const moveId of ARCHIVE_SPECIAL_MOVE_IDS) {
+        const move = side.moveStats?.[moveId], totals = specialMoves[moveId];
+        if (move?.attempts !== undefined) {
+          totals.attemptSides++; totals.attempts += move.attempts;
+        }
+        if (move?.hitAttempts !== undefined) {
+          totals.outcomeSides++;
+          for (const field of ["hitAttempts", "noHitAttempts", "incompleteAttempts"]) totals[field] += move[field];
+        }
       }
     }
   }
   if (parsed !== payload.parsed || failed !== payload.failed || parsed + failed !== source.replay_file_count) throw new Error("Result parsed/failed totals do not reconcile");
-  return { bundle: source.sourceFilename, replayFiles: payload.replayFiles, parsed, failed, playerSides, attemptSides, outcomeSides, attempts, hitAttempts, noHitAttempts, incompleteAttempts,
+  return { bundle: source.sourceFilename, replayFiles: payload.replayFiles, parsed, failed, playerSides, specialMoves,
     errors: [...errorCounts].sort((a,b) => b[1]-a[1]).slice(0, 10).map(([message, total]) => ({ message, total })), output: filename };
 }
 async function removeOwnedExtraction(directory, source) {
@@ -196,7 +209,7 @@ async function resumeResult(source) {
   const { bundle, output, receiptPath, directory } = locations(source);
   if (!existsSync(output) || !existsSync(receiptPath)) return false;
   const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
-  if (receipt.parserSha256 !== parserHash || receipt.auditSha256 !== state.auditSha256 ||
+  if (receipt.statsVersion !== ARCHIVE_STATS_VERSION || receipt.parserSha256 !== parserHash || receipt.auditSha256 !== state.auditSha256 ||
       receipt.bundle !== bundle || receipt.compressedBytes !== source.compressed_bytes ||
       receipt.output !== output || receipt.outputSha256 !== await fileHash(output)) return false;
   const summary = await validateResult(output, source);
@@ -270,6 +283,7 @@ async function parsePrepared(job) {
   summary.output = output;
   const receiptTemporary = `${receiptPath}.partial`;
   await writeFile(receiptTemporary, `${JSON.stringify({ bundle, compressedBytes: source.compressed_bytes,
+    statsVersion: ARCHIVE_STATS_VERSION, specialMoveIds: ARCHIVE_SPECIAL_MOVE_IDS,
     parserSha256: parserHash, auditSha256: state.auditSha256, output, outputSha256, validatedAt: new Date().toISOString() }, null, 2)}\n`);
   await rename(receiptTemporary, receiptPath);
   await removeOwnedExtraction(directory, source);
@@ -277,7 +291,7 @@ async function parsePrepared(job) {
 }
 let current = null, prefetch = null;
 try {
-  // Validate every reusable receipt before scheduling extraction. No v4 output
+  // Validate every reusable receipt before scheduling extraction. No v5 output
   // is trusted merely because its shape or numeric stats version matches.
   for (const source of sources) {
     if (processed >= limit || stopRequested) break;

@@ -17,7 +17,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { computeArchiveContentSha256 } from "./lib/archive-content-hash.mjs";
-import { ARCHIVE_STATS_VERSION, addArchiveDownBOutcomes, assertArchiveDownBMeasurements } from "./lib/archive-move-coverage.mjs";
+import { ARCHIVE_STATS_VERSION, ARCHIVE_SPECIAL_MOVE_IDS, addArchiveSpecialOutcomes, assertArchiveSpecialMeasurements } from "./lib/archive-move-coverage.mjs";
 import { archiveBundleStem, planArchiveSourcePopulation, assertArchiveSourcePayload, assertArchiveSourceDownload } from "./lib/archive-source-population.mjs";
 import { readDataset } from "./lib/liquipedia-data.mjs";
 import { displayName as canonicalDisplay, playerKey } from "./lib/liquipedia-parse.mjs";
@@ -79,10 +79,10 @@ const assertCurrentStats = (record, bundle) => {
   if (record.statsVersion !== ARCHIVE_STATS_VERSION || !hasCrouchCancels) {
     throw new Error(
       `${bundle}/${record.file} has archive stats v${record.statsVersion ?? "unknown"} without current `
-      + `crouch-cancel and Down B coverage; re-run analyze-nikki-bundle.mjs before building v${ARCHIVE_STATS_VERSION} rollups`,
+      + `crouch-cancel and special-move coverage; re-run analyze-nikki-bundle.mjs before building v${ARCHIVE_STATS_VERSION} rollups`,
     );
   }
-  assertArchiveDownBMeasurements(record, `${bundle}/${record.file}`);
+  assertArchiveSpecialMeasurements(record, `${bundle}/${record.file}`);
 };
 const normalize = (value) => typeof value === "string" && value.trim()
   ? value.trim().toLocaleLowerCase("en-US")
@@ -717,7 +717,7 @@ const addRollup = (dimensions, record, player, slot, includeMoves) => {
       openings: 0, openingDmg: 0, lCancelSuccess: 0, lCancelFail: 0,
     };
     target.attempts += move.attempts ?? 0;
-    if (moveId === "21") addArchiveDownBOutcomes(target, move);
+    if (ARCHIVE_SPECIAL_MOVE_IDS.includes(Number(moveId))) addArchiveSpecialOutcomes(target, move, moveId, record.statsVersion);
     target.landed += move.landed ?? 0;
     target.damage += move.damage ?? 0;
     target.kills += move.kills ?? 0;
@@ -1137,6 +1137,19 @@ for (const name of outputFiles) {
   if (forbidden.test(contents)) throw new Error(`Privacy QA failed: forbidden field in ${name}`);
 }
 
+const specialMoveCoverage = Object.fromEntries(ARCHIVE_SPECIAL_MOVE_IDS.map((moveId) => [moveId,
+  ["broad", "conservative"].map((population) => {
+    const rows = exportedRollups.filter((row) => row.scope === "community"
+      && row.population === population && row.character_id !== null
+      && row.opponent_character_id === null && row.stage_id === null);
+    const sum = (field) => rows.reduce((total, row) => total + (row.metrics.moves?.[moveId]?.[field] ?? 0), 0);
+    return {
+      population, characterRows: rows.length, attemptGames: sum("attemptGames"), outcomeGames: sum("outcomeGames"),
+      attempts: sum("attempts"), hitAttempts: sum("hitAttempts"), noHitAttempts: sum("noHitAttempts"),
+      incompleteAttempts: sum("incompleteAttempts"),
+    };
+  }),
+]));
 const qa = {
   schemaVersion: 1,
   datasetId: DATASET_ID,
@@ -1186,22 +1199,8 @@ const qa = {
   },
   moveCoverage: {
     statsVersion: ARCHIVE_STATS_VERSION,
-    downB: ["broad", "conservative"].map((population) => {
-      const rows = exportedRollups.filter((row) => row.scope === "community"
-        && row.population === population && row.character_id !== null
-        && row.opponent_character_id === null && row.stage_id === null);
-      const sum = (field) => rows.reduce((total, row) => total + (row.metrics.moves?.["21"]?.[field] ?? 0), 0);
-      return {
-        population,
-        characterRows: rows.length,
-        attemptGames: sum("attemptGames"),
-        outcomeGames: sum("outcomeGames"),
-        attempts: sum("attempts"),
-        hitAttempts: sum("hitAttempts"),
-        noHitAttempts: sum("noHitAttempts"),
-        incompleteAttempts: sum("incompleteAttempts"),
-      };
-    }),
+    specials: specialMoveCoverage,
+    downB: specialMoveCoverage[21],
   },
   rollups: {
     computed: rollups.size,

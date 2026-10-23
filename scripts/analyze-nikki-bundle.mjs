@@ -9,6 +9,7 @@ import { pathToFileURL } from "node:url";
 import { isMainThread, parentPort, Worker, workerData } from "node:worker_threads";
 import { SlippiGame } from "@slippi/slippi-js/node";
 import { build } from "vite";
+import { ARCHIVE_STATS_VERSION, assertArchiveSpecialMeasurements } from "./lib/archive-move-coverage.mjs";
 
 const LEGAL_STAGES = new Set([2, 3, 8, 28, 31, 32]);
 const PLAYABLE_CHARACTERS = new Set(Array.from({ length: 26 }, (_, id) => id));
@@ -217,8 +218,12 @@ if (!isMainThread) {
   const indexed = (await Promise.all(lanes.map(runLane))).flat();
   indexed.sort((a, b) => a.index - b.index);
   const records = indexed.map(({ record }) => record);
+  for (const record of records) {
+    if (record.ok) assertArchiveSpecialMeasurements(record, `${bundle}/${record.file}`);
+  }
   const payload = {
     schemaVersion: 2,
+    statsVersion: ARCHIVE_STATS_VERSION,
     source: "https://replays.nikki.sh/",
     bundle,
     analyzedAt: new Date().toISOString(),

@@ -22,6 +22,9 @@ const server = await createServer({
       if (id.endsWith("/src/components/ArchiveCommunityBenchmark.tsx")) {
         return `${source}\nexport { archiveMoveMetric as testLegacyArchiveMoveMetric, formatCommunityMove as testLegacyCommunityMove };\n`;
       }
+      if (id.endsWith("/src/components/Views.tsx")) {
+        return `${source}\nexport { MoveMetricChart as TestMoveMetricChart, hasOpponentMoveMetric as testHasOpponentMoveMetric };\n`;
+      }
     },
   }],
 });
@@ -57,8 +60,8 @@ try {
   const stats = await server.ssrLoadModule("/src/lib/stats.ts");
   const demo = await server.ssrLoadModule("/src/lib/demo.ts");
   const { CURRENT_STATS_VERSION } = await server.ssrLoadModule("/src/lib/types.ts");
-  const { moveGroup, moveGroupTracksAttempts } = await server.ssrLoadModule("/src/lib/melee.ts");
-  const { archiveMoveBenchmark, archiveMoveComparisonGames, archiveMoveSample, communityMoveBenchmark, localMoveMetric, localMoveComparisonGames } =
+  const { moveGroup, moveGroupTracksAttempts, specialMoveId } = await server.ssrLoadModule("/src/lib/melee.ts");
+  const { archiveMoveBenchmark, archiveMoveComparisonGames, archiveMoveSample, communityMoveBenchmark, localMoveMetric, localMoveComparisonGames, localMoveSample } =
     await server.ssrLoadModule("/src/lib/executionMoveBenchmarks.ts");
 
   const base = demo.generateDemoRecords(1).find((record) => !record.isTeams);
@@ -124,6 +127,67 @@ try {
   }
 
   const tracked = (fields = {}) => move({ attempts: 0, hitAttempts: 0, noHitAttempts: 0, incompleteAttempts: 0, ...fields });
+  const specialKeys = ["neutral-b", "side-b", "up-b", "down-b"];
+  specialKeys.forEach((key, index) => assert.equal(specialMoveId(key), 18 + index));
+  assert.equal(specialMoveId("nair"), null);
+  const v4 = record(20, {
+    18: move({ attempts: 0, landed: 9 }),
+    19: tracked({ attempts: 500, hitAttempts: 99, noHitAttempts: 400, incompleteAttempts: 1, landed: 9 }),
+    20: move({ attempts: 0, landed: 9 }),
+    21: tracked({ attempts: 3, hitAttempts: 1, noHitAttempts: 2 }),
+  });
+  v4.statsVersion = 4;
+  const v5first = record(21, {
+    18: move({ attempts: 8 }), // projectile: no per-use damage outcomes
+    19: tracked({ attempts: 6, hitAttempts: 2, noHitAttempts: 3, incompleteAttempts: 1, landed: 20 }),
+    20: tracked(),
+    21: tracked(),
+  });
+  v5first.statsVersion = 5;
+  const v5second = record(22, {
+    // Missing Neutral B coverage is not a measured zero, even in a v5 game.
+    19: tracked(),
+    20: tracked({ attempts: 5, hitAttempts: 1, noHitAttempts: 2, incompleteAttempts: 2 }),
+    21: move({ attempts: 4 }),
+  });
+  v5second.statsVersion = 5;
+  const specialPreview = record(23, { 18: tracked({ attempts: 90, noHitAttempts: 90 }) }, "preview");
+  const specialGames = stats.resolveGames([v4, v5first, v5second, specialPreview], new Set(["LOCAL#1"]));
+  const specialTable = stats.moveTable(specialGames);
+  assert.equal(specialTable.covered, 3);
+  const specialExpected = {
+    "neutral-b": { attempts: 8, attemptGames: 1, outcomes: 0, perGame: 8, noHitPerGame: null, rate: null },
+    "side-b": { attempts: 6, attemptGames: 2, outcomes: 2, perGame: 3, noHitPerGame: 1.5, rate: 3 / 5 },
+    "up-b": { attempts: 5, attemptGames: 2, outcomes: 2, perGame: 2.5, noHitPerGame: 1, rate: 2 / 3 },
+    "down-b": { attempts: 7, attemptGames: 3, outcomes: 2, perGame: 7 / 3, noHitPerGame: 1, rate: 2 / 3 },
+  };
+  for (const key of specialKeys) {
+    const row = specialTable.rows.find((value) => value.key === key);
+    const expected = specialExpected[key];
+    assert.ok(row, `${key}: attempts-only and legacy-landed rows are retained`);
+    assert.equal(row.attempts, expected.attempts, `${key}: version-specific attempts`);
+    assert.equal(row.attemptGames, expected.attemptGames, `${key}: only explicit capable games count`);
+    assert.equal(row.outcomeGames, expected.outcomes);
+    close(row.attemptsPerGame, expected.perGame, `${key}: attempts denominator`);
+    close(row.noHitPerGame, expected.noHitPerGame, `${key}: completed-use game sample`);
+    close(row.noHitRate, expected.rate, `${key}: matched completed uses`);
+    for (const metric of metricKeys) close(stats.moveMetricSeries(specialGames, key, metric).at(-1).value,
+      tableValue(row, metric, specialTable.covered), `${key}/${metric}: mixed v4/v5 table/trend parity`);
+    const zeroGame = record(30, { [specialMoveId(key)]: tracked() });
+    zeroGame.statsVersion = 5;
+    const zeroRow = stats.moveTable(stats.resolveGames([zeroGame], new Set(["LOCAL#1"]))).rows[0];
+    assert.equal(zeroRow.attemptsPerGame, 0, `${key}: measured zero survives without landed hits`);
+    assert.equal(zeroRow.noHitPerGame, 0);
+    assert.equal(zeroRow.noHitRate, null);
+    assert.equal(localMoveSample(zeroRow, "attemptsPerGame"), "1 tracked games");
+  }
+  const oldSpecialRows = stats.moveTable(stats.resolveGames([v4], new Set(["LOCAL#1"]))).rows;
+  for (const key of specialKeys.slice(0, 3)) {
+    const row = oldSpecialRows.find((value) => value.key === key);
+    assert.equal(row.attemptsPerGame, null, `${key}: v4 values do not establish v5 coverage`);
+    assert.equal(row.noHitRate, null);
+    assert.equal(localMoveSample(row, "noHitRate"), "Refresh replays to track outcomes");
+  }
   const attemptRecords = [
     record(1, { 21: tracked({ attempts: 10, hitAttempts: 3, noHitAttempts: 5, incompleteAttempts: 2, landed: 20, damage: 40 }) }),
     record(2, { 21: tracked() }),
@@ -215,6 +279,22 @@ try {
   close(archiveMoveBenchmark(zeroTrackedArchive, "down-b", "attemptsPerGame"), 0, "explicit tracked zero is valid");
   close(archiveMoveBenchmark(zeroTrackedArchive, "down-b", "noHitPerGame"), 0, "known zero no-hit uses is valid");
   close(archiveMoveBenchmark(zeroTrackedArchive, "down-b", "noHitRate"), null, "zero completed archive uses cannot invent a rate");
+  for (const key of specialKeys.slice(0, 3)) {
+    const moveId = specialMoveId(key);
+    const measured = { ...trackedArchive, metrics: { ...trackedArchive.metrics, moves: { [moveId]: trackedArchive.metrics.moves[21] } } };
+    close(archiveMoveBenchmark(measured, key, "attemptsPerGame"), 14 / 3, `${key}: Venue/Pro explicit attempt denominator`);
+    close(archiveMoveBenchmark(measured, key, "noHitPerGame"), 2.5, `${key}: Venue/Pro outcome denominator`);
+    close(archiveMoveBenchmark(measured, key, "noHitRate"), 62.5, `${key}: no conversion-hit subtraction`);
+    assert.equal(archiveMoveComparisonGames(measured, key, "attemptsPerGame"), 3);
+    assert.equal(archiveMoveComparisonGames(measured, key, "noHitRate"), 2);
+    assert.equal(archiveMoveSample(measured, key, "noHitRate"), "8 completed uses");
+    const untracked = { ...measured, metrics: { ...measured.metrics, moves: { [moveId]: archiveMove({ attempts: 0, landed: 0 }) } } };
+    assert.equal(archiveMoveBenchmark(untracked, key, "attemptsPerGame"), null, `${key}: v9 zero placeholders stay unavailable`);
+    assert.equal(archiveMoveSample(untracked, key, "attemptsPerGame"), "Archive reparse needed");
+    const utilityArchive = { ...measured, metrics: { ...measured.metrics, moves: { [moveId]: archiveMove({ attempts: 6, attemptGames: 2 }) } } };
+    assert.equal(archiveMoveBenchmark(utilityArchive, key, "noHitRate"), null);
+    assert.equal(archiveMoveSample(utilityArchive, key, "noHitRate"), "Outcome tracking unavailable");
+  }
 
   const communityMove = (characterId, characterGames, moveKey, fields = {}) => ({
     characterId, characterGames, moveKey, attempts: null, attemptGames: 0,
@@ -268,6 +348,43 @@ try {
   assert.match(atlasMarkup, /Venue archive/);
   assert.match(atlasMarkup, /No-hit uses \/ game/);
   assert.match(atlasMarkup, /No-hit rate/);
+  const allSpecialMarkup = renderToStaticMarkup(createElement(ArchiveMoveAtlasComparison, {
+    games: specialGames, characterId: 20, lookbackGames: 150, communityRows: [],
+  }));
+  for (const key of specialKeys) assert.match(allSpecialMarkup, new RegExp(`>${moveGroup(specialMoveId(key)).label}</td>`), `${key}: Atlas keeps attempted specials visible`);
+  const { TestMoveMetricChart, testHasOpponentMoveMetric } = await server.ssrLoadModule("/src/components/Views.tsx");
+  const opponentSpecialGames = specialGames.map((game) => ({ ...game, opp: game.me }));
+  for (const key of specialKeys) {
+    assert.equal(testHasOpponentMoveMetric(opponentSpecialGames, new Set([key]), "attemptsPerGame"), true, `${key}: opponent attempt trend is available`);
+    assert.equal(testHasOpponentMoveMetric(opponentSpecialGames, new Set([key]), "noHitRate"), key !== "neutral-b", `${key}: opponent outcome availability follows capability`);
+  }
+  const onlyOldOpponent = opponentSpecialGames.slice(0, 1);
+  assert.equal(testHasOpponentMoveMetric(onlyOldOpponent, new Set(["side-b"]), "attemptsPerGame"), false, "opponent v4 placeholders cannot enable Side B attempt charts");
+  assert.equal(testHasOpponentMoveMetric(onlyOldOpponent, new Set(["down-b"]), "noHitRate"), true, "opponent v4 Down B outcomes survive the upgrade");
+  const noHitChart = renderToStaticMarkup(createElement(TestMoveMetricChart, {
+    games: specialGames,
+    moves: [table.rows.find((row) => row.key === "nair"), ...specialTable.rows],
+    benchmarks: { characterId: 20, opponentCharacterId: null, communityMoves: [], venue: null, tournament: null, pro: null },
+    metric: "noHitRate", setMetric: () => {},
+  }));
+  assert.match(noHitChart, /aria-label="Moves: Side B"/, "no-hit chart replaces a default normal with an outcome-tracked special");
+  assert.doesNotMatch(noHitChart, /Nothing to plot/, "measured special outcomes are immediately chartable");
+  for (const label of ["Neutral B", "Side B", "Up B", "Down B"]) assert.match(noHitChart, new RegExp(`<span>${label}</span>`), `${label}: available in the no-hit move picker`);
+  const zeroBeforeUsedGames = stats.resolveGames([record(31, {
+    13: move({ attempts: 5, landed: 5 }),
+    19: tracked(),
+    20: tracked({ attempts: 3, hitAttempts: 1, noHitAttempts: 2 }),
+  })], new Set(["LOCAL#1"]));
+  const zeroBeforeUsedRows = stats.moveTable(zeroBeforeUsedGames).rows;
+  const zeroBeforeUsedChart = (metric) => renderToStaticMarkup(createElement(TestMoveMetricChart, {
+    games: zeroBeforeUsedGames,
+    moves: ["nair", "side-b", "up-b"].map((key) => zeroBeforeUsedRows.find((row) => row.key === key)),
+    benchmarks: { characterId: 20, opponentCharacterId: null, communityMoves: [], venue: null, tournament: null, pro: null },
+    metric, setMetric: () => {},
+  }));
+  assert.match(zeroBeforeUsedChart("noHitRate"), /aria-label="Moves: Up B"/, "a measured zero-use special cannot hide a different special's completed-use rate");
+  assert.doesNotMatch(zeroBeforeUsedChart("noHitRate"), /Nothing to plot/);
+  assert.match(zeroBeforeUsedChart("noHitPerGame"), /aria-label="Moves: Side B"/, "zero no-hit uses per measured game remains chartable");
   close(testLocalMoveMetric(attemptedDownB, "noHitRate", attemptTable.covered), 5 / 8, "Atlas local rate uses matched outcome sample");
   close(testArchiveMoveMetric({ key: "down-b", ...trackedArchive.metrics.moves[21] }, "noHitRate", trackedArchive), 5 / 8, "Atlas archive rate agrees with execution benchmark");
   const { testLegacyArchiveMoveMetric, testLegacyCommunityMove } = await server.ssrLoadModule("/src/components/ArchiveCommunityBenchmark.tsx");
@@ -298,12 +415,12 @@ try {
   }
   const demoGames = stats.resolveGames(demoRecords, new Set(demo.DEMO_ACCOUNTS.map((account) => account.code)));
   const demoTable = stats.moveTable(demoGames.slice(-stats.ROLLING_WINDOW));
-  assert.ok(demoTable.rows.some((row) => row.key === "down-b"), "demo exercises Down B");
+  for (const key of specialKeys) assert.ok(demoTable.rows.some((row) => row.key === key && row.attemptGames > 0), `demo exercises measured ${key}`);
   for (const row of demoTable.rows) for (const metric of metricKeys) {
     close(stats.moveMetricSeries(demoGames, row.key, metric).at(-1).value,
       tableValue(row, metric, demoTable.covered), `demo ${row.key}/${metric}: table/trend parity`);
   }
-  console.log("Move comparisons passed: Down B attempts and no-hit outcomes, attempts-only rows, old and per-move coverage, explicit archive denominators, utility/incomplete outcomes, table/trend parity, demo determinism, and Atlas visibility.");
+  console.log("Move comparisons passed: all four special directions, v4/v5 per-move coverage, measured zeros, utility/incomplete outcomes, explicit archive denominators, opponent/table/trend parity, demo determinism, and Atlas/chart visibility.");
 } finally {
   await server.close();
 }

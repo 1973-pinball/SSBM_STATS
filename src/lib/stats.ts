@@ -1,7 +1,7 @@
 import type { ActionCounts, Filters, GameRecord, GameType, PlayerSide, ResolvedGame, ResolvedTeamGame, TechCounts } from "./types";
 import { ACTION_LABELS, hasFullStats, hasKnownCpu } from "./types";
 import { INCLUDED_CHARACTER_ID_SET, INCLUDED_STAGE_ID_SET } from "./config";
-import { moveGroup, moveGroupTracksAttempts } from "./melee";
+import { moveGroup, moveGroupTracksAttempts, specialMoveId } from "./melee";
 
 /**
  * Every side is a character anyone could actually have picked. One malformed
@@ -891,13 +891,14 @@ const hasMoveAttemptStats = (game: ResolvedGame, moves: PlayerSide["moveStats"])
   moves !== undefined && hasFullStats(game.rec) && ((game.rec.statsVersion ?? 0) >= 1 || Object.entries(moves).some(([moveId, move]) =>
     move.attempts !== undefined && moveGroupTracksAttempts(moveGroup(Number(moveId)).key)));
 
-/** New Down B capability is independent of the older normal/aerial schema. */
-const hasDownBAttempts = (game: ResolvedGame, moves: PlayerSide["moveStats"]): boolean =>
-  hasFullStats(game.rec) && (game.rec.statsVersion ?? 0) >= 4 && moves?.[21]?.attempts !== undefined;
+/** Keep v4 Down B measurements when v5 adds the other three special directions. */
+export const hasSpecialMoveAttempts = (game: ResolvedGame, moves: PlayerSide["moveStats"], moveId: number): boolean =>
+  moveId >= 18 && moveId <= 21 && hasFullStats(game.rec)
+  && (game.rec.statsVersion ?? 0) >= (moveId === 21 ? 4 : 5) && moves?.[moveId]?.attempts !== undefined;
 
-const hasDownBOutcomes = (game: ResolvedGame, moves: PlayerSide["moveStats"]): boolean => {
-  const move = moves?.[21];
-  return hasDownBAttempts(game, moves) && move?.hitAttempts !== undefined
+export const hasSpecialMoveOutcomes = (game: ResolvedGame, moves: PlayerSide["moveStats"], moveId: number): boolean => {
+  const move = moves?.[moveId];
+  return hasSpecialMoveAttempts(game, moves, moveId) && move?.hitAttempts !== undefined
     && move.noHitAttempts !== undefined && move.incompleteAttempts !== undefined;
 };
 
@@ -924,10 +925,10 @@ export function moveTable(games: ResolvedGame[]): { rows: MoveRow[]; covered: nu
         a = { label: grp.label, landed: 0, damage: 0, kills: 0, killPctSum: 0, openings: 0, openingDmg: 0, lcS: 0, lcF: 0, attempts: null as number | null, attemptGames: 0, noHitAttempts: 0, outcomeAttempts: 0, outcomeGames: 0 };
         agg.set(grp.key, a);
       }
-      if (grp.key === "down-b" && hasDownBAttempts(g, ms)) {
+      if (hasSpecialMoveAttempts(g, ms, Number(idStr))) {
         a.attempts = (a.attempts ?? 0) + m.attempts!;
         a.attemptGames++;
-        if (hasDownBOutcomes(g, ms)) {
+        if (hasSpecialMoveOutcomes(g, ms, Number(idStr))) {
           a.noHitAttempts += m.noHitAttempts!;
           a.outcomeAttempts += m.hitAttempts! + m.noHitAttempts!;
           a.outcomeGames++;
@@ -949,7 +950,7 @@ export function moveTable(games: ResolvedGame[]): { rows: MoveRow[]; covered: nu
     }
   }
   const rows: MoveRow[] = Array.from(agg.entries())
-    .filter(([key, a]) => a.landed > 0 || a.lcS + a.lcF > 0 || (a.attempts ?? 0) > 0 || (key === "down-b" && a.attemptGames > 0))
+    .filter(([key, a]) => a.landed > 0 || a.lcS + a.lcF > 0 || (a.attempts ?? 0) > 0 || (specialMoveId(key) !== null && a.attemptGames > 0))
     .map(([key, a]) => {
       const attemptGames = moveGroupTracksAttempts(key) ? attemptCovered : a.attemptGames;
       const attempts = attemptGames > 0 ? a.attempts ?? 0 : null;
@@ -1079,12 +1080,12 @@ function moveSlices(
       if (moveIndex === undefined) continue;
       const base = moveIndex * MV_STRIDE;
       if (m.attempts !== undefined && ((moveGroupTracksAttempts(key) && attemptsAvailable)
-        || (key === "down-b" && hasDownBAttempts(g, ms)))) {
+        || hasSpecialMoveAttempts(g, ms, Number(idStr)))) {
         out[base + MV.attempts] = out[base + MV.attempts]! + m.attempts;
       }
-      if (key === "down-b" && hasDownBAttempts(g, ms)) {
+      if (hasSpecialMoveAttempts(g, ms, Number(idStr))) {
         out[base + MV.attemptGames] = 1;
-        if (hasDownBOutcomes(g, ms)) {
+        if (hasSpecialMoveOutcomes(g, ms, Number(idStr))) {
           out[base + MV.noHitAttempts] = m.noHitAttempts!;
           out[base + MV.outcomeAttempts] = m.hitAttempts! + m.noHitAttempts!;
           out[base + MV.outcomeGames] = 1;

@@ -2,11 +2,11 @@ import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type C
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from "recharts";
 import type { Account, ActionCounts, GameRecord, PlayerSide, ResolvedGame } from "../lib/types";
 import { ACTION_LABELS, codeShort, hasCurrentStats } from "../lib/types";
-import { matchupMatrix, byStage, byOpponent, byOppCharacter, computeSets, setsSummary, executionSummary, rollingExecutionSeries, ROLLING_WINDOW, MAX_SERIES_POINTS, actionAverages, actionImpact, moveTable, moveImpact, moveMetricSeriesMany, neutralSummary, perGameSeries, stageCharMatrix } from "../lib/stats";
+import { matchupMatrix, byStage, byOpponent, byOppCharacter, computeSets, setsSummary, executionSummary, rollingExecutionSeries, ROLLING_WINDOW, MAX_SERIES_POINTS, actionAverages, actionImpact, moveTable, moveImpact, moveMetricSeriesMany, neutralSummary, perGameSeries, stageCharMatrix, hasSpecialMoveAttempts, hasSpecialMoveOutcomes } from "../lib/stats";
 import type { ExecMetricKey, ExecutionSummary, GameSet, MoveMetricKey, MoveRow, SetsSummary } from "../lib/stats";
 import { pct, num, int, shortDate, duration, winRateColor, countNoun } from "../lib/format";
-import { charName, moveGroup, moveGroupTracksAttempts, stageName } from "../lib/melee";
-import { getDownBCapability } from "../lib/downBSpecial";
+import { charName, moveGroup, moveGroupTracksAttempts, specialMoveId, stageName } from "../lib/melee";
+import { getSpecialMoveCapability } from "../lib/specialMoves";
 import { Kpi } from "./Kpi";
 import { axisStyle, tooltipStyle, gridStyle, dayTick, OPP_SERIES_COLOR } from "./chartStyle";
 import { activateOnKey } from "../lib/a11y";
@@ -1158,9 +1158,9 @@ const MOVE_METRIC_CHOICES: { key: MoveMetricKey; label: string; unit: string; di
  */
 const MOVE_METRIC_EMPTY: Partial<Record<MoveMetricKey, string>> = {
   attemptsPerGame:
-    "Attempts are tracked for normals, aerials, and Down B. Refresh your replays to add Down B attempts.",
-  noHitPerGame: "No-hit outcomes are available for direct offensive Down B attacks after refreshing replays. Utility and delayed attacks have attempts only.",
-  noHitRate: "No-hit rate needs completed, outcome-tracked Down B uses. Utility and delayed attacks have attempts only.",
+    "Attempts are tracked for normals, aerials, and all four special directions. Refresh replays to add special-move attempts.",
+  noHitPerGame: "No-hit outcomes are available for specials with reliable damage attribution after refreshing replays. Utility and delayed attacks have attempts only.",
+  noHitRate: "No-hit rate needs completed, outcome-tracked special uses. Utility and delayed attacks have attempts only.",
   lCancelPct: "L-cancel only applies to aerials.",
   avgKillPct: "This move hasn't closed a stock in these games.",
 };
@@ -1214,12 +1214,14 @@ function hasOpponentMoveMetric(
     if (!moves) continue;
     if (hasTrackedAttemptMove && ((game.rec.statsVersion ?? 0) >= 1 || Object.entries(moves).some(([moveId, move]) =>
       move.attempts !== undefined && moveGroupTracksAttempts(moveGroup(Number(moveId)).key)))) return true;
-    if (moveKeys.has("down-b") && (game.rec.statsVersion ?? 0) >= 4 && moves[21]?.attempts !== undefined) {
+    for (const key of moveKeys) {
+      const moveId = specialMoveId(key);
+      if (moveId === null || !hasSpecialMoveAttempts(game, moves, moveId)) continue;
       if (metric === "attemptsPerGame") return true;
-      const downB = moves[21];
-      if (downB.hitAttempts !== undefined && downB.noHitAttempts !== undefined && downB.incompleteAttempts !== undefined) {
+      const special = moves[moveId]!;
+      if (hasSpecialMoveOutcomes(game, moves, moveId)) {
         if (metric === "noHitPerGame") return true;
-        if (metric === "noHitRate" && downB.hitAttempts + downB.noHitAttempts > 0) return true;
+        if (metric === "noHitRate" && special.hitAttempts! + special.noHitAttempts! > 0) return true;
       }
     }
     if (metric === "landedPerGame" || metric === "dmgPerGame" || metric === "killsPerGame") return true;
@@ -1255,10 +1257,15 @@ function MoveMetricChart({ games, moves, benchmarks, metric, setMetric }: {
   // Filters change which moves exist at all. Preserve selections that remain
   // available and fall back to the top move only when every held key is stale.
   const activeMoves = useMemo(() => {
-    if (isNoHitMetric) return moves.filter((move) => move.key === "down-b");
-    const selected = moves.filter((move) => moveKeys.has(move.key));
-    return selected.length > 0 ? selected : moves.slice(0, 1);
-  }, [moves, moveKeys, isNoHitMetric]);
+    const eligible = isNoHitMetric ? moves.filter((move) => specialMoveId(move.key) !== null) : moves;
+    const selected = eligible.filter((move) => moveKeys.has(move.key));
+    if (selected.length > 0) return selected;
+    // A default normal/aerial selection must not leave a no-hit chart empty
+    // when a measured special is available. Explicit utility selections remain.
+    const measured = isNoHitMetric ? eligible.filter((move) =>
+      (metric === "noHitRate" ? move.noHitRate : move.noHitPerGame) !== null) : [];
+    return (measured.length > 0 ? measured : eligible).slice(0, 1);
+  }, [moves, moveKeys, isNoHitMetric, metric]);
   const def = MOVE_METRIC_CHOICES.find((m) => m.key === metric)!;
   const points = useMemo(
     () => moveMetricSeriesMany(games, activeMoves.map((move) => move.key), metric),
@@ -1347,7 +1354,7 @@ function MoveMetricChart({ games, moves, benchmarks, metric, setMetric }: {
                   <span>{moveSummary}</span><span className="move-picker-chevron" aria-hidden="true">▾</span>
                 </summary>
                 <div className="move-picker-menu">
-                  {moves.filter((move) => !isNoHitMetric || move.key === "down-b").map((move) => {
+                  {moves.filter((move) => !isNoHitMetric || specialMoveId(move.key) !== null).map((move) => {
                     const checked = activeMoves.some((active) => active.key === move.key);
                     return (
                       <label className="move-picker-option" key={move.key}>
@@ -1462,12 +1469,17 @@ function MoveMetricChart({ games, moves, benchmarks, metric, setMetric }: {
             {games.length.toLocaleString()} games in this filter
             {games.length > MAX_SERIES_POINTS ? `, sampled down to ${MAX_SERIES_POINTS.toLocaleString()} points` : ""}.
             Attempted/game correctly reaches zero when you did not initiate the move; gaps mean the selected metric is
-            unavailable, such as initiation counts for other specials and throws. SSBM Stats move rates are approximate because
+            unavailable, such as initiation counts for throws or outcomes for utility specials. SSBM Stats move rates are approximate because
             public game counts are privacy-rounded; damage and kill shares cover published move rows.
           </div>
           <BenchmarkFootnote benchmarks={benchmarks} />
         </>
       )}
+      {isNoHitMetric && benchmarks.characterId !== null && activeMoves.map((move) => {
+        const moveId = specialMoveId(move.key);
+        const reason = moveId === null ? null : getSpecialMoveCapability(benchmarks.characterId!, moveId).reason;
+        return reason ? <div className="hint" key={move.key}>{move.label}: {reason}</div> : null;
+      })}
     </div>
   );
 }
@@ -1751,16 +1763,18 @@ function MovesSection({
     : 2;
   const visibleEffectivenessRows = useMemo(
     () => recent.rows.filter((row) => {
-      if (metric === "noHitPerGame" || metric === "noHitRate") return row.key === "down-b";
-      if (moveFocus === "down-b") return row.key === "down-b";
-      if (moveFocus === "specials") return ["neutral-b", "side-b", "up-b", "down-b"].includes(row.key);
+      if (specialMoveId(moveFocus) !== null && row.key !== moveFocus) return false;
+      if (metric === "noHitPerGame" || metric === "noHitRate" || moveFocus === "specials") return specialMoveId(row.key) !== null;
+      if (specialMoveId(moveFocus) !== null) return true;
       if (metric === "attemptsPerGame" && (row.attempts ?? 0) > 0) return true;
       return (row.dmgShare ?? 0) * 100 >= minDamageShare;
     }),
     [recent.rows, minDamageShare, moveFocus, metric],
   );
   const metricDef = MOVE_METRIC_CHOICES.find((choice) => choice.key === metric)!;
-  const downBReason = benchmarks.characterId === null ? null : getDownBCapability(benchmarks.characterId).reason;
+  const focusedSpecialId = specialMoveId(moveFocus);
+  const specialOutcomeReason = benchmarks.characterId === null || focusedSpecialId === null
+    ? null : getSpecialMoveCapability(benchmarks.characterId, focusedSpecialId).reason;
   const formatMoveMetric = (value: number | null) => value === null ? "—" : `${num(value, metricDef.digits)}${metricDef.unit}`;
   // The percentage threshold applies only to move share. Action usage is a
   // different unit (/min), so it stays visible at every threshold.
@@ -1815,6 +1829,9 @@ function MovesSection({
               <select value={moveFocus} onChange={(e) => setMoveFocus(e.target.value)}>
                 <option value="all">All moves</option>
                 <option value="specials">Special moves</option>
+                <option value="neutral-b">Neutral B</option>
+                <option value="side-b">Side B</option>
+                <option value="up-b">Up B</option>
                 <option value="down-b">Down B</option>
               </select>
             </label>
@@ -1863,9 +1880,12 @@ function MovesSection({
                 ? null
                 : actionRateDifference(mine, comparisonValue, localMoveComparisonGames(r, metric, recent.covered), comparisonGames);
               const localValue = formatMoveMetric(mine);
+              const specialId = specialMoveId(r.key);
+              const outcomeReason = benchmarks.characterId === null || specialId === null
+                ? undefined : getSpecialMoveCapability(benchmarks.characterId, specialId).reason ?? undefined;
               return (
                 <tr key={r.key}>
-                  <td>{r.label}</td>
+                  <td title={outcomeReason}>{r.label}</td>
                   <td
                     className={`data ${difference ? `community-diff-${difference.direction}` : ""}`}
                     style={actionRateDifferenceStyle(difference)}
@@ -1896,9 +1916,9 @@ function MovesSection({
             )}
           </tbody>
         </table></MatrixScroll>
-        {metric === "attemptsPerGame" && <div className="hint">Attempts count activations for normals, aerials, and every character's Down B. Refresh replays to add Down B tracking. Older archive samples need reprocessing; SSBM Stats does not yet publish Down B attempts.</div>}
-        {(metric === "noHitPerGame" || metric === "noHitRate") && <div className="hint">No-hit counts completed Down B uses with no opponent damage, including shield contact and defensive uses: a whiff proxy, not verified whiffs. Incomplete uses are excluded from the rate. Utility and delayed attacks have attempts only. Older archives need reprocessing; SSBM Stats does not publish outcomes.</div>}
-        {(metric === "noHitPerGame" || metric === "noHitRate") && downBReason && <div className="hint">{charName(benchmarks.characterId!)}: {downBReason}</div>}
+        {metric === "attemptsPerGame" && <div className="hint">Refresh replays for activation counts across normals, aerials, and all four special directions. Unsupported copied moves, form changes, or missing frames remain unavailable. Older archives need reprocessing; SSBM Stats does not publish special attempts.</div>}
+        {(metric === "noHitPerGame" || metric === "noHitRate") && <div className="hint">No-hit counts completed special uses with no opponent damage, including shields and defensive uses; it is not a verified whiff rate. Incomplete uses are excluded. Utility and delayed attacks have attempts only. Older archives need reprocessing; SSBM Stats does not publish outcomes.</div>}
+        {(metric === "noHitPerGame" || metric === "noHitRate") && specialOutcomeReason && <div className="hint">{charName(benchmarks.characterId!)}: {specialOutcomeReason}</div>}
         <div className="hint">
           Your most recent {recent.covered.toLocaleString()} games; the selected measure also updates the trend above.
           Venue, Tournament, and Pro are fixed references for {archiveBenchmarkLabel(benchmarks)}.

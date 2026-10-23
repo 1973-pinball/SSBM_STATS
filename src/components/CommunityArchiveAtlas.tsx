@@ -9,9 +9,9 @@ import type {
 import { COMMUNITY_MIN_GAMES, COMMUNITY_MIN_PLAYERS } from "../lib/community";
 import { INCLUDED_STAGE_IDS } from "../lib/config";
 import { countNoun, num, pct, shortDate, winRateColor } from "../lib/format";
-import { charName, moveGroup, moveGroupLabel, moveGroupTracksAttempts, stageName } from "../lib/melee";
+import { charName, moveGroup, moveGroupLabel, moveGroupTracksAttempts, specialMoveId, stageName } from "../lib/melee";
 import { archiveMoveBenchmark, archiveMoveComparisonGames, archiveMoveSample, localMoveComparisonGames, localMoveSample } from "../lib/executionMoveBenchmarks";
-import { getDownBCapability } from "../lib/downBSpecial";
+import { getSpecialMoveCapability } from "../lib/specialMoves";
 import {
   archiveRankingLabel,
   fetchArchiveCommunityAtlasRows,
@@ -704,7 +704,6 @@ export function ArchiveMoveAtlasComparison({
   const [sort, setSort] = useState<{ key: MoveSortKey; direction: SortDirection }>({ key: "you", direction: "desc" });
   const [minAttemptsInput, setMinAttemptsInput] = useState("1");
   const [minActionsInput, setMinActionsInput] = useState("1");
-  const downBCapability = getDownBCapability(characterId);
   const minAttempts = normalizedMinimum(minAttemptsInput);
   const minActions = normalizedMinimum(minActionsInput);
   const localGames = useMemo(
@@ -739,6 +738,7 @@ export function ArchiveMoveAtlasComparison({
   };
   const moveKeys = [...new Set([...localByKey.keys(), ...communityByKey.keys(), ...broadMoves.keys(), ...conservativeMoves.keys(), ...proAggregateMoves.keys(), ...proMoves.keys()])]
     .filter((key) => {
+      if ((metric === "noHitPerGame" || metric === "noHitRate") && specialMoveId(key) === null) return false;
       const move = localByKey.get(key);
       if (!move) return false;
       // Untracked moves must remain visible in landed/damage measures.
@@ -858,9 +858,8 @@ export function ArchiveMoveAtlasComparison({
         </div>
       </div>
       {metric === "noHitPerGame" || metric === "noHitRate"
-        ? <div className="hint">No-hit counts completed Down B uses with no opponent damage, including shield contact and defensive uses: a whiff proxy, not verified whiffs. Incomplete uses are excluded from the rate. Utility and delayed attacks have attempts only; older archive samples need reprocessing.</div>
-        : <div className="hint">Down B attempts are tracked for every character after refreshing replays. Older archive samples need reprocessing. Damage / opening includes follow-up damage.</div>}
-      {(metric === "noHitPerGame" || metric === "noHitRate") && downBCapability.reason && <div className="hint">{charName(characterId)}: {downBCapability.reason}</div>}
+        ? <div className="hint">No-hit counts completed special uses with no opponent damage, including shields and defensive uses; it is not a verified whiff rate. Incomplete uses are excluded. Utility and delayed attacks have attempts only; hover a move name for its limits. Older archives need reprocessing.</div>
+        : <div className="hint">Refresh replays for attempt tracking across all four special directions. Unsupported copied moves, form changes, or missing frames remain unavailable. Older archive samples need reprocessing. Damage / opening includes follow-up damage.</div>}
       {moveKeys.length ? <div className="table-scroll"><table><thead><tr>{sortableMoveHeader("move", "Move")}{sortableMoveHeader("you", "You", `${localMoves.covered.toLocaleString()} games`)}{sortableMoveHeader("community", "SSBM Stats", communityGames === null ? "sample not yet publishable" : `${communityGames.toLocaleString()} player-games`)}{sortableMoveHeader("venue", "Venue archive", `${broadRow?.game_count.toLocaleString() ?? "—"} player-games`)}{sortableMoveHeader("tournament", "Tournament archive", `${conservativeRow?.game_count.toLocaleString() ?? "—"} player-games`)}{sortableMoveHeader("proAggregate", "Pro tournament archive", `${proAggregateRow?.game_count.toLocaleString() ?? "—"} player-games · ${countNoun(proAggregateRow?.identified_player_count, "pro")}`)}{archive.selectedPro && sortableMoveHeader("pro", archive.selectedPro.display_name, `${proRow?.game_count.toLocaleString() ?? "—"} games`)}</tr></thead><tbody>
         {moveKeys.map((key) => {
           const mine = localMoveMetric(localByKey.get(key), metric, localMoves.covered);
@@ -876,7 +875,9 @@ export function ArchiveMoveAtlasComparison({
           const localValue = localMoveValue(localByKey.get(key), metric, localMoves.covered);
           const comparisonLabel = tournamentField !== null ? "tournament" : "venue";
           const sample = measure ? localMoveSample(localByKey.get(key), measure) : undefined;
-          return <tr key={key}><td>{localByKey.get(key)?.label ?? moveGroupLabel(key)}</td><td className={`data ${difference ? `community-diff-${difference.direction}` : ""}`} style={differenceStyle(difference)} title={difference ? `${difference.direction === "above" ? "Higher than" : "Lower than"} the ${comparisonLabel} archive benchmark; highlight intensity reflects the size of the difference` : undefined} aria-label={difference ? `${localValue}, ${difference.direction === "above" ? "higher" : "lower"} than the ${comparisonLabel} archive benchmark` : undefined}>{localValue}{sample && <span className="sample-note">{sample}</span>}{difference && <span className="community-diff-cue" aria-hidden="true">{difference.direction === "above" ? "▲" : "▼"}</span>}</td><td className="data">{communityMoveValue(communityByKey.get(key), metric, communityDamage)}</td><td className="data">{archiveMoveValue(broadMoves.get(key), metric, broadRow, key)}</td><td className="data">{archiveMoveValue(conservativeMoves.get(key), metric, conservativeRow, key)}</td><td className="data">{archiveMoveValue(proAggregateMoves.get(key), metric, proAggregateRow, key)}</td>{archive.selectedPro && <td className="data">{archiveMoveValue(proMoves.get(key), metric, proRow, key)}</td>}</tr>;
+          const specialId = specialMoveId(key);
+          const outcomeReason = specialId === null ? undefined : getSpecialMoveCapability(characterId, specialId).reason ?? undefined;
+          return <tr key={key}><td title={outcomeReason}>{localByKey.get(key)?.label ?? moveGroupLabel(key)}</td><td className={`data ${difference ? `community-diff-${difference.direction}` : ""}`} style={differenceStyle(difference)} title={difference ? `${difference.direction === "above" ? "Higher than" : "Lower than"} the ${comparisonLabel} archive benchmark; highlight intensity reflects the size of the difference` : undefined} aria-label={difference ? `${localValue}, ${difference.direction === "above" ? "higher" : "lower"} than the ${comparisonLabel} archive benchmark` : undefined}>{localValue}{sample && <span className="sample-note">{sample}</span>}{difference && <span className="community-diff-cue" aria-hidden="true">{difference.direction === "above" ? "▲" : "▼"}</span>}</td><td className="data">{communityMoveValue(communityByKey.get(key), metric, communityDamage)}</td><td className="data">{archiveMoveValue(broadMoves.get(key), metric, broadRow, key)}</td><td className="data">{archiveMoveValue(conservativeMoves.get(key), metric, conservativeRow, key)}</td><td className="data">{archiveMoveValue(proAggregateMoves.get(key), metric, proAggregateRow, key)}</td>{archive.selectedPro && <td className="data">{archiveMoveValue(proMoves.get(key), metric, proRow, key)}</td>}</tr>;
         })}
       </tbody></table></div> : <div className="empty-note">No recorded moves match this view. Lower the tracked-attempt minimum or broaden your game selection.</div>}
 

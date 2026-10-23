@@ -1,37 +1,59 @@
-/** Coverage carried alongside Down B totals in a derived public archive. */
-export const ARCHIVE_STATS_VERSION = 4;
-export const DOWN_B_OUTCOME_FIELDS = ["hitAttempts", "noHitAttempts", "incompleteAttempts"];
+/** Per-move measured coverage in derived public archives. */
+export const ARCHIVE_STATS_VERSION = 5;
+export const ARCHIVE_SPECIAL_MOVE_IDS = [18, 19, 20, 21];
+export const SPECIAL_OUTCOME_FIELDS = ["hitAttempts", "noHitAttempts", "incompleteAttempts"];
+export const DOWN_B_OUTCOME_FIELDS = SPECIAL_OUTCOME_FIELDS;
 
-const count = (value) => Number.isInteger(value) && value >= 0;
+const count = (value) => Number.isSafeInteger(value) && value >= 0;
+export const hasSpecialAttemptSchema = (moveId, statsVersion) => Number(moveId) === 21
+  ? statsVersion >= 4 : [18, 19, 20].includes(Number(moveId)) && statsVersion >= 5;
 
-export function hasDownBOutcomeCounts(move) {
+export function hasSpecialOutcomeCounts(move) {
   return count(move?.attempts)
-    && DOWN_B_OUTCOME_FIELDS.every((field) => count(move?.[field]))
+    && SPECIAL_OUTCOME_FIELDS.every((field) => count(move?.[field]))
     && move.hitAttempts + move.noHitAttempts + move.incompleteAttempts === move.attempts;
 }
 
-export function assertArchiveDownBMeasurements(record, label) {
-  if (record.statsVersion !== ARCHIVE_STATS_VERSION) {
-    throw new Error(`${label} requires archive stats v${ARCHIVE_STATS_VERSION}; re-run analyze-nikki-bundle.mjs before exporting`);
+function validateMeasurements(record, label, moveIds, version) {
+  if (record.statsVersion !== version) {
+    throw new Error(`${label} requires archive stats v${version}; re-run analyze-nikki-bundle.mjs before exporting`);
   }
+  const singles = !record.isTeams && record.players.length === 2;
   for (const player of record.players) {
     for (const [moveId, move] of Object.entries(player.moveStats ?? {})) {
-      if (moveId === "21" && move.attempts !== undefined && !count(move.attempts)) {
-        throw new Error(`${label} has invalid Down B initiation counts; re-run analyze-nikki-bundle.mjs before exporting`);
+      const special = moveIds.includes(Number(moveId));
+      if (special && move.attempts !== undefined && (!singles || !count(move.attempts))) {
+        throw new Error(`${label} has invalid special-move initiation counts for move ${moveId}`);
       }
-      if (!DOWN_B_OUTCOME_FIELDS.some((field) => move[field] !== undefined)) continue;
-      if (record.isTeams || moveId !== "21" || !hasDownBOutcomeCounts(move)) {
-        throw new Error(`${label} has invalid Down B outcome counts; re-run analyze-nikki-bundle.mjs before exporting`);
+      if (!SPECIAL_OUTCOME_FIELDS.some((field) => move[field] !== undefined)) continue;
+      if (!singles || !special || !hasSpecialOutcomeCounts(move)) {
+        throw new Error(`${label} has invalid special-move outcome counts for move ${moveId}`);
       }
     }
   }
 }
 
-export function addArchiveDownBOutcomes(target, move) {
+export function assertArchiveSpecialMeasurements(record, label) {
+  validateMeasurements(record, label, ARCHIVE_SPECIAL_MOVE_IDS, ARCHIVE_STATS_VERSION);
+}
+
+export function addArchiveSpecialOutcomes(target, move, moveId, statsVersion) {
+  // Version and explicit counts are both required: v4's other special zeros
+  // were placeholders, while its measured Down B counts remain valid.
+  if (!hasSpecialAttemptSchema(moveId, statsVersion)) return;
   if (count(move?.attempts)) target.attemptGames = (target.attemptGames ?? 0) + 1;
-  if (!hasDownBOutcomeCounts(move)) return;
+  if (!hasSpecialOutcomeCounts(move)) return;
   target.outcomeGames = (target.outcomeGames ?? 0) + 1;
-  for (const field of DOWN_B_OUTCOME_FIELDS) {
+  for (const field of SPECIAL_OUTCOME_FIELDS) {
     target[field] = (target[field] ?? 0) + move[field];
   }
+}
+
+// Retained for tools that explicitly inspect the immutable stats-v4 archive.
+export const hasDownBOutcomeCounts = hasSpecialOutcomeCounts;
+export function assertArchiveDownBMeasurements(record, label) {
+  validateMeasurements(record, label, [21], 4);
+}
+export function addArchiveDownBOutcomes(target, move) {
+  addArchiveSpecialOutcomes(target, move, 21, 4);
 }

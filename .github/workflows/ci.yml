@@ -57,7 +57,7 @@ jobs:
       - name: Verify replay retries and metadata recovery
         run: npm run verify:replays
 
-      - name: Verify Down B detection and move comparisons
+      - name: Verify special detection, cache migration and move comparisons
         run: npm run verify:moves
 
       - name: Local forecast pipeline tests (fixtures only; no credentials)

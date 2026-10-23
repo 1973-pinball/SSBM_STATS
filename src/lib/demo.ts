@@ -1,7 +1,7 @@
 import { CURRENT_STATS_VERSION } from "./types";
 import type { Account, ActionCounts, GameRecord, MoveAgg, PlayerSide, TechCounts } from "./types";
 import { INCLUDED_STAGE_IDS } from "./config";
-import { getDownBCapability } from "./downBSpecial";
+import { getSpecialMoveCapability, SPECIAL_MOVE_IDS, type SpecialMoveId } from "./specialMoves";
 
 /**
  * Plausible per-move landed/damage/kill aggregates (keyed by Melee attack ID,
@@ -34,7 +34,7 @@ function mkMoveStats(rand: () => number, minutes: number, kills: number, totalDa
     [18, isMe ? 5.5 : 2.5, 3], // neutral-b (laser: lots of hits, tiny damage)
     [19, isMe ? (iWin ? 1.85 : 2.15) : 1.0, 9], // side-b — the loss habit
     [20, 0.15, 12], // up-b — occasional recovery hit
-    [21, isMe ? 1.8 : 1.0, 7], // down-b — attempts plus outcomes for direct attacks
+    [21, isMe ? 1.8 : 1.0, 7], // down-b
     [53, 0.5, 5], // fthrow
     [55, 0.7, 5], // uthrow
     [56, 0.9, 6], // dthrow
@@ -43,7 +43,8 @@ function mkMoveStats(rand: () => number, minutes: number, kills: number, totalDa
   let rawDmg = 0;
   for (const [id, w, dmgPer] of mix) {
     const landed = Math.round(minutes * w * (0.7 + rand() * 0.6));
-    if (landed <= 0) continue;
+    const specialId = SPECIAL_MOVE_IDS.includes(id as SpecialMoveId) ? id as SpecialMoveId : null;
+    if (landed <= 0 && specialId === null) continue;
     const damage = landed * dmgPer * (0.8 + rand() * 0.4);
     // Aerials get L-cancel counts: attempts exceed landed (whiffs count too),
     // per-move rate jitters around the game rate — dair runs a little worse.
@@ -55,14 +56,20 @@ function mkMoveStats(rand: () => number, minutes: number, kills: number, totalDa
       lcFail = attempts - lcSuccess;
     }
     out[id] = { landed, damage, kills: 0, killPctSum: 0, openings: 0, openingDmg: 0, lcSuccess, lcFail };
-    // Normals/aerials and Down B mirror the parser's capability split.
+    // Match the parser's per-character capabilities; even zero-use specials
+    // have a measured row, and utility/projectile outcomes stay unavailable.
     if ((id >= 2 && id <= 17) || id === 6) out[id].attempts = Math.round(landed * (1.2 + rand() * 0.6));
-    if (id === 21) {
-      const attempts = Math.round(minutes * (isMe ? 9 : 6) * (0.7 + rand() * 0.6));
-      out[id].attempts = attempts;
-      if (getDownBCapability(characterId).outcomes) {
+    if (specialId !== null) {
+      const capability = getSpecialMoveCapability(characterId, specialId);
+      const usesPerMinute = specialId === 18 ? (isMe ? 12 : 8)
+        : specialId === 19 ? (isMe ? (iWin ? 3 : 4) : 3)
+        : specialId === 20 ? 2 : (isMe ? 9 : 6);
+      const attempts = Math.round(minutes * usesPerMinute * (0.7 + rand() * 0.6));
+      if (capability.attempts) out[id].attempts = attempts;
+      if (capability.outcomes) {
         // Simulate per-use outcomes independently of conversion landed counts.
-        out[id].hitAttempts = Math.round(attempts * (0.35 + rand() * 0.2));
+        const hitRate = specialId === 20 ? 0.08 + rand() * 0.1 : 0.35 + rand() * 0.2;
+        out[id].hitAttempts = Math.round(attempts * hitRate);
         out[id].noHitAttempts = attempts - out[id].hitAttempts;
         out[id].incompleteAttempts = 0;
       }

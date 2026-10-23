@@ -116,3 +116,12 @@ export const moveGroup = (moveId: number): MoveGroup => MOVE_GROUP_BY_ID.get(mov
 export const moveGroupLabel = (key: string): string => MOVE_GROUP_LABEL_BY_KEY.get(key) ?? OTHER_MOVE.label;
 /** Slippi's action counter reports initiations only for normals and aerials. */
 export const moveGroupTracksAttempts = (key: string): boolean => ATTEMPT_TRACKED_MOVE_KEYS.has(key);
+
+/** Specials use separate per-move capability and measured-game denominators. */
+export const specialMoveId = (key: string): 18 | 19 | 20 | 21 | null => {
+  if (key === "neutral-b") return 18;
+  if (key === "side-b") return 19;
+  if (key === "up-b") return 20;
+  if (key === "down-b") return 21;
+  return null;
+};

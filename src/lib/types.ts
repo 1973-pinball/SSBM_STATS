@@ -50,14 +50,14 @@ export interface MoveAgg {
   lcSuccess: number;
   lcFail: number;
   /** Times the move was initiated (from animation states), including no-hit uses.
-   *  Tracked for normals, aerials and Down B; undefined = unavailable.
-   *  A tracked Down B always has a row, including games with zero uses. */
+   *  Tracked for normals, aerials and supported specials; undefined = unavailable.
+   *  A tracked special always has a row, including games with zero uses. */
   attempts?: number;
-  /** Down B activations with confirmed opponent damage while the move is active.
+  /** Special activations with confirmed opponent damage while the move is active.
    *  The complete outcome triple is present only when damage outcomes are meaningful
    *  and frame coverage permits attribution. Utility/delayed-item moves omit it. */
   hitAttempts?: number;
-  /** Completed Down B activations without confirmed opponent damage. Includes
+  /** Completed special activations without confirmed opponent damage. Includes
    *  shield contact; this is a no-hit count, not a verified whiff count. */
   noHitAttempts?: number;
   /** Activations with an unresolved outcome (e.g. the replay ends mid-move).
@@ -150,8 +150,9 @@ export function hasFullStats(rec: GameRecord): boolean {
  * Bump when a full replay parse gains fields that cannot be derived from an
  * older cached/cloud record. The marker lives inside the cloud JSON payload,
  * so no Supabase schema migration is needed.
+ * Version 5 adds independent usage coverage for Neutral, Side and Up B.
  */
-export const CURRENT_STATS_VERSION = 4;
+export const CURRENT_STATS_VERSION = 5;
 
 /** Only positive CPU evidence excludes a game; old records remain eligible. */
 export function hasKnownCpu(rec: GameRecord): boolean {

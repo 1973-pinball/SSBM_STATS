@@ -1,5 +1,5 @@
 import type { CommunityMoveRow } from "./community";
-import { moveGroup, moveGroupTracksAttempts } from "./melee";
+import { moveGroup, moveGroupTracksAttempts, specialMoveId } from "./melee";
 import type { ArchiveMoveMetrics, ArchiveRollup } from "./publicArchive";
 import type { MoveMetricKey, MoveRow } from "./stats";
 
@@ -39,15 +39,16 @@ export function localMoveMetric(move: MoveRow | undefined, metric: MoveMetricKey
 }
 
 export function localMoveSample(move: MoveRow | undefined, metric: MoveMetricKey): string | undefined {
-  if (move?.key !== "down-b") return undefined;
+  if (!move || specialMoveId(move.key) === null) return undefined;
   if (metric === "attemptsPerGame") return move.attemptGames > 0 ? `${move.attemptGames.toLocaleString()} tracked games` : "Refresh replays to track attempts";
+  if ((metric === "noHitPerGame" || metric === "noHitRate") && move.attemptGames === 0) return "Refresh replays to track outcomes";
   if (metric === "noHitPerGame") return move.outcomeGames > 0 ? `${move.outcomeGames.toLocaleString()} outcome-tracked games` : "Outcome tracking unavailable";
   if (metric === "noHitRate") return move.outcomeGames > 0 ? `${(move.outcomeAttempts ?? 0).toLocaleString()} completed uses` : "Outcome tracking unavailable";
   return undefined;
 }
 
 export function archiveMoveSample(row: ArchiveRollup | null, moveKey: string, metric: MoveMetricKey): string | undefined {
-  if (moveKey !== "down-b" || !row) return undefined;
+  if (specialMoveId(moveKey) === null || !row) return undefined;
   const move = groupedArchiveMove(row, moveKey);
   if (metric === "attemptsPerGame") return (move?.attemptGames ?? 0) > 0 ? `${move!.attemptGames!.toLocaleString()} tracked games` : "Archive reparse needed";
   if (metric === "noHitPerGame" || metric === "noHitRate") {
@@ -67,7 +68,7 @@ export function localMoveComparisonGames(move: MoveRow, metric: MoveMetricKey, c
 export function archiveMoveComparisonGames(row: ArchiveRollup | null, moveKey: string, metric: MoveMetricKey): number {
   if (!row) return 0;
   const move = groupedArchiveMove(row, moveKey);
-  if (moveKey === "down-b" && metric === "attemptsPerGame") return move?.attemptGames ?? 0;
+  if (specialMoveId(moveKey) !== null && metric === "attemptsPerGame") return move?.attemptGames ?? 0;
   if (metric === "noHitPerGame" || metric === "noHitRate") return move?.outcomeGames ?? 0;
   return row.game_count;
 }
@@ -76,12 +77,12 @@ export function archiveMoveBenchmark(row: ArchiveRollup | null, moveKey: string,
   const move = groupedArchiveMove(row, moveKey);
   if (!row || row.game_count <= 0 || !move) return null;
   if (metric === "attemptsPerGame") {
-    if (moveKey === "down-b") return (move.attemptGames ?? 0) > 0 ? move.attempts / move.attemptGames! : null;
+    if (specialMoveId(moveKey) !== null) return (move.attemptGames ?? 0) > 0 ? move.attempts / move.attemptGames! : null;
     if (!moveGroupTracksAttempts(moveKey)) return null;
     return move.attempts === 0 && move.landed > 0 ? null : move.attempts / row.game_count;
   }
   if (metric === "noHitPerGame" || metric === "noHitRate") {
-    if (moveKey !== "down-b" || !(move.outcomeGames && move.outcomeGames > 0)
+    if (specialMoveId(moveKey) === null || !(move.outcomeGames && move.outcomeGames > 0)
       || move.hitAttempts === undefined || move.noHitAttempts === undefined || move.incompleteAttempts === undefined) return null;
     const denominator = metric === "noHitPerGame" ? move.outcomeGames : move.hitAttempts + move.noHitAttempts;
     return denominator > 0 ? move.noHitAttempts / denominator * (metric === "noHitRate" ? 100 : 1) : null;
