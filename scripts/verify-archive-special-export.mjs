@@ -5,7 +5,7 @@
  * parse files needed to reconstruct the full Venue and tournament populations.
  *
  * node scripts/verify-archive-special-export.mjs --dir CACHE/public-export-v10 \
- *   --results CACHE/results-v5 --audit CACHE/source-audit-2026-10-22.json
+ *   --results CACHE/results-v6 --audit CACHE/source-audit-2026-10-22.json
  * --profile sample relaxes the fixed v10 totals/player roster for isolated tests.
  * --report FILE optionally saves the aggregate-only QA report outside the export.
  */
@@ -21,9 +21,10 @@ import { computeArchiveContentSha256 } from "./lib/archive-content-hash.mjs";
 
 const cache = path.join(homedir(), process.platform === "darwin" ? "Library/Caches" : ".cache", "SSBM_DASHBOARD_nikki_archive");
 const args = {
-  dir: path.join(cache, "public-export-v10"), results: path.join(cache, "results-v5"),
+  dir: path.join(cache, "public-export-v10"), results: path.join(cache, "results-v6"),
   audit: path.join(cache, "source-audit-2026-10-22.json"), profile: "full", report: null,
   events: "scripts/data/nikki-event-registry.json", identities: "scripts/data/nikki-player-overrides.json",
+  corrections: null, "correction-rollups": null,
 };
 for (let index = 2; index < process.argv.length; index += 2) {
   const option = process.argv[index]?.replace(/^--/, "");
@@ -43,6 +44,7 @@ const eventFor = (name) => stem(name).replace(/-(?:main-stream|streams?|top-8|r2
 const sorted = (values) => [...values].sort();
 const fields = ["attempts", "attemptGames", "outcomeGames", "hitAttempts", "noHitAttempts", "incompleteAttempts"];
 const outcomes = ["hitAttempts", "noHitAttempts", "incompleteAttempts"];
+const usageCounts = (move) => Object.fromEntries(["attempts", ...outcomes].filter((field) => move?.[field] !== undefined).map((field) => [field, move[field]]));
 const moveIds = [18, 19, 20, 21];
 const capabilityServer = await createServer({ configFile: false, appType: "custom",
   server: { middlewareMode: true, hmr: false, watch: null }, optimizeDeps: { noDiscovery: true, include: [] } });
@@ -56,6 +58,31 @@ const expectedPlayers = ["aklo", "ampp", "amsa", "axe", "codyschwab", "fiction",
 const [manifest, qa, audit, eventDocument, identityDocument] = await Promise.all([
   json(path.join(args.dir, "manifest.json")), json(path.join(args.dir, "qa.json")), json(args.audit), json(args.events), json(args.identities),
 ]);
+const correctionDocument = args.corrections ? await json(args.corrections) : null;
+if (args.profile === "full") assert.ok(correctionDocument, "stats6 publication requires the full replay-proven completeness correction audit");
+const correctionBySide = new Map();
+const correctedBundleHashes = new Map();
+if (correctionDocument) {
+  assert.equal(correctionDocument.schemaVersion, 1);
+  assert.equal(correctionDocument.beforeStatsVersion, 4); assert.equal(correctionDocument.statsVersion, 6);
+  assert.equal(correctionDocument.auditSha256, hash(await readFile(args.audit, "utf8")));
+  assert.match(correctionDocument.parserSha256, /^[a-f0-9]{64}$/);
+  for (const bundle of correctionDocument.bundleFingerprints) {
+    assert.ok(!correctedBundleHashes.has(bundle.bundle));
+    correctedBundleHashes.set(bundle.bundle, bundle.afterSha256);
+  }
+  for (const correction of correctionDocument.corrections) {
+    const key = `${correction.bundle}\0${correction.file}\0${correction.slot}`;
+    assert.ok(!correctionBySide.has(key), "each replay-proven Down B correction is unique");
+    assert.match(correction.replaySha256, /^[a-f0-9]{64}$/);
+    correctionBySide.set(key, correction);
+  }
+}
+assert.equal(Boolean(args["correction-rollups"]), Boolean(correctionDocument), "corrections require a separate exact rollup-delta report");
+if (args["correction-rollups"]) {
+  const relative = path.relative(path.resolve(args.dir), path.resolve(args["correction-rollups"]));
+  assert.ok(relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative), "correction report must remain outside the immutable export");
+}
 const datasetId = manifest.datasetId;
 assert.deepEqual(manifest.loadOrder, ["archive_datasets", "archive_tournament_series", "archive_tournaments", "archive_bundles",
   "archive_players", "archive_player_aliases", "archive_player_rankings", "archive_sets", "archive_set_players",
@@ -88,7 +115,9 @@ if (args.profile === "full") {
 }
 
 const datasets = [], bundles = [], tournaments = [], series = [];
-const publicGames = new Map(), publicSides = new Map(), playerDirectory = new Set(), actual = new Map();
+const publicGames = new Map(), publicSides = new Map(), playerDirectory = new Set(), actual = new Map(), allRollups = new Map();
+const dimensionFields = ["scope", "population", "series_id", "tournament_id", "set_id", "player_id", "format", "character_id", "opponent_character_id", "stage_id"];
+const dimensionKey = (row) => JSON.stringify(dimensionFields.map((field) => typeof row[field] === "string" ? row[field].replaceAll(datasetId, "DATASET") : row[field]));
 const counts = {};
 const keyFor = (scope, population_, player, format, character, opponent) => JSON.stringify([scope, population_, player, format, character, opponent]);
 const isGlobal = (row) => row.series_id === null && row.tournament_id === null && row.set_id === null && row.stage_id === null;
@@ -133,7 +162,7 @@ for (const table of manifest.loadOrder) {
     else if (table === "archive_tournament_series") series.push(row);
     else if (table === "archive_players") playerDirectory.add(row.id);
     else if (table === "archive_games") {
-      assert.equal(row.stats_version, 5); assert.ok(!publicGames.has(row.game_key), "unique public game key");
+      assert.equal(row.stats_version, 6); assert.ok(!publicGames.has(row.game_key), "unique public game key");
       assert.ok(["verified", "probable"].includes(row.curation_tier), "public games are conservative");
       publicGames.set(row.game_key, row);
     } else if (table === "archive_game_players") {
@@ -146,7 +175,9 @@ for (const table of manifest.loadOrder) {
       sides.set(row.slot, { player: row.player_id, character: row.character_id, moves: specialMovesFrom(row.move_stats) });
       publicSides.set(row.game_key, sides);
     } else if (table === "archive_rollups") {
-      assert.equal(row.stats_version, 5);
+      assert.ok(!allRollups.has(dimensionKey(row)), "all rollup dimension combinations are unique");
+      allRollups.set(dimensionKey(row), row);
+      assert.equal(row.stats_version, 6);
       assert.ok(count(row.game_count), "valid rollup game count");
       for (const moveId of moveIds) validateMove(row.metrics.moves?.[moveId], moveId, row.character_id, row.format, "archive rollup", true, row.game_count);
       if (isGlobal(row) && ["community", "player"].includes(row.scope)) {
@@ -214,15 +245,17 @@ const identityFor = (player, event) => player.connectCode ? `code:${player.conne
   : player.userIdHash ? `uid:${player.userIdHash}` : normalize(player.displayName) ? `display:${normalize(player.displayName)}`
     : normalize(player.nametag) ? `event:${event}:tag:${normalize(player.nametag)}` : null;
 const sourceGames = new Map();
+const seenCorrections = new Set();
 let parsed = 0, failed = 0, duplicates = 0;
 const resultFiles = (await readdir(args.results)).filter((name) => name.endsWith(".json")).sort();
 assert.deepEqual(resultFiles.map(stem).sort(), included, "local results match the reviewed source cohort");
 for (const [index, filename] of resultFiles.entries()) {
-  const payload = await json(path.join(args.results, filename));
+  const payloadText = await readFile(path.join(args.results, filename), "utf8"), payload = JSON.parse(payloadText);
+  if (correctionDocument) assert.equal(hash(payloadText), correctedBundleHashes.get(payload.bundle), "every final derived input matches the replay-proven correction audit");
   const source = sourceByStem.get(stem(filename)), eventId = eventFor(payload.bundle), event = eventById.get(eventId);
   assert.ok(event, "every source event has a registry row");
   assert.equal(payload.schemaVersion, 2); assert.equal(payload.statProfile, "dashboard-full-derived-v1");
-  assert.equal(payload.statsVersion, 5, "local bundle statistics use the frozen v5 parser");
+  assert.equal(payload.statsVersion, 6, "local bundle statistics use the frozen v6 parser");
   assert.equal(payload.bundle, source.sourceFilename, "local parse names the audited original bundle");
   assert.equal(stem(payload.bundle), stem(filename));
   assert.equal(payload.replayFiles, source.replay_file_count);
@@ -231,8 +264,23 @@ for (const [index, filename] of resultFiles.entries()) {
   for (const record of payload.records) {
     if (!record.ok) { failed++; bundleFailed++; continue; }
     parsed++; bundleParsed++;
-    assert.equal(record.statsVersion, 5, "local source statistics must be reparsed");
+    assert.equal(record.statsVersion, 6, "local source statistics must be reparsed");
     const rawKey = record.identityKey ?? `${payload.bundle}/${record.file}`;
+    const recordCorrections = record.players.map((side, slot) => {
+      const key = `${payload.bundle}\0${record.file}\0${slot}`, correction = correctionBySide.get(key);
+      if (!correction) return null;
+      assert.equal(correction.recordIdentitySha256, hash(rawKey));
+      assert.equal(correction.playerIndex, side.playerIndex); assert.equal(correction.characterId, side.characterId);
+      assert.equal(correction.durationFrames, record.durationFrames);
+      assert.deepEqual(correction.after, usageCounts(side.moveStats?.[21]), "replay-proven correction matches final derived Down B counts");
+      assert.notDeepEqual(correction.before, correction.after, "each allowed correction changes measured coverage");
+      for (const field of ["attempts", ...outcomes]) {
+        assert.ok(correction.after[field] === correction.before[field] || correction.after[field] === undefined,
+          "completeness correction can only withdraw unreliable measurement, never invent or modify a count");
+      }
+      seenCorrections.add(key);
+      return correction;
+    });
     const gameKey = hash(`nikki-public-game-v1:${datasetId}:${rawKey}`);
     const broadcast = /-(?:main-stream|streams?|top-8|r2-offstream)\.(?:7z|zip)$/i.test(payload.bundle)
       || /(?:^|[/\\ _-])(?:bracket|pools?|top[-_ ]?\d+|stream|broadcast)(?:$|[/\\ _-])/i.test(record.file);
@@ -244,7 +292,7 @@ for (const [index, filename] of resultFiles.entries()) {
     const format = record.isTeams ? "doubles" : "singles";
     const sides = record.players.map((side, slot) => {
       for (const moveId of moveIds) validateMove(side.moveStats?.[moveId], moveId, side.characterId, format, "local derived side");
-      return { character: side.characterId, moves: specialMovesFrom(side.moveStats), player: namedIdentity(side, eventId, identityDigest, slot) };
+      return { character: side.characterId, moves: specialMovesFrom(side.moveStats), player: namedIdentity(side, eventId, identityDigest, slot), correction: recordCorrections[slot] };
     });
     const identities = record.players.map((player) => identityFor(player, eventId));
     const teams = new Map();
@@ -267,6 +315,7 @@ for (const [index, filename] of resultFiles.entries()) {
   assert.equal(bundle.parsed_replay_count, bundleParsed); assert.equal(bundle.failed_replay_count, bundleFailed);
   if ((index + 1) % 10 === 0) process.stderr.write(`QA indexed ${index + 1}/${resultFiles.length} derived bundles\n`);
 }
+assert.equal(seenCorrections.size, correctionBySide.size, "every allowed correction resolves to an exact final source side");
 const stations = new Map();
 for (const game of sourceGames.values()) {
   if (game.technical || !game.tournament || game.friendly || !game.roster) continue;
@@ -311,6 +360,44 @@ function addSide(scope, population_, player, format, side, opponent) {
 const buckets = { verifiedBracket: 0, probableBracket: 0, unclassifiedVenue: 0, excludedOrIncomplete: 0 };
 const publicSeen = new Set(), mappedPlayers = new Set();
 let mappedPlayerSides = 0;
+const correctionRollups = new Map();
+let retainedCorrectionSides = 0;
+const contribution = (move) => ({ attempts: move.attempts ?? 0, attemptGames: move.attempts === undefined ? 0 : 1,
+  outcomeGames: outcomes.every((field) => move[field] !== undefined) ? 1 : 0,
+  ...Object.fromEntries(outcomes.map((field) => [field, move[field] ?? 0])) });
+function addCorrectionRows(game, side, opponent, conservative) {
+  const correction = side.correction;
+  if (!correction) return;
+  retainedCorrectionSides++;
+  const before = contribution(correction.before), after = contribution(correction.after);
+  const tournament = tournaments.find((row) => row.event_key === game.eventId);
+  assert.ok(tournament, "correction event has published provenance");
+  const scopes = [];
+  for (const population_ of conservative ? ["broad", "conservative"] : ["broad"]) {
+    scopes.push(["community", population_, null, null, null],
+      ["series", population_, tournament.series_id, null, null],
+      ["tournament", population_, tournament.series_id, tournament.id, null]);
+  }
+  if (side.player && conservative) scopes.push(["player", "conservative", null, null, side.player],
+    ["player", "conservative", tournament.series_id, null, side.player],
+    ["player", "conservative", tournament.series_id, tournament.id, side.player]);
+  for (const [scope, population_, seriesId, tournamentId, playerId] of scopes) {
+    for (const opponentId of game.format === "singles" ? [null, opponent.character] : [null]) {
+      const dimensions = { scope, population: population_, series_id: seriesId, tournament_id: tournamentId,
+        set_id: null, player_id: playerId, format: game.format, character_id: side.character,
+        opponent_character_id: opponentId, stage_id: null };
+      const key = dimensionKey(dimensions);
+      // Sparse cells omitted in both revisions receive no public delta. Stage
+      // and all-character rows do not store move statistics at all.
+      if (!allRollups.has(key)) continue;
+      const delta = correctionRollups.get(key) ?? { dimensions: JSON.parse(key),
+        delta: Object.fromEntries(fields.map((field) => [field, 0])), sourceSides: [] };
+      fields.forEach((field) => { delta.delta[field] += after[field] - before[field]; });
+      delta.sourceSides.push(`${correction.recordIdentitySha256}:${correction.slot}`);
+      correctionRollups.set(key, delta);
+    }
+  }
+}
 const rawCounts = (move) => move ? Object.fromEntries(["attempts", ...outcomes].filter((field) => move[field] !== undefined).map((field) => [field, move[field]])) : null;
 for (const game of sourceGames.values()) {
   const excluded = game.technical || !game.tournament || game.friendly;
@@ -320,12 +407,14 @@ for (const game of sourceGames.values()) {
   buckets[bucket]++;
   if (!excluded) for (const [slot, side] of game.sides.entries()) {
     const opponent = game.sides[slot === 0 ? 1 : 0];
+    addCorrectionRows(game, side, opponent, conservative);
     addSide("community", "broad", null, game.format, side, opponent);
     if (conservative) addSide("community", "conservative", null, game.format, side, opponent);
   }
   const publicGame = publicGames.get(game.gameKey);
   assert.equal(Boolean(publicGame), conservative && game.sides.some((side) => side.player !== null), "public games exactly cover conservative games with approved named identity evidence");
   if (!publicGame) continue;
+  assert.ok(game.sides.every((side) => !side.correction), "any corrected public per-game row needs a separately reviewed pairing-preserving baseline adjustment");
   assert.ok(conservative, "each public game belongs to the independently derived conservative population");
   assert.equal(publicGame.tournament_id, `${datasetId}:${game.eventId}`); assert.equal(publicGame.format, game.format);
   assert.equal(publicGame.curation_tier, verified ? "verified" : "probable");
@@ -381,6 +470,7 @@ const namedSides = Object.fromEntries(["singles", "doubles"].map((format) => [fo
   [...expected.values()].filter((row) => row.scope === "player" && row.format === format && row.character === null && row.opponent === null)
     .reduce((sum, row) => sum + row.games, 0),
 ]));
+const proCoverage = { namedCharacterRows: 0, aggregateCharacters: 0, ampleNamedSamples: 0, ampleAggregateSamples: 0, sparseUnavailable: [] };
 if (args.profile === "full") {
   assert.deepEqual(sorted(mappedPlayers), expectedPlayers, "all 27 approved identities actually survive in conservative games");
   assert.equal(dataset.broad_game_count, 151021, "Venue retains exactly the reviewed v9 source cohort");
@@ -405,8 +495,43 @@ if (args.profile === "full") {
       assert.ok((move?.outcomeGames ?? 0) > 0, `${row.population} character ${row.character} move ${moveId}: supported ample-sample outcomes must be measured`);
     }
   }
+  // Anonymous community coverage cannot prove that the named-player population
+  // retained its new measurements. Gate the independently reconstructed Pro
+  // samples too, without requiring characters absent from the reviewed roster.
+  const namedCharacterRows = [...expected.values()].filter((row) => row.scope === "player" && row.format === "singles"
+    && row.character !== null && row.opponent === null);
+  const proCharacters = new Map();
+  for (const row of namedCharacterRows) {
+    const aggregate = proCharacters.get(row.character) ?? { character: row.character, games: 0, moves: {} };
+    aggregate.games += row.games;
+    for (const moveId of moveIds) {
+      const source = row.moves[moveId];
+      if (!source) continue;
+      const target = aggregate.moves[moveId] ??= {};
+      for (const field of fields) if (source[field] !== undefined) target[field] = (target[field] ?? 0) + source[field];
+    }
+    proCharacters.set(row.character, aggregate);
+  }
+  proCoverage.namedCharacterRows = namedCharacterRows.length;
+  proCoverage.aggregateCharacters = proCharacters.size;
+  assert.equal(namedCharacterRows.length, 36); assert.equal(proCharacters.size, 15);
+  for (const [scope, rows] of [["named", namedCharacterRows], ["aggregate", [...proCharacters.values()]]]) {
+    for (const row of rows) {
+      if (row.games >= 25) proCoverage[scope === "named" ? "ampleNamedSamples" : "ampleAggregateSamples"]++;
+      for (const moveId of moveIds) {
+        const capability = getSpecialMoveCapability(row.character, moveId), move = row.moves[moveId];
+        const missing = [
+          ...(capability.attempts && !(move?.attemptGames > 0) ? ["attempts"] : []),
+          ...(capability.outcomes && !(move?.outcomeGames > 0) ? ["outcomes"] : []),
+        ];
+        if (row.games >= 25) assert.deepEqual(missing, [], `${scope} Pro ${row.player ?? "all"} character ${row.character} move ${moveId}: ample samples require positive coverage`);
+        else if (missing.length) proCoverage.sparseUnavailable.push({ scope, playerId: row.player ?? null,
+          characterId: row.character, moveId, gameSides: row.games, missing });
+      }
+    }
+  }
 }
-assert.equal(qa.moveCoverage.statsVersion, 5);
+assert.equal(qa.moveCoverage.statsVersion, 6);
 assert.deepEqual(sorted(Object.keys(qa.moveCoverage.specials)), moveIds.map(String));
 assert.deepEqual(qa.moveCoverage.downB, qa.moveCoverage.specials[21], "legacy Down B summary matches its special group");
 for (const moveId of moveIds) {
@@ -440,13 +565,15 @@ const report = {
   localDerivedCounts: { parsed, failed, duplicateCopies: duplicates, uniqueGames: sourceGames.size, populations: buckets },
   matchedPublicGames: publicSeen.size, publicPlayerSides: counts.archive_game_players, mappedPlayerSides,
   communityPlayerSides: communitySides, namedPlayerSides: namedSides,
-  mappedPlayerIds: sorted(mappedPlayers), comparedGlobalAggregates: compared, comparedMatchupAggregates: comparedMatchups,
-  specialMoveIds: moveIds, statsVersion: 5, characterCoverage, representativeMatchups, tableCounts: counts,
+  mappedPlayerIds: sorted(mappedPlayers), comparedGlobalAggregates: compared, comparedMatchupAggregates: comparedMatchups, proCoverage,
+  completenessCorrections: { sourceSides: correctionBySide.size, retainedSides: retainedCorrectionSides, affectedRollups: correctionRollups.size },
+  specialMoveIds: moveIds, statsVersion: 6, characterCoverage, representativeMatchups, tableCounts: counts,
   definitions: [
     "Game denominators count measured player sides, including zero-use games; they are not the full archive game count.",
     "Attempts/game = attempts / attemptGames. No-hit uses/game = noHitAttempts / outcomeGames.",
     "No-hit rate = noHitAttempts / (hitAttempts + noHitAttempts); unfinished uses are excluded.",
     "No-hit is a damage-based whiff proxy that includes shield contact and defensive uses. It is not a verified whiff rate.",
+    "Named and aggregate Pro character cohorts with at least 25 game sides require positive coverage for every supported measurement. Smaller unavailable samples remain explicit; transformed, copied, or incomplete observations never become measured zeros.",
     "Each character/direction uses its audited capability. Delayed, projectile, utility, copy, counter, and transformation outcomes remain unavailable where attribution is unsupported. Special tracking covers singles; doubles initiation and outcome coverage remain unavailable.",
   ],
   limits: [
@@ -456,6 +583,16 @@ const report = {
     "No raw replay bytes, source filenames, paths, private keys, unresolved labels, or connect codes are included in this report.",
   ],
 };
+if (args["correction-rollups"]) {
+  await writeFile(path.resolve(args["correction-rollups"]), `${JSON.stringify({
+    schemaVersion: 1, verifiedAt: report.verifiedAt, beforeDatasetId: correctionDocument.beforeDatasetId,
+    beforeContentSha256: correctionDocument.beforeContentSha256, afterDatasetId: datasetId,
+    afterContentSha256: manifest.contentSha256, parserSha256: correctionDocument.parserSha256,
+    auditSha256: correctionDocument.auditSha256, correctionManifestSha256: hash(await readFile(args.corrections, "utf8")),
+    sourceSides: correctionBySide.size, retainedSides: retainedCorrectionSides, publicSideCorrections: [],
+    rollups: [...correctionRollups.values()],
+  }, null, 2)}\n`);
+}
 if (args.report) await writeFile(path.resolve(args.report), `${JSON.stringify(report, null, 2)}\n`);
 console.log(JSON.stringify({ result: "passed", profile: args.profile, datasetId, sourceCohort: report.sourceCohort,
   mappedPlayers: mappedPlayers.size, matchedPublicGames: publicSeen.size, comparedGlobalAggregates: compared,
