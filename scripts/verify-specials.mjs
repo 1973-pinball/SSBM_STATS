@@ -1,7 +1,7 @@
 /** Source-audited all-character special activation fixtures; no raw replays. */
 import assert from "node:assert/strict";
-import { Character } from "@slippi/slippi-js";
-import { SPECIAL_MOVE_IDS, getSpecialMoveCapability, createSpecialMovesAccumulator, addSpecialMovesFrame, finishSpecialMovesAccumulator } from "../src/lib/specialMoves.ts";
+import { Character, Command, GameMode, SlpParser } from "@slippi/slippi-js";
+import { SPECIAL_MOVE_IDS, getSpecialMoveCapability, createSpecialMovesAccumulator, addSpecialMovesFrame, finishSpecialMovesAccumulator, watchSpecialMoveFrameIntegrity } from "../src/lib/specialMoves.ts";
 import { createDownBAccumulator, addDownBFrame, finishDownBAccumulator } from "../src/lib/downBSpecial.ts";
 
 // Independent expected constants from pinned decomp Enter callbacks, named
@@ -57,6 +57,42 @@ function run(external, internal, sequence=[], {close=true,first=-123}={}) {
   return {acc,feed,result};
 }
 const seq=(internal,states)=>states.map(state=>[post(internal,...(Array.isArray(state)?state:[state,0]))]);
+// Actual-library command ordering: valid rollback stays after the finalized
+// boundary; malformed raw writes can replace old frames without a FRAME event.
+function frameSource(version="3.19.1") {
+  const parser=new SlpParser();
+  const integrity=watchSpecialMoveFrameIntegrity(parser);
+  parser.handleCommand(Command.GAME_START,{slpVersion:version,gameMode:GameMode.ONLINE,players:[{playerIndex:0,type:0},{playerIndex:1,type:0}]});
+  const write=(frame,bookend=true)=>{
+    for(const playerIndex of [0,1]) {
+      parser.handleCommand(Command.PRE_FRAME_UPDATE,{frame,playerIndex,isFollower:false});
+      parser.handleCommand(Command.POST_FRAME_UPDATE,{frame,playerIndex,...post(playerIndex===0?1:18)});
+    }
+    if(bookend) parser.handleCommand(Command.FRAME_BOOKEND,{frame,latestFinalizedFrame:frame-7});
+  };
+  for(let frame=-123;frame<=-100;frame++) write(frame,version!=="2.0.1");
+  return {parser,integrity,write};
+}
+assert.equal(watchSpecialMoveFrameIntegrity(undefined)(),null);
+assert.equal(watchSpecialMoveFrameIntegrity({})(),null);
+for(const version of ["2.0.1","3.19.1"]) {
+  const source=frameSource(version);
+  source.parser.handleCommand(Command.GAME_END,{gameEndMethod:2});
+  assert.equal(source.integrity(),-100,`${version} ordinary repeated pre/post updates stay valid`);
+}
+const rollback=frameSource();
+rollback.write(-103); // -103 remains newer than the finalized -107 boundary.
+for(let frame=-102;frame<=-99;frame++) rollback.write(frame);
+rollback.parser.handleCommand(Command.GAME_END,{gameEndMethod:2});
+assert.equal(rollback.integrity(),-99,"ordinary rollback before finalization remains measurable");
+for(const command of [Command.PRE_FRAME_UPDATE,Command.POST_FRAME_UPDATE]) {
+  const corrupt=frameSource();
+  corrupt.parser.handleCommand(command,{frame:-120,playerIndex:0,...post(1,360)}); // deliberately no bookend
+  corrupt.write(-99);
+  corrupt.parser.handleCommand(Command.GAME_END,{gameEndMethod:2});
+  assert.equal(corrupt.parser.lastFinalizedFrame,-99);
+  assert.equal(corrupt.integrity(),null,"raw finalized-frame rewrite remains invalid despite a later complete terminal frame");
+}
 for(const [external,internal,starts,direct] of roster) {
   for(const [index,moveId] of [18,19,20].entries()) {
     const capability=getSpecialMoveCapability(external,moveId);
@@ -94,6 +130,12 @@ assert.deepEqual(run(Character.SAMUS,13,seq(13,[343,[344,30],344,345,346,347,348
 assert.deepEqual(run(Character.SHEIK,7,seq(7,[341,[342,30],342,345,346,348])).result[18],{attempts:1});
 assert.deepEqual(run(Character.YOUNG_LINK,20,seq(20,[[347,1.3300000429153442],[347,2.6600000858306885],348,349])).result[18],{attempts:1},"Young Link bow's first post frame uses its 1.33x animation rate");
 assert.equal(run(Character.YOUNG_LINK,20,seq(20,[[347,2.6600000858306885]])).result[18],null,"joining an advanced bow startup remains unavailable");
+for(const [external,internal,rate] of [[Character.LINK,6,1],[Character.YOUNG_LINK,20,1.33]]) {
+  const bow=[[post(internal,50,49,{isAirborne:false})],[post(internal,347,rate*2,{isAirborne:true})],[post(internal,347,rate*3,{isAirborne:true})]];
+  assert.deepEqual(run(external,internal,bow).result[18],{attempts:1},"same-frame bow ground-to-air collision advances the initial animation twice");
+  assert.equal(run(external,internal,[[post(internal,347,rate*2,{isAirborne:true})]]).result[18],null,"counter alone never proves a ground-to-air initiation");
+  assert.equal(run(external,internal,[[post(internal,50,49,{isAirborne:false})],[post(internal,347,rate*3,{isAirborne:true})]]).result[18],null,"a later bow phase remains unavailable");
+}
 assert.deepEqual(run(Character.MARTH,18,seq(18,[341,[342,30],342,343,344])).result[18],full(1));
 assert.deepEqual(run(Character.JIGGLYPUFF,15,seq(15,[346,347,[348,30],348,349,350,351,352,353,354,355,356,357,358,359,360,361,362])).result[18],full(1));
 assert.deepEqual(run(Character.MEWTWO,16,seq(16,[341,[342,30],342,343,344,345])).result[18],{attempts:1});
@@ -109,6 +151,8 @@ assert.deepEqual(run(Character.LUIGI,17,seq(17,[343,[344,30],344,345,346,347,348
 assert.deepEqual(run(Character.MARTH,18,seq(18,Array.from({length:18},(_,i)=>349+i))).result[19],full(1));
 assert.deepEqual(run(Character.PIKACHU,12,seq(12,[353,354,[354,12],354,355,356,357,358])).result[20],full(1));
 assert.deepEqual(run(Character.YOSHI,14,seq(14,[360,356,357,358,359,361,362,363])).result[19],full(1));
+assert.deepEqual(run(Character.YOSHI,14,seq(14,[[27,15],[356,1],[356,2],357,358,359])).result[19],full(1),"same-frame Egg Roll landing may expose ground startup first");
+assert.equal(run(Character.YOSHI,14,seq(14,[[356,4]])).result[19],null,"joining advanced grounded Egg Roll remains unavailable");
 assert.deepEqual(run(Character.ICE_CLIMBERS,11,seq(11,[347,348,349,350,351,352,353,354,355,356])).result[20],{attempts:1});
 
 // Damage evidence, shield/no-hit semantics, trade on exit, and missing data.
@@ -137,6 +181,33 @@ for(const first of [0,1000]) for(const sequence of [[],seq(1,[341])]) {
 const gap=run(Character.FOX,1,[],{close:false});
 addSpecialMovesFrame(gap.acc,{frame:-120,players:{0:{post:post(1)},1:{post:post(18)}}});
 for(const moveId of SPECIAL_MOVE_IDS) assert.equal(finishSpecialMovesAccumulator(gap.acc).get(0)[moveId],null);
+// Complete prefixes and measured zeros must not survive a declared missing tail.
+for(const sequence of [[],seq(1,[341,14,347,14,353,14,360,14])]) {
+  const sample=run(Character.FOX,1,sequence);
+  const last=sample.acc.previousFrame;
+  const accepted=finishSpecialMovesAccumulator(sample.acc,{expectedLastFrame:last,finalizedLastFrame:last});
+  assert.deepEqual(accepted.get(0),sample.result);
+  for(const bounds of [
+    {expectedLastFrame:last+10,finalizedLastFrame:last},
+    {expectedLastFrame:last,finalizedLastFrame:last-1},
+    {expectedLastFrame:last,finalizedLastFrame:last+20},
+    {expectedLastFrame:last+10,finalizedLastFrame:last+10},
+    {expectedLastFrame:last,finalizedLastFrame:null},
+    {expectedLastFrame:NaN,finalizedLastFrame:last},
+  ]) for(const moves of finishSpecialMovesAccumulator(sample.acc,bounds).values()) {
+    for(const moveId of SPECIAL_MOVE_IDS) assert.equal(moves[moveId],null,"partial, rewound or unobserved terminal frame invalidates every direction, including Down B");
+  }
+}
+const missingTerminal=run(Character.FOX,1,[],{close:false});
+addSpecialMovesFrame(missingTerminal.acc,{frame:-122,players:{0:{post:post(1)}}});
+const missingFinalCounts=finishSpecialMovesAccumulator(missingTerminal.acc,{expectedLastFrame:-122,finalizedLastFrame:-122});
+for(const moveId of SPECIAL_MOVE_IDS) assert.equal(missingFinalCounts.get(1)[moveId],null,"missing own terminal post removes attempts");
+assert.deepEqual(missingFinalCounts.get(0)[19],{attempts:0},"missing opponent terminal evidence removes outcomes, preserving independently observed own attempts");
+const missingPlayers=run(Character.FOX,1,[],{close:false});
+addSpecialMovesFrame(missingPlayers.acc,{frame:-122});
+for(const moves of finishSpecialMovesAccumulator(missingPlayers.acc,{expectedLastFrame:-122,finalizedLastFrame:-122}).values()) {
+  for(const moveId of SPECIAL_MOVE_IDS) assert.equal(moves[moveId],null,"item-only frame with missing players is unavailable rather than a parse exception");
+}
 const copied=run(Character.KIRBY,4,seq(4,[399]));
 assert.equal(copied.result[18],null);
 assert.deepEqual(copied.result[19],full(0));
@@ -149,7 +220,7 @@ for(const moveId of SPECIAL_MOVE_IDS) assert.equal(wrong[moveId],null);
 const bounded=run(Character.FOX,1,[],{close:false});
 for(let i=0;i<10000;i++) bounded.feed(post(1));
 assert.equal(bounded.acc.players.length,2);
-assert.equal(Object.keys(bounded.acc.players[0].previous).length,6);
+assert.equal(Object.keys(bounded.acc.players[0].previous).length,7);
 assert.equal(Object.keys(bounded.acc.players[0].moves).length,3);
 assert.deepEqual(finishSpecialMovesAccumulator(bounded.acc),finishSpecialMovesAccumulator(bounded.acc));
 console.log("Special checks passed: all 26 characters × 4 directions, coverage, phases, charge/fire loops, captures, transformations, damage attribution, and bounded memory.");

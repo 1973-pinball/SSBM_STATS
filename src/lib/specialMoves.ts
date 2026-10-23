@@ -1,10 +1,32 @@
-import { Character, Frames, isDamaged, type FrameEntryType } from "@slippi/slippi-js";
+import { Character, Command, Frames, isDamaged, type FrameEntryType } from "@slippi/slippi-js";
 import { addDownBFrame, createDownBAccumulator, finishDownBAccumulator, getDownBCapability, type DownBCounts } from "./downBSpecial.ts";
 
 export const SPECIAL_MOVE_IDS = [18, 19, 20, 21] as const;
 export type SpecialMoveId = typeof SPECIAL_MOVE_IDS[number];
 export interface SpecialMoveCapability { attempts: boolean; outcomes: boolean; reason: string | null }
 export type SpecialMoveCounts = DownBCounts;
+
+export interface SpecialMoveFrameSource {
+  lastFinalizedFrame?: number;
+  handleCommand?: (command: number, payload: unknown) => void;
+}
+/** Observe raw fighter writes: corrupt modern updates need not emit a bookend. */
+export function watchSpecialMoveFrameIntegrity(source: SpecialMoveFrameSource | undefined): () => number | null {
+  if (typeof source?.handleCommand !== "function" || typeof source.lastFinalizedFrame !== "number") return () => null;
+  let invalid = false;
+  const handleCommand = source.handleCommand.bind(source);
+  source.handleCommand = (command, payload) => {
+    if (command === Command.PRE_FRAME_UPDATE || command === Command.POST_FRAME_UPDATE) {
+      const frame = (payload as { frame?: unknown } | null)?.frame;
+      if (typeof frame !== "number" || !Number.isInteger(frame) ||
+          typeof source.lastFinalizedFrame !== "number" || frame <= source.lastFinalizedFrame) invalid = true;
+    }
+    handleCommand(command, payload);
+  };
+  // Valid rollback rewrites only unfinalized frames. Once invalid, even later
+  // complete frames cannot recover evidence for the earlier discarded history.
+  return () => !invalid && Number.isInteger(source.lastFinalizedFrame) ? source.lastFinalizedFrame! : null;
+}
 type NewMoveId = 18 | 19 | 20;
 const NEW_MOVE_IDS = [18, 19, 20] as const;
 
@@ -19,9 +41,12 @@ const NEW_MOVE_IDS = [18, 19, 20] as const;
  * Charge, held fire, Dancing Blade, Quick Attack's second zip and ground/air
  * transitions stay one activation. Fully charged DK punch can enter its release
  * directly. Link's returning boomerang catch is passive and never a new use.
- * Yoshi's grounded Egg Roll also enters SpecialAirSStart_1 (360).
+ * Yoshi's grounded Egg Roll enters SpecialAirSStart_1 (360); a same-frame
+ * landing can make SpecialSStart (356) its first observable post-frame state.
  * Young Link's bow startup advances at 1.33x, so its first post-frame counter
  * may already be 1.33 (ftlinkspecialn.c applies specialn_anim_rate on entry).
+ * Bow ground-to-air collision can advance animation twice on the first frame;
+ * that larger initial counter requires an observed ground-to-air transition.
  * Fox/Falco's damaging afterimage inherits the fighter's instance ID and is
  * destroyed when its owner leaves the Side-B family (itfoxillusion.c and
  * ftFx_SpecialS_CheckGhostRemove). Its outcomes therefore remain attributable.
@@ -37,7 +62,8 @@ const NEW_MOVE_IDS = [18, 19, 20] as const;
  * shields, cancels, defensive/recovery uses and interruptions; it is not a
  * verified whiff or a measure of whether a recovery succeeded. Independent projectiles,
  * command grabs, counters and utility effects expose attempts only. Down B
- * delegates to the v4 detector so its established counts remain identical.
+ * delegates to the v4 detector; all four directions additionally require the
+ * finalized frame stream to reach the replay's declared terminal frame.
  */
 interface Definition {
   states: readonly number[];
@@ -87,7 +113,7 @@ const DEFINITIONS: Readonly<Record<number, Three>> = {
   9: { 18: other(range(365, 368), [365, 367], utility), 19: other(range(354, 360), [354, 357]), 20: other(range(361, 364), [361, 363]) },
   10: climbers, 11: climbers, 12: pikachu,
   13: { 18: other(range(343, 348), [343, 347]), 19: other(range(349, 352), range(349, 352)), 20: direct([353, 354]) },
-  14: { 18: other(range(346, 355), [346, 351], capture), 19: direct(range(356, 363), [360]), 20: other([364, 365], [364, 365]) },
+  14: { 18: other(range(346, 355), [346, 351], capture), 19: direct(range(356, 363), [356, 360]), 20: other([364, 365], [364, 365]) },
   15: { 18: direct(range(346, 362), [346, 347, 354, 355]), 19: direct([363, 364]), 20: other(range(365, 368), range(365, 368), utility) },
   16: { 18: other(range(341, 350), [341, 346]), 19: other([351, 352], [351, 352], capture), 20: other(range(353, 358), [353, 356], utility) },
   17: { 18: other([341, 342], [341, 342]), 19: direct(range(343, 354), [343, 349]), 20: direct([355, 356]) },
@@ -118,7 +144,7 @@ export function getSpecialMoveCapability(externalCharacterId: number, moveId: nu
 }
 
 type Post = NonNullable<FrameEntryType["players"][number]>["post"];
-type Previous = Pick<Post, "internalCharacterId" | "actionStateId" | "actionStateCounter" | "percent" | "stocksRemaining" | "instanceId">;
+type Previous = Pick<Post, "internalCharacterId" | "actionStateId" | "actionStateCounter" | "percent" | "stocksRemaining" | "instanceId" | "isAirborne">;
 interface MoveTrack {
   attemptsKnown: boolean; outcomesKnown: boolean;
   counts: Required<SpecialMoveCounts>;
@@ -166,6 +192,9 @@ function confirmedHit(player: PlayerTrack, moveId: NewMoveId, post: Post, oppone
 }
 /** Finalized contiguous frames only; memory stays constant regardless of replay length. */
 export function addSpecialMovesFrame(acc: SpecialMovesAccumulator, frame: FrameEntryType): void {
+  // Damaged raw files may contain item-only/frame-start entries with no player
+  // container. Treat these exactly like missing fighter posts, never throw.
+  if (!frame.players) frame = { ...frame, players: {} };
   addDownBFrame(acc.downB, frame);
   if ((acc.previousFrame === null && frame.frame !== Frames.FIRST) || (acc.previousFrame !== null && frame.frame !== acc.previousFrame + 1)) {
     for (const player of acc.players) for (const moveId of NEW_MOVE_IDS) invalidate(player.moves[moveId]);
@@ -192,7 +221,13 @@ export function addSpecialMovesFrame(acc: SpecialMovesAccumulator, frame: FrameE
       const inMove = definition.states.includes(post.actionStateId);
       const isStart = definition.starts.includes(post.actionStateId);
       if (inMove && !finite(post.actionStateCounter)) invalidate(track);
-      const initialCounterMax = definition.initialCounterMax ?? 1;
+      let initialCounterMax = definition.initialCounterMax ?? 1;
+      // ftLk_SpecialN_Enter advances animation, then doColl's ground-to-air
+      // transition preserves cur_anim_frame and advances it once more. Require
+      // both observed positions; a replay joined at counter 2 is not a start.
+      if (moveId === 18 && (post.internalCharacterId === 6 || post.internalCharacterId === 20) &&
+          post.actionStateId === 347 && post.isAirborne === true && previous?.isAirborne === false &&
+          previous.actionStateId !== undefined && !definition.states.includes(previous.actionStateId)) initialCounterMax *= 2;
       const restarted = !!track.active && isStart && finite(post.actionStateCounter) && post.actionStateCounter <= initialCounterMax &&
         finite(previous?.actionStateCounter) && post.actionStateCounter < previous.actionStateCounter &&
         previous.internalCharacterId === post.internalCharacterId &&
@@ -212,11 +247,20 @@ export function addSpecialMovesFrame(acc: SpecialMovesAccumulator, frame: FrameE
   for (const player of acc.players) {
     const post = frame.players[player.playerIndex]?.post;
     player.previous = post ? { internalCharacterId: post.internalCharacterId, actionStateId: post.actionStateId,
-      actionStateCounter: post.actionStateCounter, percent: post.percent, stocksRemaining: post.stocksRemaining, instanceId: post.instanceId } : null;
+      actionStateCounter: post.actionStateCounter, percent: post.percent, stocksRemaining: post.stocksRemaining, instanceId: post.instanceId, isAirborne: post.isAirborne } : null;
   }
   acc.previousFrame = frame.frame;
 }
-export function finishSpecialMovesAccumulator(acc: SpecialMovesAccumulator): Map<number, Record<SpecialMoveId, SpecialMoveCounts | null>> {
+/** Production callers must supply bounds; fixture-only snapshots may omit them. */
+export interface SpecialMoveFrameBounds { expectedLastFrame: number; finalizedLastFrame: number | null }
+export function finishSpecialMovesAccumulator(acc: SpecialMovesAccumulator, bounds?: SpecialMoveFrameBounds): Map<number, Record<SpecialMoveId, SpecialMoveCounts | null>> {
+  // Slippi can stop finalizing at a missing frame while later raw frames and
+  // metadata still declare a longer game, or finalize past a rewound terminal
+  // frame. Neither partial prefix establishes full-game usage, including zeros.
+  if (bounds && (!Number.isInteger(bounds.expectedLastFrame) || bounds.expectedLastFrame < Frames.FIRST ||
+      bounds.finalizedLastFrame !== bounds.expectedLastFrame || acc.previousFrame !== bounds.expectedLastFrame)) {
+    return new Map(acc.players.map(player => [player.playerIndex, { 18: null, 19: null, 20: null, 21: null }]));
+  }
   const downB = finishDownBAccumulator(acc.downB);
   return new Map(acc.players.map(player => {
     const result = { 21: downB.get(player.playerIndex) ?? null } as Record<SpecialMoveId, SpecialMoveCounts | null>;

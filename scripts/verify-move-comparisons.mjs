@@ -134,32 +134,35 @@ try {
     18: move({ attempts: 0, landed: 9 }),
     19: tracked({ attempts: 500, hitAttempts: 99, noHitAttempts: 400, incompleteAttempts: 1, landed: 9 }),
     20: move({ attempts: 0, landed: 9 }),
-    21: tracked({ attempts: 3, hitAttempts: 1, noHitAttempts: 2 }),
+    21: tracked({ attempts: 3, hitAttempts: 1, noHitAttempts: 2, landed: 9 }),
   });
   v4.statsVersion = 4;
-  const v5first = record(21, {
+  const v5 = structuredClone(v4);
+  v5.id = "unsafe-v5-special-counts";
+  v5.statsVersion = 5;
+  const v6first = record(21, {
     18: move({ attempts: 8 }), // projectile: no per-use damage outcomes
     19: tracked({ attempts: 6, hitAttempts: 2, noHitAttempts: 3, incompleteAttempts: 1, landed: 20 }),
     20: tracked(),
-    21: tracked(),
+    21: tracked({ attempts: 3, hitAttempts: 1, noHitAttempts: 2 }),
   });
-  v5first.statsVersion = 5;
-  const v5second = record(22, {
-    // Missing Neutral B coverage is not a measured zero, even in a v5 game.
+  v6first.statsVersion = 6;
+  const v6second = record(22, {
+    // Missing Neutral B coverage is not a measured zero, even in a v6 game.
     19: tracked(),
     20: tracked({ attempts: 5, hitAttempts: 1, noHitAttempts: 2, incompleteAttempts: 2 }),
     21: move({ attempts: 4 }),
   });
-  v5second.statsVersion = 5;
+  v6second.statsVersion = 6;
   const specialPreview = record(23, { 18: tracked({ attempts: 90, noHitAttempts: 90 }) }, "preview");
-  const specialGames = stats.resolveGames([v4, v5first, v5second, specialPreview], new Set(["LOCAL#1"]));
+  const specialGames = stats.resolveGames([v4, v5, v6first, v6second, specialPreview], new Set(["LOCAL#1"]));
   const specialTable = stats.moveTable(specialGames);
-  assert.equal(specialTable.covered, 3);
+  assert.equal(specialTable.covered, 4);
   const specialExpected = {
     "neutral-b": { attempts: 8, attemptGames: 1, outcomes: 0, perGame: 8, noHitPerGame: null, rate: null },
     "side-b": { attempts: 6, attemptGames: 2, outcomes: 2, perGame: 3, noHitPerGame: 1.5, rate: 3 / 5 },
     "up-b": { attempts: 5, attemptGames: 2, outcomes: 2, perGame: 2.5, noHitPerGame: 1, rate: 2 / 3 },
-    "down-b": { attempts: 7, attemptGames: 3, outcomes: 2, perGame: 7 / 3, noHitPerGame: 1, rate: 2 / 3 },
+    "down-b": { attempts: 7, attemptGames: 2, outcomes: 1, perGame: 7 / 2, noHitPerGame: 2, rate: 2 / 3 },
   };
   for (const key of specialKeys) {
     const row = specialTable.rows.find((value) => value.key === key);
@@ -172,21 +175,28 @@ try {
     close(row.noHitPerGame, expected.noHitPerGame, `${key}: completed-use game sample`);
     close(row.noHitRate, expected.rate, `${key}: matched completed uses`);
     for (const metric of metricKeys) close(stats.moveMetricSeries(specialGames, key, metric).at(-1).value,
-      tableValue(row, metric, specialTable.covered), `${key}/${metric}: mixed v4/v5 table/trend parity`);
+      tableValue(row, metric, specialTable.covered), `${key}/${metric}: mixed v4/v5/v6 table/trend parity`);
     const zeroGame = record(30, { [specialMoveId(key)]: tracked() });
-    zeroGame.statsVersion = 5;
+    zeroGame.statsVersion = 6;
     const zeroRow = stats.moveTable(stats.resolveGames([zeroGame], new Set(["LOCAL#1"]))).rows[0];
     assert.equal(zeroRow.attemptsPerGame, 0, `${key}: measured zero survives without landed hits`);
     assert.equal(zeroRow.noHitPerGame, 0);
     assert.equal(zeroRow.noHitRate, null);
     assert.equal(localMoveSample(zeroRow, "attemptsPerGame"), "1 tracked games");
   }
-  const oldSpecialRows = stats.moveTable(stats.resolveGames([v4], new Set(["LOCAL#1"]))).rows;
-  for (const key of specialKeys.slice(0, 3)) {
-    const row = oldSpecialRows.find((value) => value.key === key);
-    assert.equal(row.attemptsPerGame, null, `${key}: v4 values do not establish v5 coverage`);
-    assert.equal(row.noHitRate, null);
-    assert.equal(localMoveSample(row, "noHitRate"), "Refresh replays to track outcomes");
+  for (const old of [v4, v5]) {
+    const oldGames = stats.resolveGames([old], new Set(["LOCAL#1"]));
+    const oldSpecialRows = stats.moveTable(oldGames).rows;
+    for (const key of specialKeys) {
+      const row = oldSpecialRows.find((value) => value.key === key);
+      assert.equal(row.landed, 9, `${key}: legacy landed measurements remain available`);
+      assert.equal(row.attemptsPerGame, null, `${key}: v${old.statsVersion} cannot prove complete replay coverage`);
+      assert.equal(row.noHitRate, null);
+      assert.equal(localMoveSample(row, "attemptsPerGame"), "No tracked games");
+      assert.equal(localMoveSample(row, "noHitRate"), "No tracked games");
+      assert.equal(stats.moveMetricSeries(oldGames, key, "attemptsPerGame").at(-1).value, null);
+      assert.equal(stats.moveMetricSeries(oldGames, key, "noHitRate").at(-1).value, null);
+    }
   }
   const attemptRecords = [
     record(1, { 21: tracked({ attempts: 10, hitAttempts: 3, noHitAttempts: 5, incompleteAttempts: 2, landed: 20, damage: 40 }) }),
@@ -245,6 +255,7 @@ try {
     openingDmg: 0, lCancelSuccess: 0, lCancelFail: 0, ...fields,
   });
   const archive = {
+    stats_version: 4,
     game_count: 3,
     metrics: {
       damageTotal: 132,
@@ -275,6 +286,13 @@ try {
   assert.equal(localMoveComparisonGames(attemptedDownB, "attemptsPerGame", 100), 3);
   assert.equal(localMoveComparisonGames(attemptedDownB, "noHitRate", 100), 2);
   assert.equal(archiveMoveSample({ ...archive, metrics: { ...archive.metrics, moves: {} } }, "down-b", "attemptsPerGame"), "Archive reparse needed", "missing archive Down B row explains why attempts are unavailable");
+  for (const key of specialKeys) for (const metric of ["attemptsPerGame", "noHitPerGame", "noHitRate"]) {
+    const noSample = { ...archive, stats_version: CURRENT_STATS_VERSION, metrics: { ...archive.metrics, moves: {} } };
+    assert.equal(archiveMoveSample(noSample, key, metric), "No tracked games", `${key}: current missing coverage must not promise a reparse will repair the source`);
+    assert.equal(archiveMoveBenchmark(noSample, key, metric), null);
+    assert.equal(archiveMoveSample({ ...noSample, stats_version: 5 }, key, metric), "Archive reparse needed", `${key}: old statistics need reprocessing`);
+  }
+  assert.equal(archiveMoveSample({ ...trackedArchive, stats_version: 4 }, "down-b", "attemptsPerGame"), "3 tracked games", "published v9 measurements remain available while its archive revision is live");
   const zeroTrackedArchive = { ...trackedArchive, metrics: { ...trackedArchive.metrics, moves: { 21: archiveMove({ attemptGames: 5, outcomeGames: 5, hitAttempts: 0, noHitAttempts: 0, incompleteAttempts: 0 }) } } };
   close(archiveMoveBenchmark(zeroTrackedArchive, "down-b", "attemptsPerGame"), 0, "explicit tracked zero is valid");
   close(archiveMoveBenchmark(zeroTrackedArchive, "down-b", "noHitPerGame"), 0, "known zero no-hit uses is valid");
@@ -360,7 +378,7 @@ try {
   }
   const onlyOldOpponent = opponentSpecialGames.slice(0, 1);
   assert.equal(testHasOpponentMoveMetric(onlyOldOpponent, new Set(["side-b"]), "attemptsPerGame"), false, "opponent v4 placeholders cannot enable Side B attempt charts");
-  assert.equal(testHasOpponentMoveMetric(onlyOldOpponent, new Set(["down-b"]), "noHitRate"), true, "opponent v4 Down B outcomes survive the upgrade");
+  assert.equal(testHasOpponentMoveMetric(onlyOldOpponent, new Set(["down-b"]), "noHitRate"), false, "opponent v4 Down B cannot establish complete coverage");
   const noHitChart = renderToStaticMarkup(createElement(TestMoveMetricChart, {
     games: specialGames,
     moves: [table.rows.find((row) => row.key === "nair"), ...specialTable.rows],
@@ -385,6 +403,16 @@ try {
   assert.match(zeroBeforeUsedChart("noHitRate"), /aria-label="Moves: Up B"/, "a measured zero-use special cannot hide a different special's completed-use rate");
   assert.doesNotMatch(zeroBeforeUsedChart("noHitRate"), /Nothing to plot/);
   assert.match(zeroBeforeUsedChart("noHitPerGame"), /aria-label="Moves: Side B"/, "zero no-hit uses per measured game remains chartable");
+  assert.doesNotMatch(zeroBeforeUsedChart("noHitRate"), /Refresh replays/, "current statistics do not trigger a stale-cache instruction");
+  assert.match(noHitChart, /Some cached replays use older statistics\. Refresh replays/, "stale local versions receive a separate refresh instruction");
+  const currentUnavailableGames = stats.resolveGames([record(32, { 21: move({ landed: 1 }) })], new Set(["LOCAL#1"]));
+  const currentUnavailableRow = stats.moveTable(currentUnavailableGames).rows[0];
+  assert.equal(localMoveSample(currentUnavailableRow, "noHitRate"), "No tracked games");
+  const currentUnavailableAtlas = renderToStaticMarkup(createElement(ArchiveMoveAtlasComparison, {
+    games: currentUnavailableGames, characterId: 20, lookbackGames: 150, communityRows: [],
+  }));
+  assert.doesNotMatch(currentUnavailableAtlas, /Refresh replays/, "a current archive/local sample without coverage is unavailable, not stale");
+  assert.match(allSpecialMarkup, /Some cached replays use older statistics\. Refresh replays/);
   close(testLocalMoveMetric(attemptedDownB, "noHitRate", attemptTable.covered), 5 / 8, "Atlas local rate uses matched outcome sample");
   close(testArchiveMoveMetric({ key: "down-b", ...trackedArchive.metrics.moves[21] }, "noHitRate", trackedArchive), 5 / 8, "Atlas archive rate agrees with execution benchmark");
   const { testLegacyArchiveMoveMetric, testLegacyCommunityMove } = await server.ssrLoadModule("/src/components/ArchiveCommunityBenchmark.tsx");
@@ -420,7 +448,7 @@ try {
     close(stats.moveMetricSeries(demoGames, row.key, metric).at(-1).value,
       tableValue(row, metric, demoTable.covered), `demo ${row.key}/${metric}: table/trend parity`);
   }
-  console.log("Move comparisons passed: all four special directions, v4/v5 per-move coverage, measured zeros, utility/incomplete outcomes, explicit archive denominators, opponent/table/trend parity, demo determinism, and Atlas/chart visibility.");
+  console.log("Move comparisons passed: all four special directions, v6 completeness coverage, v4/v5 local exclusion, measured zeros, utility/incomplete outcomes, explicit archive denominators, stale/current availability messages, opponent/table/trend parity, demo determinism, and Atlas/chart visibility.");
 } finally {
   await server.close();
 }

@@ -1,5 +1,5 @@
 /** Per-move measured coverage in derived public archives. */
-export const ARCHIVE_STATS_VERSION = 5;
+export const ARCHIVE_STATS_VERSION = 6;
 export const ARCHIVE_SPECIAL_MOVE_IDS = [18, 19, 20, 21];
 export const SPECIAL_OUTCOME_FIELDS = ["hitAttempts", "noHitAttempts", "incompleteAttempts"];
 export const DOWN_B_OUTCOME_FIELDS = SPECIAL_OUTCOME_FIELDS;

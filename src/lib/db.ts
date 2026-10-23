@@ -351,6 +351,31 @@ class SsbmDb extends Dexie {
         }
         if (staleIds.length > 0) await tx.table("seen").bulkDelete(staleIds);
       });
+    // Stats v6 rejects special-use counts from incomplete replay frame streams.
+    // Release v5 payloads as well: their finalization coverage cannot be repaired
+    // from aggregates, and keeping them would preserve partial-game counts.
+    this.version(19)
+      .stores({
+        games: "id, playedAt, stageId, gameType",
+        packs: "++id",
+        seen: "id",
+        kv: "key",
+      })
+      .upgrade(async (tx) => {
+        const packs = tx.table<RecordPack>("packs");
+        const staleIds: string[] = [];
+        for (const pack of await packs.toArray()) {
+          const kept = pack.records.filter((rec) => {
+            if (!needsStatsRepair(rec)) return true;
+            staleIds.push(rec.id);
+            return false;
+          });
+          if (kept.length === pack.records.length || pack.id === undefined) continue;
+          if (kept.length > 0) await packs.put({ ...pack, records: kept });
+          else await packs.delete(pack.id);
+        }
+        if (staleIds.length > 0) await tx.table("seen").bulkDelete(staleIds);
+      });
   }
 }
 

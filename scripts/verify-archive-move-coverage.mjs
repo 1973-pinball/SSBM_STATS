@@ -4,19 +4,19 @@ import { ARCHIVE_SPECIAL_MOVE_IDS, addArchiveSpecialOutcomes, assertArchiveSpeci
   addArchiveDownBOutcomes, assertArchiveDownBMeasurements } from "./lib/archive-move-coverage.mjs";
 const unused = { attempts: 0, hitAttempts: 0, noHitAttempts: 0, incompleteAttempts: 0 };
 const measured = { attempts: 5, hitAttempts: 2, noHitAttempts: 2, incompleteAttempts: 1, landed: 8 };
-const record = (moveId, move, overrides = {}) => ({ statsVersion: 5, isTeams: false,
+const record = (moveId, move, overrides = {}) => ({ statsVersion: 6, isTeams: false,
   players: [{ characterId: 2, moveStats: { [moveId]: move } }, { characterId: 20, moveStats: {} }], ...overrides });
 for (const moveId of ARCHIVE_SPECIAL_MOVE_IDS) {
   const aggregate = {};
-  addArchiveSpecialOutcomes(aggregate, { landed: 4 }, moveId, 5);
+  addArchiveSpecialOutcomes(aggregate, { landed: 4 }, moveId, 6);
   assert.deepEqual(aggregate, {}, "unmeasured moves supply no coverage");
   const attemptOnly = {};
-  addArchiveSpecialOutcomes(attemptOnly, { attempts: 0, landed: 4 }, moveId, 5);
+  addArchiveSpecialOutcomes(attemptOnly, { attempts: 0, landed: 4 }, moveId, 6);
   assert.deepEqual(attemptOnly, { attemptGames: 1 }, "explicit zero attempts do not imply outcomes");
   assertArchiveSpecialMeasurements(record(moveId, unused), "unused fixture");
   assertArchiveSpecialMeasurements(record(moveId, measured), "measured fixture");
-  addArchiveSpecialOutcomes(aggregate, unused, moveId, 5);
-  addArchiveSpecialOutcomes(aggregate, measured, moveId, 5);
+  addArchiveSpecialOutcomes(aggregate, unused, moveId, 6);
+  addArchiveSpecialOutcomes(aggregate, measured, moveId, 6);
   assert.deepEqual(aggregate, { attemptGames: 2, outcomeGames: 2, hitAttempts: 2, noHitAttempts: 2, incompleteAttempts: 1 });
   assert.equal(100 * aggregate.noHitAttempts / (aggregate.hitAttempts + aggregate.noHitAttempts), 50,
     "multi-hit landed counts and unfinished uses do not become completed outcomes");
@@ -31,7 +31,7 @@ for (const moveId of ARCHIVE_SPECIAL_MOVE_IDS) {
   const invalidRoster = record(moveId, measured);
   invalidRoster.players.push({ characterId: 0, moveStats: {} });
   assert.throws(() => assertArchiveSpecialMeasurements(invalidRoster, "three-player non-team game"), /invalid special-move/);
-  assert.throws(() => assertArchiveSpecialMeasurements(record(moveId, measured, { statsVersion: 4 }), "stale export"), /requires archive stats v5/);
+  assert.throws(() => assertArchiveSpecialMeasurements(record(moveId, measured, { statsVersion: 4 }), "stale export"), /requires archive stats v6/);
   const legacy = {};
   addArchiveSpecialOutcomes(legacy, unused, moveId, 3);
   assert.deepEqual(legacy, {}, "stats3 placeholders have no coverage");
@@ -45,8 +45,8 @@ addArchiveDownBOutcomes(legacyDownB, measured);
 assert.equal(legacyDownB.attemptGames, 1, "immutable stats4 Down B tools remain usable");
 assert.throws(() => assertArchiveSpecialMeasurements(record(2, measured), "normal move"), /invalid special-move outcome/);
 const combined = Object.fromEntries(ARCHIVE_SPECIAL_MOVE_IDS.map(id => [id, {}]));
-addArchiveSpecialOutcomes(combined[18], unused, 18, 5);
-addArchiveSpecialOutcomes(combined[21], measured, 21, 5);
+addArchiveSpecialOutcomes(combined[18], unused, 18, 6);
+addArchiveSpecialOutcomes(combined[21], measured, 21, 6);
 assert.equal(combined[18].attemptGames, 1);
 assert.equal(combined[21].attemptGames, 1);
 assert.deepEqual(combined[19], {}, "one special's coverage never creates another special's denominator");

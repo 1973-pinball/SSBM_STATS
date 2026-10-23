@@ -75,7 +75,7 @@ export const SECTIONS = [
       },
       {
         term: "Special attempts and no-hit rates",
-        def: "Attempts/game divides move activations by games with measured attempts, including measured zero-use games. Specials with reliable damage attribution also track completed uses with and without opponent damage. No-hit uses/game divides no-hit uses by outcome-tracked games. No-hit rate divides no-hit uses by completed uses and excludes incomplete uses. Shield contact and defensive uses are included, so this is not a verified whiff rate or attempts minus landed hits. Utility, counter, and independently persisting projectile/item moves have attempts only. Venue, Tournament, aggregate Pro, and named-player comparisons use the same per-move denominators. Older archive coverage stays unavailable until reprocessing; existing Down B measurements remain valid.",
+        def: "Attempts/game divides move activations by games with measured attempts, including measured zero-use games. Specials with reliable damage attribution also track completed uses with and without opponent damage. No-hit uses/game divides no-hit uses by outcome-tracked games. No-hit rate divides no-hit uses by completed uses and excludes incomplete uses. Shield contact and defensive uses are included, so this is not a verified whiff rate or attempts minus landed hits. Utility, counter, and independently persisting projectile/item moves have attempts only. Venue, Tournament, aggregate Pro, and named-player comparisons use the same per-move denominators. Older local statistics need refreshing; missing or incomplete source observations remain unavailable. Archive comparisons require measured samples for each move.",
       },
       {
         term: "Move comparisons",

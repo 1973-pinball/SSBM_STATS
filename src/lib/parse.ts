@@ -16,7 +16,7 @@ import {
 } from "@slippi/slippi-js";
 import type { FrameEntryType, FramesType, GameEndType, GameStartType, MetadataType } from "@slippi/slippi-js";
 import { CURRENT_STATS_VERSION } from "./types";
-import { addSpecialMovesFrame, createSpecialMovesAccumulator, finishSpecialMovesAccumulator, SPECIAL_MOVE_IDS } from "./specialMoves";
+import { addSpecialMovesFrame, createSpecialMovesAccumulator, finishSpecialMovesAccumulator, SPECIAL_MOVE_IDS, watchSpecialMoveFrameIntegrity, type SpecialMoveFrameBounds, type SpecialMoveFrameSource } from "./specialMoves";
 import { IncompleteReplayError, MAX_METADATA_BYTES, ReplayMetadataError, readReplayMetadata } from "./replayMetadata";
 import type { GameRecord, GameType, MoveAgg, PlayerSide, TechCounts } from "./types";
 
@@ -277,9 +277,10 @@ function applySpecialMoves(
   acc: ReturnType<typeof createSpecialMovesAccumulator>,
   settings: GameStartType,
   players: PlayerSide[],
+  bounds: SpecialMoveFrameBounds,
 ): void {
   if (!acc) return;
-  const counts = finishSpecialMovesAccumulator(acc);
+  const counts = finishSpecialMovesAccumulator(acc, bounds);
   settings.players.forEach((p, i) => {
     const measured = counts.get(p.playerIndex);
     if (!measured) return;
@@ -369,8 +370,8 @@ class StreamingFrameSummary {
     if (this.aerialLC && this.settings) applyAerialLC(this.aerialLC, this.settings, players);
   }
 
-  applySpecialMoves(players: PlayerSide[]): void {
-    if (this.settings) applySpecialMoves(this.specialMoves, this.settings, players);
+  applySpecialMoves(players: PlayerSide[], bounds: SpecialMoveFrameBounds): void {
+    if (this.settings) applySpecialMoves(this.specialMoves, this.settings, players, bounds);
   }
 
   teamsStats(): TeamsStats | null {
@@ -397,7 +398,7 @@ class StreamingFrameSummary {
 interface StreamingFrameController {
   flush: () => void;
   applyAerialLC: (players: PlayerSide[]) => void;
-  applySpecialMoves: (players: PlayerSide[]) => void;
+  applySpecialMoves: (players: PlayerSide[], bounds: SpecialMoveFrameBounds) => void;
   teamsStats: () => TeamsStats | null;
   crouchCancelCounts: () => Map<number, number>;
 }
@@ -479,7 +480,7 @@ function installStreamingFrameSummary(game: SlippiGame): StreamingFrameControlle
   return {
     flush,
     applyAerialLC: (players) => summary.applyAerialLC(players),
-    applySpecialMoves: (players) => summary.applySpecialMoves(players),
+    applySpecialMoves: (players, bounds) => summary.applySpecialMoves(players, bounds),
     teamsStats: () => summary.teamsStats(),
     crouchCancelCounts: () => summary.crouchCancelCounts(),
   };
@@ -608,6 +609,7 @@ function decideWinner(
 function parseReplayWithMode(id: string, path: string, buf: ArrayBuffer, boundedFrames: boolean): GameRecord {
   const game = new SlippiGame(buf);
   dropUnreadComputers(game);
+  const finalizedFrameIntegrity = watchSpecialMoveFrameIntegrity((game as unknown as { parser?: SpecialMoveFrameSource }).parser);
   const streaming = boundedFrames ? installStreamingFrameSummary(game) : null;
   const settings = game.getSettings();
   if (!settings || !settings.players || settings.players.length === 0) {
@@ -623,6 +625,13 @@ function parseReplayWithMode(id: string, path: string, buf: ArrayBuffer, bounded
   const latestFrame = game.getLatestFrame();
 
   const durationFrames = stats?.lastFrame ?? metadata?.lastFrame ?? 0;
+  // lastFrame is the latest raw frame, not necessarily one Slippi finalized.
+  // A malformed gap can leave a valid-looking prefix; a metadata tail can also
+  // declare frames absent from the raw body. Unknown library shape fails closed
+  // for special usage, rather than publishing partial counts as measured zeros.
+  const expectedLastFrame = Math.max(durationFrames,
+    typeof metadata?.lastFrame === "number" && Number.isInteger(metadata.lastFrame) ? metadata.lastFrame : durationFrames);
+  const specialFrameBounds: SpecialMoveFrameBounds = { expectedLastFrame, finalizedLastFrame: finalizedFrameIntegrity() };
   const isTeams = Boolean(settings.isTeams) || settings.players.length > 2;
 
   const players: PlayerSide[] = settings.players.map((p) => {
@@ -701,7 +710,7 @@ function parseReplayWithMode(id: string, path: string, buf: ArrayBuffer, bounded
   if (!isTeams && settings.players.length === 2) {
     if (streaming) {
       streaming.applyAerialLC(players);
-      streaming.applySpecialMoves(players);
+      streaming.applySpecialMoves(players, specialFrameBounds);
     } else {
       const aerialLC = createAerialLCAggregate(settings)!;
       const specialMoves = createSpecialMovesAccumulator(settings.players);
@@ -712,7 +721,7 @@ function parseReplayWithMode(id: string, path: string, buf: ArrayBuffer, bounded
         if (frame && specialMoves) addSpecialMovesFrame(specialMoves, frame);
       }
       applyAerialLC(aerialLC, settings, players);
-      applySpecialMoves(specialMoves, settings, players);
+      applySpecialMoves(specialMoves, settings, players, specialFrameBounds);
     }
   }
 

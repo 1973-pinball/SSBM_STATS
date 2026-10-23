@@ -150,9 +150,10 @@ export function hasFullStats(rec: GameRecord): boolean {
  * Bump when a full replay parse gains fields that cannot be derived from an
  * older cached/cloud record. The marker lives inside the cloud JSON payload,
  * so no Supabase schema migration is needed.
- * Version 5 adds independent usage coverage for Neutral, Side and Up B.
+ * Version 6 requires complete terminal-frame evidence for all special usage;
+ * older versions can contain partial-prefix counts from malformed replays.
  */
-export const CURRENT_STATS_VERSION = 5;
+export const CURRENT_STATS_VERSION = 6;
 
 /** Only positive CPU evidence excludes a game; old records remain eligible. */
 export function hasKnownCpu(rec: GameRecord): boolean {

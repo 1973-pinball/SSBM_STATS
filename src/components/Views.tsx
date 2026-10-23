@@ -1158,8 +1158,8 @@ const MOVE_METRIC_CHOICES: { key: MoveMetricKey; label: string; unit: string; di
  */
 const MOVE_METRIC_EMPTY: Partial<Record<MoveMetricKey, string>> = {
   attemptsPerGame:
-    "Attempts are tracked for normals, aerials, and all four special directions. Refresh replays to add special-move attempts.",
-  noHitPerGame: "No-hit outcomes are available for specials with reliable damage attribution after refreshing replays. Utility and delayed attacks have attempts only.",
+    "Attempts require measured replay frames. Missing or incomplete observations stay unavailable.",
+  noHitPerGame: "No-hit outcomes require reliable damage attribution. Utility and delayed attacks have attempts only.",
   noHitRate: "No-hit rate needs completed, outcome-tracked special uses. Utility and delayed attacks have attempts only.",
   lCancelPct: "L-cancel only applies to aerials.",
   avgKillPct: "This move hasn't closed a stock in these games.",
@@ -1253,6 +1253,7 @@ function MoveMetricChart({ games, moves, benchmarks, metric, setMetric }: {
 }) {
   const [moveKeys, setMoveKeys] = useState<Set<string>>(() => new Set(moves[0] ? [moves[0].key] : []));
   const [showOpp, setShowOpp] = useState(false);
+  const hasStaleStats = useMemo(() => games.some((game) => !hasCurrentStats(game.rec)), [games]);
   const isNoHitMetric = metric === "noHitPerGame" || metric === "noHitRate";
   // Filters change which moves exist at all. Preserve selections that remain
   // available and fall back to the top move only when every held key is stale.
@@ -1384,8 +1385,8 @@ function MoveMetricChart({ games, moves, benchmarks, metric, setMetric }: {
       </div>
       {activeMoves.length === 0 ? (
         <div className="empty-note">
-          No per-move data in these games yet — it's computed at parse time, so hit <b>Refresh</b> (or re-pick your
-          folder) to re-parse the library once.
+          No per-move data is available in these games.
+          {hasStaleStats && <> Refresh older cached replays to update their measurements.</>}
         </div>
       ) : !hasData ? (
         <div className="empty-note">
@@ -1475,6 +1476,7 @@ function MoveMetricChart({ games, moves, benchmarks, metric, setMetric }: {
           <BenchmarkFootnote benchmarks={benchmarks} />
         </>
       )}
+      {activeMoves.length > 0 && hasStaleStats && <div className="hint">Some cached replays use older statistics. Refresh replays to update their measurements.</div>}
       {isNoHitMetric && benchmarks.characterId !== null && activeMoves.map((move) => {
         const moveId = specialMoveId(move.key);
         const reason = moveId === null ? null : getSpecialMoveCapability(benchmarks.characterId!, moveId).reason;
@@ -1722,6 +1724,7 @@ function MovesSection({
   const [minDamageShareInput, setMinDamageShareInput] = useState("2");
   const [moveFocus, setMoveFocus] = useState("all");
   const [openingSortKey, setOpeningSortKey] = useState<OpeningSortKey | null>(null);
+  const hasStaleStats = useMemo(() => games.some((game) => !hasCurrentStats(game.rec)), [games]);
   // Moves and actions ride the same heavy-vs-light analysis, one sorted table.
   const impact = useMemo(
     () => [...moveImpact(games), ...actionImpact(games)].sort((a, b) => (a.delta ?? 0) - (b.delta ?? 0)),
@@ -1787,8 +1790,8 @@ function MovesSection({
       <div className="panel">
         <h2>Moves</h2>
         <div className="empty-note">
-          No per-move data in these games yet — it's computed at parse time, so hit <b>Refresh</b> (or re-pick your
-          folder) to re-parse the library once.
+          No per-move data is available in these games.
+          {hasStaleStats && <> Refresh older cached replays to update their measurements.</>}
         </div>
       </div>
     );
@@ -1916,8 +1919,9 @@ function MovesSection({
             )}
           </tbody>
         </table></MatrixScroll>
-        {metric === "attemptsPerGame" && <div className="hint">Refresh replays for activation counts across normals, aerials, and all four special directions. Unsupported copied moves, form changes, or missing frames remain unavailable. Older archives need reprocessing; SSBM Stats does not publish special attempts.</div>}
-        {(metric === "noHitPerGame" || metric === "noHitRate") && <div className="hint">No-hit counts completed special uses with no opponent damage, including shields and defensive uses; it is not a verified whiff rate. Incomplete uses are excluded. Utility and delayed attacks have attempts only. Older archives need reprocessing; SSBM Stats does not publish outcomes.</div>}
+        {metric === "attemptsPerGame" && <div className="hint">Activation counts use measured games across normals, aerials, and all four special directions. Unsupported copied moves, form changes, or missing frames remain unavailable. SSBM Stats does not publish special attempts.</div>}
+        {(metric === "noHitPerGame" || metric === "noHitRate") && <div className="hint">No-hit counts completed special uses with no opponent damage, including shields and defensive uses; it is not a verified whiff rate. Incomplete uses are excluded. Utility and delayed attacks have attempts only. SSBM Stats does not publish outcomes.</div>}
+        {hasStaleStats && <div className="hint">Some cached replays use older statistics. Refresh replays to update their measurements.</div>}
         {(metric === "noHitPerGame" || metric === "noHitRate") && specialOutcomeReason && <div className="hint">{charName(benchmarks.characterId!)}: {specialOutcomeReason}</div>}
         <div className="hint">
           Your most recent {recent.covered.toLocaleString()} games; the selected measure also updates the trend above.

@@ -2,6 +2,7 @@ import type { CommunityMoveRow } from "./community";
 import { moveGroup, moveGroupTracksAttempts, specialMoveId } from "./melee";
 import type { ArchiveMoveMetrics, ArchiveRollup } from "./publicArchive";
 import type { MoveMetricKey, MoveRow } from "./stats";
+import { CURRENT_STATS_VERSION } from "./types";
 
 export function groupedArchiveMove(row: ArchiveRollup | null, moveKey: string): ArchiveMoveMetrics | null {
   let aggregate: ArchiveMoveMetrics | null = null;
@@ -40,8 +41,8 @@ export function localMoveMetric(move: MoveRow | undefined, metric: MoveMetricKey
 
 export function localMoveSample(move: MoveRow | undefined, metric: MoveMetricKey): string | undefined {
   if (!move || specialMoveId(move.key) === null) return undefined;
-  if (metric === "attemptsPerGame") return move.attemptGames > 0 ? `${move.attemptGames.toLocaleString()} tracked games` : "Refresh replays to track attempts";
-  if ((metric === "noHitPerGame" || metric === "noHitRate") && move.attemptGames === 0) return "Refresh replays to track outcomes";
+  if (metric === "attemptsPerGame") return move.attemptGames > 0 ? `${move.attemptGames.toLocaleString()} tracked games` : "No tracked games";
+  if ((metric === "noHitPerGame" || metric === "noHitRate") && move.attemptGames === 0) return "No tracked games";
   if (metric === "noHitPerGame") return move.outcomeGames > 0 ? `${move.outcomeGames.toLocaleString()} outcome-tracked games` : "Outcome tracking unavailable";
   if (metric === "noHitRate") return move.outcomeGames > 0 ? `${(move.outcomeAttempts ?? 0).toLocaleString()} completed uses` : "Outcome tracking unavailable";
   return undefined;
@@ -50,9 +51,10 @@ export function localMoveSample(move: MoveRow | undefined, metric: MoveMetricKey
 export function archiveMoveSample(row: ArchiveRollup | null, moveKey: string, metric: MoveMetricKey): string | undefined {
   if (specialMoveId(moveKey) === null || !row) return undefined;
   const move = groupedArchiveMove(row, moveKey);
-  if (metric === "attemptsPerGame") return (move?.attemptGames ?? 0) > 0 ? `${move!.attemptGames!.toLocaleString()} tracked games` : "Archive reparse needed";
+  const unavailable = (row.stats_version ?? 0) < CURRENT_STATS_VERSION ? "Archive reparse needed" : "No tracked games";
+  if (metric === "attemptsPerGame") return (move?.attemptGames ?? 0) > 0 ? `${move!.attemptGames!.toLocaleString()} tracked games` : unavailable;
   if (metric === "noHitPerGame" || metric === "noHitRate") {
-    if (!(move?.outcomeGames && move.outcomeGames > 0)) return (move?.attemptGames ?? 0) > 0 ? "Outcome tracking unavailable" : "Archive reparse needed";
+    if (!(move?.outcomeGames && move.outcomeGames > 0)) return (move?.attemptGames ?? 0) > 0 ? "Outcome tracking unavailable" : unavailable;
     return metric === "noHitRate" ? `${((move.hitAttempts ?? 0) + (move.noHitAttempts ?? 0)).toLocaleString()} completed uses` : `${move.outcomeGames.toLocaleString()} outcome-tracked games`;
   }
   return undefined;

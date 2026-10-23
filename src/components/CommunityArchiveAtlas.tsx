@@ -25,7 +25,7 @@ import {
   type ArchiveRollup,
 } from "../lib/publicArchive";
 import { actionAverages, executionSummary, moveTable } from "../lib/stats";
-import { ACTION_LABELS, type ActionCounts, type ResolvedGame } from "../lib/types";
+import { ACTION_LABELS, hasCurrentStats, type ActionCounts, type ResolvedGame } from "../lib/types";
 import "./ArchiveCommunityBenchmark.css";
 
 interface ArchiveAtlasState {
@@ -711,6 +711,7 @@ export function ArchiveMoveAtlasComparison({
     [characterId, games, lookbackGames],
   );
   const localMoves = useMemo(() => moveTable(localGames), [localGames]);
+  const hasStaleStats = useMemo(() => localGames.some((game) => !hasCurrentStats(game.rec)), [localGames]);
   const localActions = useMemo(() => actionAverages(localGames), [localGames]);
   const localExecution = useMemo(() => executionSummary(localGames, Number.MAX_SAFE_INTEGER), [localGames]);
   const localByKey = new Map(localMoves.rows.map((row) => [row.key, row]));
@@ -858,8 +859,9 @@ export function ArchiveMoveAtlasComparison({
         </div>
       </div>
       {metric === "noHitPerGame" || metric === "noHitRate"
-        ? <div className="hint">No-hit counts completed special uses with no opponent damage, including shields and defensive uses; it is not a verified whiff rate. Incomplete uses are excluded. Utility and delayed attacks have attempts only; hover a move name for its limits. Older archives need reprocessing.</div>
-        : <div className="hint">Refresh replays for attempt tracking across all four special directions. Unsupported copied moves, form changes, or missing frames remain unavailable. Older archive samples need reprocessing. Damage / opening includes follow-up damage.</div>}
+        ? <div className="hint">No-hit counts completed special uses with no opponent damage, including shields and defensive uses; it is not a verified whiff rate. Incomplete uses are excluded. Utility and delayed attacks have attempts only; hover a move name for its limits.</div>
+        : <div className="hint">Attempt rates use measured games for each special direction. Unsupported copied moves, form changes, or missing frames remain unavailable. Damage / opening includes follow-up damage.</div>}
+      {hasStaleStats && <div className="hint">Some cached replays use older statistics. Refresh replays to update their measurements.</div>}
       {moveKeys.length ? <div className="table-scroll"><table><thead><tr>{sortableMoveHeader("move", "Move")}{sortableMoveHeader("you", "You", `${localMoves.covered.toLocaleString()} games`)}{sortableMoveHeader("community", "SSBM Stats", communityGames === null ? "sample not yet publishable" : `${communityGames.toLocaleString()} player-games`)}{sortableMoveHeader("venue", "Venue archive", `${broadRow?.game_count.toLocaleString() ?? "—"} player-games`)}{sortableMoveHeader("tournament", "Tournament archive", `${conservativeRow?.game_count.toLocaleString() ?? "—"} player-games`)}{sortableMoveHeader("proAggregate", "Pro tournament archive", `${proAggregateRow?.game_count.toLocaleString() ?? "—"} player-games · ${countNoun(proAggregateRow?.identified_player_count, "pro")}`)}{archive.selectedPro && sortableMoveHeader("pro", archive.selectedPro.display_name, `${proRow?.game_count.toLocaleString() ?? "—"} games`)}</tr></thead><tbody>
         {moveKeys.map((key) => {
           const mine = localMoveMetric(localByKey.get(key), metric, localMoves.covered);

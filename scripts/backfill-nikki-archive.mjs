@@ -6,7 +6,7 @@
  * node scripts/backfill-nikki-archive.mjs --cache CACHE --audit AUDIT.json --watch true
  * --workers is capped at 8; one next archive extracts during the current parse.
  * At most two owned extraction directories exist. --limit can bound a smoke run; --results overrides
- * results-v5. Missing source filenames (e.g. ootb5) remain explicitly excluded.
+ * results-v6. Missing source filenames (e.g. ootb5) remain explicitly excluded.
  * Originals are retained. Only this script's marked extraction staging is
  * removed, and only after an independently validated result is installed.
  */
@@ -31,10 +31,12 @@ const work = path.join(cache, `backfill-v${ARCHIVE_STATS_VERSION}`);
 const extractionRoot = path.join(work, "extracted");
 const receipts = path.join(work, "receipts");
 const results = path.resolve(args.get("results") ?? path.join(cache, `results-v${ARCHIVE_STATS_VERSION}`));
-const immutableV4 = path.resolve(cache, "results-v4");
-const relativeToV4 = path.relative(immutableV4, results);
-if (!relativeToV4 || (!relativeToV4.startsWith("..") && !path.isAbsolute(relativeToV4))) {
-  throw new Error("Stats-v4 results are immutable; select a separate stats-v5 results directory");
+const immutableResults = [4, 5].map((version) => path.resolve(cache, `results-v${version}`));
+for (const immutable of immutableResults) {
+  const relative = path.relative(immutable, results);
+  if (!relative || (!relative.startsWith("..") && !path.isAbsolute(relative))) {
+    throw new Error("Stats-v4/v5 results are immutable; select a separate stats-v6 results directory");
+  }
 }
 const statePath = path.join(work, "state.json");
 const lockPath = path.join(work, "pipeline.lock");
@@ -51,9 +53,10 @@ for (const source of sources) {
   if (!Number.isSafeInteger(source.compressed_bytes) || source.compressed_bytes <= 0 || !Number.isSafeInteger(source.replay_file_count)) throw new Error(`Invalid audited counts: ${source.sourceFilename}`);
 }
 await Promise.all([mkdir(downloads, { recursive: true }), mkdir(extractionRoot, { recursive: true }), mkdir(receipts, { recursive: true }), mkdir(results, { recursive: true })]);
-if (existsSync(immutableV4)) {
-  const relative = path.relative(await realpath(immutableV4), await realpath(results));
-  if (!relative || (!relative.startsWith("..") && !path.isAbsolute(relative))) throw new Error("Results destination resolves into immutable stats-v4 results");
+for (const immutable of immutableResults) {
+  if (!existsSync(immutable)) continue;
+  const relative = path.relative(await realpath(immutable), await realpath(results));
+  if (!relative || (!relative.startsWith("..") && !path.isAbsolute(relative))) throw new Error("Results destination resolves into immutable stats-v4/v5 results");
 }
 const parserInputs = ["src/lib/parse.ts", "src/lib/specialMoves.ts", "src/lib/downBSpecial.ts", "src/lib/types.ts", "src/lib/replayMetadata.ts", "scripts/analyze-nikki-bundle.mjs", "scripts/lib/archive-move-coverage.mjs", "package-lock.json"];
 async function parserFingerprint() {
@@ -291,7 +294,7 @@ async function parsePrepared(job) {
 }
 let current = null, prefetch = null;
 try {
-  // Validate every reusable receipt before scheduling extraction. No v5 output
+  // Validate every reusable receipt before scheduling extraction. No v6 output
   // is trusted merely because its shape or numeric stats version matches.
   for (const source of sources) {
     if (processed >= limit || stopRequested) break;

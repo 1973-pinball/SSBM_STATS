@@ -891,10 +891,10 @@ const hasMoveAttemptStats = (game: ResolvedGame, moves: PlayerSide["moveStats"])
   moves !== undefined && hasFullStats(game.rec) && ((game.rec.statsVersion ?? 0) >= 1 || Object.entries(moves).some(([moveId, move]) =>
     move.attempts !== undefined && moveGroupTracksAttempts(moveGroup(Number(moveId)).key)));
 
-/** Keep v4 Down B measurements when v5 adds the other three special directions. */
+/** v6 verifies complete replay-frame coverage; older special counters may be partial. */
 export const hasSpecialMoveAttempts = (game: ResolvedGame, moves: PlayerSide["moveStats"], moveId: number): boolean =>
   moveId >= 18 && moveId <= 21 && hasFullStats(game.rec)
-  && (game.rec.statsVersion ?? 0) >= (moveId === 21 ? 4 : 5) && moves?.[moveId]?.attempts !== undefined;
+  && (game.rec.statsVersion ?? 0) >= 6 && moves?.[moveId]?.attempts !== undefined;
 
 export const hasSpecialMoveOutcomes = (game: ResolvedGame, moves: PlayerSide["moveStats"], moveId: number): boolean => {
   const move = moves?.[moveId];
