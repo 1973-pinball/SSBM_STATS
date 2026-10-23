@@ -1,8 +1,8 @@
 # Archive special-move benchmark refresh
 
 Stats version 6 adds independently measured Neutral B (18), Side B (19), and
-Up B (20) to the existing Down B (21) archive metrics. The planned immutable
-revision is `nikki-2026-09-08-v10`; confirm that ID is unused before publication.
+Up B (20) to the existing Down B (21) archive metrics. The locally validated
+immutable revision is `nikki-2026-09-08-v10`; confirm that ID is unused before publication.
 The published stats-v4/v9 export and its parse results remain unchanged. Stats 6
 also requires a complete, immutable finalized-frame history before counting
 special attempts or outcomes; malformed prefixes must not become measured games.
@@ -111,7 +111,7 @@ node scripts/verify-archive-move-coverage.mjs
 
 node scripts/verify-archive-completeness-corrections.mjs \
   --cache /path/to/cache \
-  --diagnostics /path/to/cache/specials-v6-completeness-diagnoses.local.json \
+  --diagnostics /path/to/cache/specials-v6-completeness-full-diagnoses.local.json \
   --output /path/to/cache/specials-v6-completeness-corrections.local.json
 
 node scripts/verify-archive-special-export.mjs \
@@ -172,19 +172,55 @@ of the fighter's activation. Synthetic tests cover all 26 characters, including
 the characters absent from that real-replay sample.
 
 The stats5 full run stopped at its source-change guard after a malformed replay
-revealed incomplete finalized history. It was never published. A new full
-stats6 reparse is in progress under frozen parser fingerprint
+revealed incomplete finalized history. It was never published. The full stats6
+reparse completed all 67 bundles under frozen parser fingerprint
 `cc6083652ac2bf22c3ac0eb7e2219e28215bb5721858c433963c19181751951e`;
 only matching receipts are eligible for the next immutable export. The final
 raw PRE/POST guard has passed the CEO sample with identical positive coverage.
-An expanded raw audit of 76 incomplete-source candidates found bounded/retained
-special-usage agreement in every replay; all four special measurements correctly
-remain unavailable. The corpus correction audit must determine the exact subset
-that changes prior Down B coverage before any publication.
+The cumulative raw audit covers 240 source replays with bounded/retained
+special-usage agreement throughout. The exact full-corpus comparison identifies
+209 replays / 357 sides whose prior Down B usage is withdrawn. Every withdrawal
+has original replay hashes and positive terminal/rewrite evidence; no prior
+non-usage metric changes. Of those sides, 215 survive the existing curation and
+deduplication rules and affect 406 rollups. No named public per-game record changes.
+
+Local validation completed on 2026-10-23 at 12:39 UTC. The export content hash is
+`d762c8f1a66b276cf2a7d941ef450bdf5f25e8fc43f67b1811492b9205fce65a`.
+All 159,965 source files retain the original 158,884 parsed / 1,081 failed totals;
+the 158,530 unique games include 151,021 broad Venue and 24,055 conservative games.
+The 27 named players and their 817 mapped sides remain unchanged. Independent
+aggregation passed 829 global and 640 matchup checks; the baseline reconciled all
+1,554 public sides and 49,193 rollups. All 324 display checks and the loader dry run
+passed. Independent source sums matched 52 community selectors, all 36 named
+player-character selectors, and all 26 aggregate Pro character selectors. The 15
+populated Pro characters retain positive supported coverage; no sparse missing
+coverage was reported. Readiness and exact evidence remain local in
+`specials-v10-readiness.json`, `specials-v10-verification.json`,
+`specials-v10-baseline.json`, and `specials-v10-spot-check.json`.
+
+The reviewed dataset was atomically published on 2026-10-23 at 12:41 UTC.
+The published row's content hash matches the export above, and the site selects
+v10 as its latest archive. Live Execution checks matched Fox attempts, no-hit
+uses per game, and no-hit rates for Venue, Tournament, and aggregate Pro; changing
+the opponent filter selected the corresponding matchup sample. Live Move Atlas
+checks matched Fox and Marth values and Moky's named-player comparisons, including
+tracked-game and completed-use denominators. Fox Neutral B and Marth Down B
+correctly display unavailable hit outcomes. Browser verification used synthetic
+demo data only for the personal column; archive comparisons were the live data.
 
 The expanded audit also identified same-frame Link Neutral B ground-to-air and
-Yoshi Side B landing startup variants. The stats6 detector audit covers these
-cases before the final freeze. Exact replay names remain in local QA evidence.
+Yoshi Side B landing startup variants. The final stats6 detector supports both:
+the reviewed Link replay reports three bow attempts, and the Yoshi replay reports
+two Side B attempts with two no-hit outcomes. These are no longer coverage
+exclusions. Exact replay names remain in local QA evidence.
+Three separately reviewed Neutral B air-to-ground startup cases in the full
+corpus first appear above the native startup bound: one Young Link side at
+animation counter 2.33 and two Link sides at counter 2. The frozen detector
+conservatively leaves those sides' Neutral B usage unavailable; each exact
+exclusion is bound to its original replay hash and parser fingerprint in local
+QA. Their other three directions remain measured. No zero or numeric attempt
+count is inferred for the excluded direction; support for this startup variant
+is tracked in [issue #4](https://github.com/1973-pinball/SSBM_STATS/issues/4).
 The full-cohort positive-coverage checks remain required; these benchmarks describe
 measured samples, not complete coverage of every replay side.
 

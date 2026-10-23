@@ -1,5 +1,8 @@
 #!/usr/bin/env node
-/** Local-only bounded/retained audit of named incomplete replay records. */
+/** Local-only bounded/retained audit of named incomplete replay records.
+ * --all-cases true audits an explicit correction manifest without publication
+ * eligibility filters, including short games and non-tournament sources.
+ */
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -12,14 +15,26 @@ import { createServer } from "vite";
 const options = {};
 const args = process.argv.slice(2);
 for (let i = 0; i < args.length; i += 2) {
-  assert.ok(["--cache", "--manifest", "--output"].includes(args[i]) && args[i + 1], `Invalid option ${args[i]}`);
+  assert.ok(["--cache", "--manifest", "--output", "--all-cases"].includes(args[i]) && args[i + 1], `Invalid option ${args[i]}`);
   options[args[i].slice(2)] = args[i + 1];
 }
 const cache = path.resolve(options.cache ?? path.join(os.homedir(), ".cache", "SSBM_DASHBOARD_nikki_archive"));
 const manifestPath = path.resolve(options.manifest ?? path.join(cache, "specials-v5-missing-final-stocks.local.json"));
 const outputPath = path.resolve(options.output ?? path.join(cache, "specials-v6-completeness-diagnoses.local.json"));
-const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-const cases = (Array.isArray(manifest) ? manifest : manifest.cases).filter(row => !row.isTeams && row.legalStage && row.playableRoster && row.durationFrames >= 1800);
+const manifest = JSON.parse(readFileSync(manifestPath, "utf8").replace(/^\uFEFF/, ""));
+assert.ok(options["all-cases"] === undefined || options["all-cases"] === "true", "--all-cases accepts true only");
+const requestedCases = Array.isArray(manifest) ? manifest : manifest.cases;
+const selectedCases = options["all-cases"] === "true" ? requestedCases : requestedCases.filter(row => !row.isTeams && row.legalStage && row.playableRoster && row.durationFrames >= 1800);
+// A correction manifest may contain one entry per side; audit each raw file
+// once, returning both players in its proof record.
+const uniqueCases = new Map();
+for (const row of selectedCases) {
+  const key = `${row.bundle}/${memberName(row.file)}`;
+  const previous = uniqueCases.get(key);
+  if (previous) assert.equal(previous.durationFrames, row.durationFrames, `Conflicting duration for ${key}`);
+  else uniqueCases.set(key, row);
+}
+const cases = [...uniqueCases.values()];
 const auditText = readFileSync(path.join(cache, "source-audit-2026-10-22.json"));
 const auditSha256 = createHash("sha256").update(auditText).digest("hex");
 const audit = JSON.parse(auditText.toString("utf8"));
@@ -48,8 +63,8 @@ for (const [bundleName, entries] of groups) {
   assert.ok(source);
   const archive = path.join(cache, "downloads", bundleName);
   assert.equal(statSync(archive).size, source.compressed_bytes);
-  const stem = path.basename(bundleName, ".7z");
-  const resultPath = ["results-v5", "results-v4"].map(dir => path.join(cache, dir, `${stem}.json`)).find(existsSync);
+  const stem = path.basename(bundleName, path.extname(bundleName));
+  const resultPath = ["results-v6", "results-v5", "results-v4"].map(dir => path.join(cache, dir, `${stem}.json`)).find(existsSync);
   assert.ok(resultPath);
   const records = new Map(JSON.parse(readFileSync(resultPath, "utf8")).records.filter(row => row.ok).map(row => [memberName(row.file), row]));
   const extractionRoot = path.join(cache, "special-completeness-diagnostics-v5", "extracted", stem);
@@ -61,7 +76,7 @@ for (const [bundleName, entries] of groups) {
     entry.expectedBytes = record.bytes;
     entry.record = record;
     entry.auditedCompressedBytes = source.compressed_bytes;
-    const roots = [extractionRoot, path.join(cache, "special-outcome-diagnostics-v5", "extracted", stem), path.join(cache, "specials-nma-outcomes-audit-v5"), path.join(cache, "extracted", stem)];
+    const roots = [extractionRoot, path.join(cache, "special-outcome-diagnostics-v5", "extracted", stem), path.join(cache, "specials-nma-outcomes-audit-v5"), path.join(cache, "specials-yoshi-outcomes-audit-v5"), path.join(cache, "extracted", stem)];
     entry.localFile = roots.map(root => inside(root, entry.member)).find(file => {
       if (!existsSync(file)) return false;
       assert.equal(statSync(file).size, record.bytes);

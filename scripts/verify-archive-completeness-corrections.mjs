@@ -14,7 +14,7 @@ for (let index = 2; index < process.argv.length; index += 2) {
   args[name] = process.argv[index + 1];
 }
 const cache = path.resolve(args.cache);
-const diagnosticPath = args.diagnostics ?? path.join(cache, "specials-v6-completeness-diagnoses.local.json");
+const diagnosticPath = args.diagnostics ?? path.join(cache, "specials-v6-completeness-full-diagnoses.local.json");
 const outputPath = args.output ?? path.join(cache, "specials-v6-completeness-corrections.local.json");
 const json = async (filename) => JSON.parse(await readFile(filename, "utf8"));
 const sha = (value) => createHash("sha256").update(value).digest("hex");
@@ -61,14 +61,23 @@ let recordsChecked = 0, parsed = 0, failed = 0;
 for (const source of sources) {
   const filename = `${stem(source.sourceFilename)}.json`;
   const beforePath = path.join(cache, "results-v4", filename), afterPath = path.join(cache, "results-v6", filename);
-  const [before, after, receipt, beforeSha256, afterSha256] = await Promise.all([
-    json(beforePath), json(afterPath), json(path.join(cache, "backfill-v6/receipts", filename)), fileHash(beforePath), fileHash(afterPath),
+  const [before, after, receipt, beforeReceipt, beforeSha256, afterSha256] = await Promise.all([
+    json(beforePath), json(afterPath), json(path.join(cache, "backfill-v6/receipts", filename)),
+    json(path.join(cache, "backfill-v4/receipts", filename)), fileHash(beforePath), fileHash(afterPath),
   ]);
   assert.equal(receipt.statsVersion, 6); assert.equal(receipt.parserSha256, state.parserSha256);
   assert.equal(receipt.auditSha256, auditSha256); assert.equal(receipt.outputSha256, afterSha256);
   assert.equal(receipt.bundle, source.sourceFilename); assert.equal(receipt.compressedBytes, source.compressed_bytes);
   assert.equal(before.bundle, source.sourceFilename); assert.equal(after.bundle, source.sourceFilename);
-  assert.equal(after.statsVersion, 6); assert.equal(before.statsVersion, 4);
+  assert.equal(after.statsVersion, 6);
+  // Historical v4 bundles version each parsed record, not the bundle header.
+  // Bind the original bytes to their preserved receipt as well as checking
+  // every successful record's statsVersion below.
+  if (before.statsVersion !== undefined) assert.equal(before.statsVersion, 4);
+  assert.equal(beforeReceipt.outputSha256, beforeSha256);
+  assert.equal(beforeReceipt.auditSha256, auditSha256);
+  assert.equal(beforeReceipt.bundle, source.sourceFilename);
+  assert.equal(beforeReceipt.compressedBytes, source.compressed_bytes);
   assert.equal(after.replayFiles, source.replay_file_count); assert.equal(after.records.length, source.replay_file_count);
   assert.equal(after.parsed, before.parsed); assert.equal(after.failed, before.failed);
   assert.equal(before.records.length, after.records.length);
