@@ -60,6 +60,9 @@ jobs:
       - name: Verify special detection, cache migration and move comparisons
         run: npm run verify:moves
 
+      - name: Verify interaction detection and experimental references
+        run: npm run verify:interactions
+
       - name: Local forecast pipeline tests (fixtures only; no credentials)
         run: npm run test:forecast
 

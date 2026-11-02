@@ -7,6 +7,23 @@ Everything is parsed and cached in your browser; raw replay files never leave yo
 No replays? Try the demo or browse the public Community, Tournament Predictions,
 and Liquipedia views.
 
+## Release 0.4.9 — Interaction analysis
+
+- **Ledge and out of shield:** choice frequency and follow-up hit/grab outcomes,
+  including sequences such as ledgedashes, wavedashes, and jump → aerial.
+- **Recoveries and edgeguards:** high/low recovery routes, ledge and stage
+  returns, edgeguard tactics, and observed stock-loss outcomes.
+- **Before openings taken:** preceding actions and ensuing damage or stock loss,
+  providing context without claiming verified whiffs or unavoidable punishes.
+- **Archive estimates:** experimental Venue, Tournament, and Pro comparisons
+  matching character, opponent character, and stage across 10,536 public games,
+  including 702 Pro appearances from 27 mapped players, with visible samples.
+- **Replay-audited detection:** longer ledgedash sequence recognition, platform
+  shield drops, and input-supported wavedash landings.
+- **Optional local re-analysis:** analyze older replays from Execution while
+  keeping existing stats usable. Experimental labels, measured-game coverage,
+  and small-sample notes make the limits visible.
+
 ## How it works
 
 ```text
@@ -81,6 +98,68 @@ npm run test:forecast
 ```
 
 Requires Node 22. Run `git config core.hooksPath .githooks` once per clone. Use `npm run verify:slpz -- <replay-folder> [count]` to compare local `.slp`/`.slpz` pairs; replay fixtures are never committed.
+
+## Experimental interaction analysis
+
+Execution's **Interactions** panel describes your choices and what followed in
+the most recent 150 singles games after the global filters. It includes:
+
+- **Ledge and out of shield:** option frequency and the first damaging hit or
+  grab within 30 frames (0.5 seconds). Sequences can develop for up to 30 frames
+  from ledge and 15 frames from shield, distinguishing ledgedashes and jump →
+  aerial. Confirmed recent shield contact and
+  other shield exits have separate samples; unresolved outcomes are excluded
+  from rates, and same-frame trades count in both contact columns.
+- **Recoveries:** high, low, mixed, or unclassified routes after an observed
+  offstage launch. Reaching ledge is separate from returning to stage: a return
+  requires landing and 30 frames inside stage bounds without damage, a grab, or
+  other disabled states. Intentional offstage trips and uninterrupted launch
+  KOs do not count as attempts. Recovery geometry supports Battlefield, Final
+  Destination, Dream Land, Fountain of Dreams, Yoshi's Story, and explicitly
+  frozen Pokémon Stadium; unfrozen or unknown Stadium geometry is unavailable.
+- **Edgeguards:** opportunities, observed tactics, and opponent outcomes across
+  the recovery. Stock-loss rate uses completed contests. Uncontested deaths
+  remain separate; a death during a contest does not prove its cause.
+- **Before openings taken:** the preceding meaningful action within 30 frames,
+  followed by the episode's damage and stock-loss outcome. Follow-up hits stay
+  together until stock loss or 45 frames outside damage/capture/knockdown/tech
+  states. This does not establish a whiff or an unavoidable punish.
+
+New full parses include these summaries. Older compatible game stats remain
+usable; **Analyze these games** explicitly re-reads matching replays in the
+current window from connected folders, and **Select replay files** handles
+moved or disconnected files. Replays must still be available locally. Frame
+processing stays on the device, raw frames are discarded, and only derived
+summaries are saved and eligible for the existing optional cloud sync.
+
+Coverage is shown separately for each family. Missing observations stay
+unavailable, and fewer than 20 resolved examples are marked as small samples.
+The rules are experimental and require review against real replays before firm
+coaching claims. The Metrics Guide contains their full definitions.
+
+**Archive estimates** compare the selected measure with sampled Venue,
+Tournament, and Pro observations. They follow the exact **Me / Vs / Stage**
+filters across all dates in the sample; date, mode, account, and named-opponent
+filters apply only to your column. Missing matchups remain unavailable rather
+than falling back to a broader sample. Rates pool opportunities, not players.
+
+The reproducible sample covers every eligible bundle in the already-audited
+public archive, independently selecting up to 100 singles games per bundle for
+Venue and Tournament by a deterministic hash. Pro includes every vetted
+named-player side in conservative tournament games across those bundles.
+Cohorts overlap; archive headings show player-games. This capped archive sample
+is affected by event coverage and is not a population estimate, a player- or
+character-balanced benchmark, or a skill ranking. The panel reports the actual
+sample counts and source. SSBM Stats community estimates are not available for
+these new metrics.
+
+The reference covers 10,536 unique games across 66 eligible bundles; its Pro
+subset contains 702 player appearances from all 27 mapped players in the archive.
+See the [sample methodology](docs/interaction-benchmark-sample.md),
+[184-game defensive audit](docs/defensive-interaction-audit.md), and
+[32-game recovery/opening-context audit](docs/recovery-interaction-audit.md).
+These audits inspect replay states and inputs; they do not claim independent
+video annotation or a measured accuracy rate.
 
 ## Benchmark filtering and community samples
 

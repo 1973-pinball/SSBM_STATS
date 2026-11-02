@@ -43,6 +43,7 @@ const DEFAULTS = {
   dataAsOf: localDate(),
   version: "v1",
   sourceAudit: null,
+  populationIndex: null,
   excludeBundles: "",
 };
 
@@ -51,7 +52,7 @@ for (let index = 2; index < process.argv.length; index += 2) {
   const key = process.argv[index];
   const value = process.argv[index + 1];
   if (!key?.startsWith("--") || value === undefined) {
-    throw new Error("Usage: build-nikki-public-archive.mjs [--results DIR] [--downloads DIR] [--curation FILE] [--events FILE] [--series FILE] [--identities FILE] [--output DIR] [--data-as-of YYYY-MM-DD] [--version vN] [--source-audit FILE] [--exclude-bundles STEM,...]");
+    throw new Error("Usage: build-nikki-public-archive.mjs [--results DIR] [--downloads DIR] [--curation FILE] [--events FILE] [--series FILE] [--identities FILE] [--output DIR] [--data-as-of YYYY-MM-DD] [--version vN] [--source-audit FILE] [--exclude-bundles STEM,...] [--population-index FILE.local.json]");
   }
   const name = key.slice(2).replace(/-([a-z])/g, (_, char) => char.toUpperCase());
   if (!(name in args)) throw new Error(`Unknown option ${key}`);
@@ -607,6 +608,21 @@ if (duplicateFiles !== curation.duplicateFiles || gamesByKey.size !== curation.u
 const resolveRankedIdentity = (player, eventId, rawGameKey, slot) => {
   return approvedRankedIdentity(player, eventId, rawGameKey, slot);
 };
+
+// Local-only selection index for independently reparsing experimental samples.
+// Uses the exact full-population curation above, before sampling any games.
+// No public tables are written in this mode; filenames must stay local.
+if (args.populationIndex) {
+  if (!String(args.populationIndex).endsWith(".local.json")) throw new Error("Population index contains local replay paths; use a .local.json destination");
+  await writeFile(args.populationIndex, JSON.stringify({
+    schemaVersion: 1, sourceDataset: DATASET_ID, buckets,
+    games: [...gamesByKey.values()].filter(game => !game.isTeams && game.tier !== "excluded").map(game => ({
+      gameKey: publicGameKey(game.key), bundle: game.bundle, file: game.file, eventId: game.eventId, tier: game.tier,
+    })),
+  }));
+  console.log("Wrote local interaction sampling population index; public export unchanged.");
+  process.exit(0);
+}
 
 const emptyMetrics = () => ({
   durationFrames: 0,

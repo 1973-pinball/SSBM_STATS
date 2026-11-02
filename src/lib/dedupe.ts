@@ -56,7 +56,14 @@ function preferred(a: GameRecord, b: GameRecord): boolean {
   const aCurrent = hasCurrentStats(a);
   const bCurrent = hasCurrentStats(b);
   if (aCurrent !== bCurrent) return aCurrent;
+  // Optional contextual analysis upgrades v6 to v7 without invalidating the
+  // baseline. Prefer the analyzed copy even when a cloud response arrives late.
+  if ((a.statsVersion ?? 0) !== (b.statsVersion ?? 0)) return (a.statsVersion ?? 0) > (b.statsVersion ?? 0);
   return a.id < b.id;
+}
+
+export function mergeGameRecords(a: GameRecord, b: GameRecord): GameRecord {
+  return preferred(a, b) ? mergeCpuStatus(a, b) : mergeCpuStatus(b, a);
 }
 
 /** Preserve optional header evidence without replacing the chosen stats.

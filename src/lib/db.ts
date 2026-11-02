@@ -1,5 +1,5 @@
 import Dexie, { type Table } from "dexie";
-import { CURRENT_STATS_VERSION, hasCurrentStats, needsStatsRepair } from "./types";
+import { hasCurrentStats, needsStatsRepair } from "./types";
 import type { Account, GameRecord } from "./types";
 import { dedupeRecords } from "./dedupe";
 import type { ReplayFolder } from "./folders";
@@ -17,15 +17,16 @@ export interface RecordPack {
 
 /** Browser-local knowledge used to make cloud sync incremental after bootstrap. */
 export interface StoredCloudSyncState {
-  cloudFormatVersion: 2;
+  cloudFormatVersion: 3;
   statsVersion: number;
   /** Content-derived game keys acknowledged by the packed cloud mirror. */
   keys: string[];
+  versions: Record<string, number>;
   /** Greatest server-side game_record_packs.updated_at observed by this device. */
   cursor: string | null;
 }
 
-export const CLOUD_SYNC_FORMAT_VERSION = 2;
+export const CLOUD_SYNC_FORMAT_VERSION = 3;
 
 const PACK_SIZE = 250;
 
@@ -265,12 +266,7 @@ class SsbmDb extends Dexie {
               dirty = true;
               continue;
             }
-            if (rec.statsVersion !== CURRENT_STATS_VERSION) {
-              kept.push({ ...rec, statsVersion: CURRENT_STATS_VERSION });
-              dirty = true;
-            } else {
-              kept.push(rec);
-            }
+            kept.push(rec);
           }
           if (!dirty || pack.id === undefined) continue;
           if (kept.length > 0) await packs.put({ ...pack, records: kept });
@@ -375,6 +371,25 @@ class SsbmDb extends Dexie {
           else await packs.delete(pack.id);
         }
         if (staleIds.length > 0) await tx.table("seen").bulkDelete(staleIds);
+      });
+    // Optional interaction analysis (payload v7). Keep valid v6 baselines and
+    // their seen markers: only the explicit analysis button may re-read them.
+    // Continue releasing genuinely obsolete v1-v5 execution payloads.
+    this.version(20)
+      .stores({ games: "id, playedAt, stageId, gameType", packs: "++id", seen: "id", kv: "key" })
+      .upgrade(async (tx) => {
+        const packs = tx.table<RecordPack>("packs");
+        const staleIds: string[] = [];
+        for (const pack of await packs.toArray()) {
+          const kept = pack.records.filter(rec => {
+            if (!needsStatsRepair(rec)) return true;
+            staleIds.push(rec.id); return false;
+          });
+          if (kept.length === pack.records.length || pack.id === undefined) continue;
+          if (kept.length) await packs.put({ ...pack, records: kept });
+          else await packs.delete(pack.id);
+        }
+        if (staleIds.length) await tx.table("seen").bulkDelete(staleIds);
       });
   }
 }
@@ -502,6 +517,8 @@ export async function getCloudSyncState(userId: string): Promise<StoredCloudSync
     typeof value?.statsVersion !== "number" ||
     !Array.isArray(value.keys) ||
     !value.keys.every((key) => typeof key === "string") ||
+    !value.versions || typeof value.versions !== "object" || Array.isArray(value.versions) ||
+    !Object.values(value.versions).every(v => Number.isInteger(v) && v >= 0) ||
     (value.cursor !== null && typeof value.cursor !== "string")
   ) return null;
   return value as StoredCloudSyncState;

@@ -75,6 +75,10 @@ export default defineConfig({
         // Precache every build asset (all views are lazy chunks — offline needs
         // them all); fonts are hashed woff2 files, safe to cache immutably.
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // The lazy experimental interaction reference contains exact matchup /
+        // stage counters (~2.4 MB before transfer compression). Keep it available
+        // offline alongside the other Execution data.
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         // public/share holds the generated share images — multi-megabyte GIFs
         // plus their posters. They're for sending to other people, not for
         // running the app, so they stay out of the offline bundle.

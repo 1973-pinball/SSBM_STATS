@@ -32,7 +32,7 @@ export function CloudSync({ records, accounts, isDemo, isParsing, generation, on
   // Content keys acknowledged by the cloud as of the last successful sync.
   // Unlike file ids they survive a folder move, so copied local paths never
   // look like thousands of new games. Null until knowledge is restored/synced.
-  const [syncedKeys, setSyncedKeys] = useState<Set<string> | null>(null);
+  const [syncedVersions, setSyncedVersions] = useState<Map<string, number> | null>(null);
   const autoSynced = useRef(false);
   const knowledge = useRef<CloudSyncKnowledge | null>(null);
   const knowledgeOwner = useRef<string | null>(null);
@@ -59,7 +59,7 @@ export function CloudSync({ records, accounts, isDemo, isParsing, generation, on
     autoSynced.current = false;
     knowledge.current = null;
     knowledgeOwner.current = null;
-    setSyncedKeys(null);
+    setSyncedVersions(null);
     setKnowledgeReady(false);
     const userId = session?.user.id;
     if (!userId) {
@@ -71,9 +71,9 @@ export function CloudSync({ records, accounts, isDemo, isParsing, generation, on
       .then((stored) => {
         if (!active) return;
         if (stored?.cloudFormatVersion === CLOUD_SYNC_FORMAT_VERSION && stored.statsVersion === CURRENT_STATS_VERSION) {
-          const restored = { keys: new Set(stored.keys), cursor: stored.cursor };
+          const restored = { keys: new Set(stored.keys), versions: new Map(Object.entries(stored.versions)), cursor: stored.cursor };
           knowledge.current = restored;
-          setSyncedKeys(new Set(restored.keys));
+          setSyncedVersions(new Map(restored.versions));
         }
       })
       .catch(console.error)
@@ -102,7 +102,7 @@ export function CloudSync({ records, accounts, isDemo, isParsing, generation, on
       const result = await syncRecords(recs, codes, knowledge.current ?? undefined);
       if (result.pulled.length) onPulled(result.pulled, gen);
       knowledge.current = result.knowledge;
-      setSyncedKeys(new Set(result.knowledge.keys));
+      setSyncedVersions(new Map(result.knowledge.versions));
       if (userId) {
         // Losing this optimization state is safe: the next visit performs one
         // metadata bootstrap. It must not turn an otherwise successful cloud
@@ -111,6 +111,7 @@ export function CloudSync({ records, accounts, isDemo, isParsing, generation, on
           cloudFormatVersion: CLOUD_SYNC_FORMAT_VERSION,
           statsVersion: CURRENT_STATS_VERSION,
           keys: [...result.knowledge.keys],
+          versions: Object.fromEntries(result.knowledge.versions),
           cursor: result.knowledge.cursor,
         }).catch(console.error);
       }
@@ -145,20 +146,20 @@ export function CloudSync({ records, accounts, isDemo, isParsing, generation, on
   // mid-session). Adding an account makes its games newly syncable, so they
   // show up here and the auto-push picks them up without a rescan.
   const pending = useMemo(() => {
-    if (!syncedKeys) return 0;
+    if (!syncedVersions) return 0;
     const codes = new Set(accounts.map((a) => a.code));
     let n = 0;
     const counted = new Set<string>();
     for (const r of records) {
       if (!isSyncable(r, codes)) continue;
       const key = gameKey(r);
-      if (!syncedKeys.has(key) && !counted.has(key)) {
+      if ((syncedVersions.get(key) ?? -1) < r.statsVersion! && !counted.has(key)) {
         counted.add(key);
         n++;
       }
     }
     return n;
-  }, [records, syncedKeys, accounts]);
+  }, [records, syncedVersions, accounts]);
 
   // Auto-push: newly parsed games sync on their own once the parse stream goes
   // quiet (record appends arrive ~1/s, so 2.5s of quiet ≈ done). One attempt
@@ -213,7 +214,7 @@ export function CloudSync({ records, accounts, isDemo, isParsing, generation, on
     sync.kind === "busy"
       ? "Syncing…"
       : hasPending
-        ? `Sync ${pending.toLocaleString()} new game${pending === 1 ? "" : "s"}`
+        ? `Sync ${pending.toLocaleString()} game update${pending === 1 ? "" : "s"}`
         : sync.kind === "done"
           ? "Synced ✓"
           : sync.kind === "error"
@@ -242,7 +243,7 @@ export function CloudSync({ records, accounts, isDemo, isParsing, generation, on
         onClick={() =>
           void signOut().then(() => {
             setSync({ kind: "idle" });
-            setSyncedKeys(null);
+            setSyncedVersions(null);
             knowledge.current = null;
             knowledgeOwner.current = null;
           })

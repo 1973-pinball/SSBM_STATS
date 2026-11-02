@@ -1,3 +1,7 @@
+import type { DefensiveStats } from "./defensiveInteractions";
+import type { RecoveryStats } from "./recoveryInteractions";
+import type { PunishStats } from "./punishContext";
+
 export type GameType = "ranked" | "unranked" | "direct" | "offline" | "unknown";
 
 /** Singles vs teams is a separate axis from GameType: a 2v2 is also ranked/direct/offline. */
@@ -91,6 +95,10 @@ export interface PlayerSide {
   actions: ActionCounts;
   /** Keyed by Melee move ID. Singles only (conversions no-op in teams). */
   moveStats?: Record<number, MoveAgg>;
+  /** Optional singles analysis. Missing means unavailable, never zero. */
+  defense?: DefensiveStats;
+  recovery?: RecoveryStats;
+  punish?: PunishStats;
 }
 
 /**
@@ -150,10 +158,14 @@ export function hasFullStats(rec: GameRecord): boolean {
  * Bump when a full replay parse gains fields that cannot be derived from an
  * older cached/cloud record. The marker lives inside the cloud JSON payload,
  * so no Supabase schema migration is needed.
- * Version 6 requires complete terminal-frame evidence for all special usage;
- * older versions can contain partial-prefix counts from malformed replays.
+ * Version 8 corrects interaction classifications after the real-replay audit.
+ * Versions 6 and 7 still supply valid baseline stats; contextual analysis is
+ * upgraded only when requested. Earlier versions lack complete special evidence.
  */
-export const CURRENT_STATS_VERSION = 6;
+export const CURRENT_STATS_VERSION = 8;
+export const INTERACTION_STATS_VERSION = 8;
+/** v6 baseline stats remain valid; contextual analysis is an opt-in upgrade. */
+export const MIN_COMPATIBLE_STATS_VERSION = 6;
 
 /** Only positive CPU evidence excludes a game; old records remain eligible. */
 export function hasKnownCpu(rec: GameRecord): boolean {
@@ -164,7 +176,7 @@ export function hasKnownCpu(rec: GameRecord): boolean {
 export function hasCurrentStats(rec: GameRecord): boolean {
   return (
     hasFullStats(rec) &&
-    rec.statsVersion === CURRENT_STATS_VERSION &&
+    rec.statsVersion !== undefined && Number.isInteger(rec.statsVersion) && rec.statsVersion >= MIN_COMPATIBLE_STATS_VERSION && rec.statsVersion <= CURRENT_STATS_VERSION &&
     Array.isArray(rec.players) &&
     rec.players.length > 0 &&
     rec.players.every((p) => p.techs != null && p.actions?.crouchCancels !== undefined)
@@ -181,6 +193,12 @@ export function hasCurrentStats(rec: GameRecord): boolean {
  */
 export function needsStatsRepair(rec: GameRecord): boolean {
   return rec.parseError === undefined && hasFullStats(rec) && !hasCurrentStats(rec);
+}
+
+/** Only an explicit Analyze interactions action requests this optional reparse. */
+export function needsInteractionAnalysis(rec: GameRecord): boolean {
+  return hasFullStats(rec) && rec.parseError === undefined && !rec.isTeams && rec.players.length === 2
+    && (rec.statsVersion ?? 0) < INTERACTION_STATS_VERSION;
 }
 
 /** Failed file versions with no successful cached copy of that same version. */

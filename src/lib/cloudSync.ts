@@ -1,5 +1,5 @@
 import type { Account, GameRecord } from "./types";
-import { CURRENT_STATS_VERSION, hasCurrentStats, hasFullStats } from "./types";
+import { CURRENT_STATS_VERSION, MIN_COMPATIBLE_STATS_VERSION, hasCurrentStats, hasFullStats } from "./types";
 import { pruneDuplicates, putRecords } from "./db";
 import { dedupeRecords, gameKey } from "./dedupe";
 import { supabase } from "./supabase";
@@ -25,11 +25,12 @@ const METADATA_PACK_PAGE = 256;
 const EMPTY_REMOTE_CURSOR = "1970-01-01T00:00:00.000Z";
 const UTF8_ENCODER = new TextEncoder();
 
-const stampCurrentVersion = (rec: GameRecord): GameRecord =>
-  rec.statsVersion === CURRENT_STATS_VERSION ? rec : { ...rec, statsVersion: CURRENT_STATS_VERSION };
-
-const compatibleStatsVersion = (version: number | string | undefined): boolean =>
-  Number(version) === CURRENT_STATS_VERSION;
+const compatibleStatsVersion = (version: number | string | undefined): boolean => {
+  const value = Number(version);
+  return Number.isInteger(value) && value >= MIN_COMPATIBLE_STATS_VERSION && value <= CURRENT_STATS_VERSION;
+};
+const compatibleCloudRecord = (rec: GameRecord, version: number | string | undefined): boolean =>
+  compatibleStatsVersion(version) && hasCurrentStats(rec) && rec.statsVersion === Number(version);
 
 export interface SyncResult {
   pushed: number;
@@ -41,6 +42,8 @@ export interface SyncResult {
 export interface CloudSyncKnowledge {
   /** Current content-derived game keys acknowledged by the cloud. */
   keys: Set<string>;
+  /** Actual acknowledged payload version; a v6 baseline is not a v7 analysis. */
+  versions: Map<string, number>;
   /** Greatest server-side pack updated_at observed; null means bootstrap once. */
   cursor: string | null;
 }
@@ -86,8 +89,8 @@ export async function restoreCloudRecords(
       const pack = raw as CloudPack;
       for (const [key, rec] of Object.entries(pack.records ?? {})) {
         records.push(rec);
-        if (compatibleStatsVersion(pack.versions?.[key]) && hasCurrentStats(rec)) {
-          currentPage.push(stampCurrentVersion(rec));
+        if (compatibleCloudRecord(rec, pack.versions?.[key])) {
+          currentPage.push(rec);
         }
       }
     }
@@ -143,6 +146,7 @@ export function isSyncable(rec: GameRecord, myCodes: Set<string>): boolean {
 
 interface RemoteIndex {
   currentKeys: Set<string>;
+  versions: Map<string, number>;
   observedKeys: Set<string>;
   bucketByKey: Map<string, number>;
   latestUpdatedAt: string | null;
@@ -154,8 +158,9 @@ interface RemotePackIndexRow {
   updated_at: string;
 }
 
-const emptyRemoteIndex = (keys: Iterable<string> = []): RemoteIndex => ({
-  currentKeys: new Set(keys),
+const emptyRemoteIndex = (versions: Iterable<[string, number]> = []): RemoteIndex => ({
+  currentKeys: new Set([...versions].filter(([, version]) => compatibleStatsVersion(version)).map(([key]) => key)),
+  versions: new Map(versions),
   observedKeys: new Set(),
   bucketByKey: new Map(),
   latestUpdatedAt: null,
@@ -165,6 +170,9 @@ const addRemotePack = (index: RemoteIndex, row: RemotePackIndexRow): void => {
   for (const [key, version] of Object.entries(row.versions ?? {})) {
     index.observedKeys.add(key);
     index.bucketByKey.set(key, row.bucket);
+    const value = Number(version);
+    if (Number.isInteger(value) && value >= 0) index.versions.set(key, value);
+    else index.versions.delete(key);
     if (compatibleStatsVersion(version)) index.currentKeys.add(key);
     else index.currentKeys.delete(key);
   }
@@ -205,6 +213,11 @@ const mergeRemoteIndex = (target: RemoteIndex, source: RemoteIndex): void => {
     if (!source.currentKeys.has(key)) target.currentKeys.delete(key);
   }
   for (const key of source.currentKeys) target.currentKeys.add(key);
+  for (const key of source.observedKeys) {
+    const version = source.versions.get(key);
+    if (version === undefined) target.versions.delete(key);
+    else target.versions.set(key, version);
+  }
   for (const [key, bucket] of source.bucketByKey) target.bucketByKey.set(key, bucket);
   if (source.latestUpdatedAt) target.latestUpdatedAt = source.latestUpdatedAt;
 };
@@ -218,15 +231,16 @@ interface PushEntry {
 async function pushMissing(local: GameRecord[], remote: RemoteIndex, myCodes: Set<string>): Promise<number> {
   if (!supabase) return 0;
   const byBucket = new Map<number, PushEntry[]>();
-  const queuedKeys = new Set(remote.currentKeys);
-  for (const rec of local) {
+  const queuedVersions = new Map(remote.versions);
+  for (const rec of dedupeRecords(local)) {
     if (!isSyncable(rec, myCodes)) continue;
     const key = gameKey(rec);
-    if (queuedKeys.has(key)) continue;
-    queuedKeys.add(key);
+    const version = rec.statsVersion!; // isSyncable requires a compatible explicit version.
+    if ((queuedVersions.get(key) ?? -1) >= version) continue;
+    queuedVersions.set(key, version);
     const bucket = gameRecordBucket(key);
     const entries = byBucket.get(bucket) ?? [];
-    entries.push({ game_key: key, data: stampCurrentVersion(rec), stats_version: CURRENT_STATS_VERSION });
+    entries.push({ game_key: key, data: rec, stats_version: version });
     byBucket.set(bucket, entries);
   }
 
@@ -256,6 +270,7 @@ async function pushMissing(local: GameRecord[], remote: RemoteIndex, myCodes: Se
     if (error) throw error;
     for (const entry of entries) {
       remote.currentKeys.add(entry.game_key);
+      remote.versions.set(entry.game_key, entry.stats_version);
       remote.bucketByKey.set(entry.game_key, gameRecordBucket(entry.game_key));
     }
     pushed += entries.length;
@@ -265,8 +280,14 @@ async function pushMissing(local: GameRecord[], remote: RemoteIndex, myCodes: Se
 
 async function pullMissing(local: GameRecord[], remote: RemoteIndex): Promise<GameRecord[]> {
   if (!supabase) return [];
-  const haveKeys = new Set(local.map(gameKey));
-  const missing = new Set([...remote.currentKeys].filter((key) => !haveKeys.has(key)));
+  const haveVersions = new Map<string, number>();
+  for (const rec of local) {
+    if (!hasCurrentStats(rec) || rec.parseError) continue;
+    const key = gameKey(rec);
+    haveVersions.set(key, Math.max(haveVersions.get(key) ?? -1, rec.statsVersion!));
+  }
+  const missing = new Set([...remote.currentKeys].filter((key) =>
+    (remote.versions.get(key) ?? -1) > (haveVersions.get(key) ?? -1)));
   const buckets = [...new Set([...missing].map((key) => remote.bucketByKey.get(key)).filter((v): v is number => v !== undefined))];
   const pulled: GameRecord[] = [];
   for (let i = 0; i < buckets.length; i += DATA_PACK_PAGE) {
@@ -279,8 +300,9 @@ async function pullMissing(local: GameRecord[], remote: RemoteIndex): Promise<Ga
     for (const raw of data) {
       const pack = raw as CloudPack;
       for (const [key, rec] of Object.entries(pack.records ?? {})) {
-        if (!missing.has(key) || haveKeys.has(key) || !compatibleStatsVersion(pack.versions?.[key])) continue;
-        haveKeys.add(key);
+        if (!missing.has(key) || !compatibleCloudRecord(rec, pack.versions?.[key]) ||
+            (haveVersions.get(key) ?? -1) >= rec.statsVersion!) continue;
+        haveVersions.set(key, rec.statsVersion!);
         missing.delete(key);
         pulled.push(rec);
         accepted.push(rec);
@@ -301,7 +323,7 @@ export async function syncRecords(
   myCodes: Set<string>,
   known?: CloudSyncKnowledge,
 ): Promise<SyncResult> {
-  if (!supabase) return { pushed: 0, pulled: [], knowledge: { keys: new Set(), cursor: null } };
+  if (!supabase) return { pushed: 0, pulled: [], knowledge: { keys: new Set(), versions: new Map(), cursor: null } };
 
   // First run on this packed format pays for the complete key/version index.
   // Every successful run after that asks only for changed pack metadata.
@@ -319,11 +341,11 @@ export async function syncRecords(
       // An empty remote has no timestamp yet. Keep an epoch cursor rather than
       // bootstrapping again; the next delta observes our pushes and closes the
       // query-then-push race with another device.
-      knowledge: { keys: new Set(remote.currentKeys), cursor: remote.latestUpdatedAt ?? EMPTY_REMOTE_CURSOR },
+      knowledge: { keys: new Set(remote.currentKeys), versions: new Map(remote.versions), cursor: remote.latestUpdatedAt ?? EMPTY_REMOTE_CURSOR },
     };
   }
 
-  const remote = emptyRemoteIndex(known.keys);
+  const remote = emptyRemoteIndex(known.versions);
   const changes = await remoteChangesSince(known.cursor);
   mergeRemoteIndex(remote, changes);
   const pulled = await pullMissing(local, changes);
@@ -333,7 +355,7 @@ export async function syncRecords(
     pulled,
     // Deliberately do not advance the cursor from our own pushes. The next
     // delta observes those packs and any concurrent device write together.
-    knowledge: { keys: new Set(remote.currentKeys), cursor: changes.latestUpdatedAt ?? known.cursor },
+    knowledge: { keys: new Set(remote.currentKeys), versions: new Map(remote.versions), cursor: changes.latestUpdatedAt ?? known.cursor },
   };
 }
 

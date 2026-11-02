@@ -2,6 +2,72 @@ import { CURRENT_STATS_VERSION } from "./types";
 import type { Account, ActionCounts, GameRecord, MoveAgg, PlayerSide, TechCounts } from "./types";
 import { INCLUDED_STAGE_IDS } from "./config";
 import { getSpecialMoveCapability, SPECIAL_MOVE_IDS, type SpecialMoveId } from "./specialMoves";
+import type { ChoiceOutcomes, DefensiveStats } from "./defensiveInteractions";
+import type { RecoveryStats, RecoveryRoute, EdgeguardTactic } from "./recoveryInteractions";
+import type { PunishAction, PunishStats } from "./punishContext";
+
+/** Synthetic interaction outcomes use their own RNG, preserving the existing demo's results and trends. */
+function mkInteractions(rand: () => number, minutes: number, deaths: number, kills: number): Pick<PlayerSide, "defense" | "recovery" | "punish"> {
+  const choiceRows = <K extends string>(options: readonly K[], attempts: number): Partial<Record<K, ChoiceOutcomes>> => {
+    const rows: Partial<Record<K, ChoiceOutcomes>> = {};
+    for (let i = 0; i < attempts; i++) {
+      const key = options[Math.floor(rand() * options.length)]!;
+      const row = rows[key] ??= { attempts: 0, punished: 0, hit: 0, traded: 0, noHit: 0, incomplete: 0 };
+      row.attempts++;
+      const value = rand();
+      if (value < 0.22) row.punished++;
+      else if (value < 0.44) row.hit++;
+      else if (value < 0.47) row.traded++;
+      else if (value < 0.97) row.noHit++;
+      else row.incomplete++;
+    }
+    return rows;
+  };
+  const defense: DefensiveStats = {
+    ledge: choiceRows(["ledgedash", "ledgedash", "dropAerial", "jump", "getup", "roll", "attack", "regrab"], Math.round(minutes * 3)),
+    oos: choiceRows(["aerial", "aerial", "grab", "grab", "rollForward", "rollBackward", "spotDodge", "wavedash", "jump"], Math.round(minutes * 8)),
+    shieldExits: choiceRows(["shieldRelease", "jump", "wavedash", "rollBackward", "grab"], Math.round(minutes * 5)),
+  };
+  const recovery: RecoveryStats = { recoveries: {}, edgeguards: {} };
+  const routes: RecoveryRoute[] = ["low", "low", "high", "mixed"];
+  const recoveryCount = Math.max(deaths, Math.round(minutes * 2.5));
+  for (let i = 0; i < recoveryCount; i++) {
+    const key = routes[Math.floor(rand() * routes.length)]!;
+    const row = recovery.recoveries[key] ??= { attempts: 0, reachedLedge: 0, returned: 0, died: 0, incomplete: 0 };
+    row.attempts++;
+    if (rand() < 0.6) row.reachedLedge++;
+    if (i < Math.max(0, deaths - 1)) row.died++;
+    else if (i === recoveryCount - 1 && rand() < 0.12) row.incomplete++;
+    else row.returned++;
+  }
+  const tactics: EdgeguardTactic[] = ["onstage", "onstage", "holdLedge", "high", "low", "mixed"];
+  const opportunities = Math.max(kills, Math.round(minutes * 2.5));
+  for (let i = 0; i < opportunities; i++) {
+    const contested = rand() < 0.85;
+    const key = contested ? tactics[Math.floor(rand() * tactics.length)]! : "unknown";
+    const row = recovery.edgeguards[key] ??= { opportunities: 0, contested: 0, completedContests: 0, stocksTaken: 0, opponentReturned: 0, uncontestedDeaths: 0, incomplete: 0 };
+    row.opportunities++;
+    if (contested) row.contested++;
+    if (i === opportunities - 1 && rand() < 0.12) { row.incomplete++; continue; }
+    if (contested) row.completedContests++;
+    if (i < Math.max(0, kills - 1)) {
+      if (contested) row.stocksTaken++;
+      else row.uncontestedDeaths++;
+    } else row.opponentReturned++;
+  }
+  const punish: PunishStats = { beforeOpening: {} };
+  const preceding: PunishAction[] = ["nair", "dair", "bair", "grab", "shield", "roll", "jump", "groundMovement", "specialOrUnique"];
+  const openings = 8 + Math.floor(rand() * 10);
+  for (let i = 0; i < openings; i++) {
+    const key = preceding[Math.floor(rand() * preceding.length)]!;
+    const row = punish.beforeOpening[key] ??= { openings: 0, damage: 0, kills: 0, incomplete: 0 };
+    row.openings++;
+    if (i === openings - 1 && rand() < 0.15) { row.incomplete++; continue; }
+    row.damage += Math.round(14 + rand() * 25);
+    if (i < deaths) row.kills++;
+  }
+  return { defense, recovery, punish };
+}
 
 /**
  * Plausible per-move landed/damage/kill aggregates (keyed by Melee attack ID,
@@ -283,6 +349,9 @@ export function generateDemoRecords(count = 1600, seed = 20260716): GameRecord[]
 
     const me = mkSide(myKills, oppKills, true);
     const opp = mkSide(oppKills, myKills, false);
+    const interactionRandom = mulberry32(seed ^ Math.imul(i + 1, 16777619));
+    Object.assign(me, mkInteractions(interactionRandom, minutes, oppKills, myKills));
+    Object.assign(opp, mkInteractions(interactionRandom, minutes, myKills, oppKills));
     const rare = rand();
     records.push({
       statsVersion: CURRENT_STATS_VERSION,

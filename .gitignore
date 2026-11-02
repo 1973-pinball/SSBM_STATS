@@ -11,6 +11,8 @@ node_modules
 dist
 dist-ssr
 *.local
+# Local archive manifests and parse receipts contain replay paths/identities.
+*.local.json
 
 # Editor directories and files
 .vscode/*

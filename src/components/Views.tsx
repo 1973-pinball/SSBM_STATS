@@ -8,6 +8,7 @@ import { pct, num, int, shortDate, duration, winRateColor, countNoun } from "../
 import { charName, moveGroup, moveGroupTracksAttempts, specialMoveId, stageName } from "../lib/melee";
 import { getSpecialMoveCapability } from "../lib/specialMoves";
 import { Kpi } from "./Kpi";
+import { Interactions } from "./Interactions";
 import { axisStyle, tooltipStyle, gridStyle, dayTick, OPP_SERIES_COLOR } from "./chartStyle";
 import { activateOnKey } from "../lib/a11y";
 import { demoCommunitySnapshot, fetchCommunitySnapshot, type CommunityBenchmarkRow, type CommunityExecutionRow, type CommunityMoveRow } from "../lib/community";
@@ -1510,11 +1511,19 @@ export function Execution({
   isDemo = false,
   selectedCharacterId,
   selectedOpponentCharacterId,
+  selectedStageId = null,
+  onAnalyzeInteractions,
+  onSelectAnalysisFiles,
+  analyzingInteractions = false,
 }: {
   games: ResolvedGame[];
   isDemo?: boolean;
   selectedCharacterId: number | null;
   selectedOpponentCharacterId: number | null;
+  selectedStageId?: number | null;
+  onAnalyzeInteractions?: () => void;
+  onSelectAnalysisFiles?: () => void;
+  analyzingInteractions?: boolean;
 }) {
   const [moveMetric, setMoveMetric] = useState<MoveMetricKey>("landedPerGame");
   // The charts cover the whole filter; everything under them describes current
@@ -1530,9 +1539,13 @@ export function Execution({
   const recentMoves = useMemo(() => moveTable(recentGames), [recentGames]);
   const benchmarks = useExecutionBenchmarks(games, isDemo, selectedCharacterId, selectedOpponentCharacterId);
   const venueGroundTechBreakdown = archiveGroundTechBreakdown(benchmarks.venue);
-  if (games.length < 2) return <div className="empty-note">Not enough games for execution trends.</div>;
+  const interactionPanel = <Interactions games={recentGames} isDemo={isDemo} onAnalyze={onAnalyzeInteractions}
+    onSelectReplayFiles={onSelectAnalysisFiles} analyzing={analyzingInteractions}
+    benchmarkScope={{ characterId: selectedCharacterId, opponentCharacterId: selectedOpponentCharacterId, stageId: selectedStageId }} />;
+  if (games.length < 2) return <>{interactionPanel}<div className="empty-note">Not enough games for execution trends.</div></>;
   return (
     <>
+      {interactionPanel}
       <div className="kpi-strip compact">
         <Kpi label={`L-cancel success % — last ${summary.games}`} value={summary.lCancel !== null ? `${num(summary.lCancel, 1)}%` : "—"} />
         <TechKpi summary={summary} />

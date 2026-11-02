@@ -16,6 +16,7 @@ import {
 } from "@slippi/slippi-js";
 import type { FrameEntryType, FramesType, GameEndType, GameStartType, MetadataType } from "@slippi/slippi-js";
 import { CURRENT_STATS_VERSION } from "./types";
+import { createInteractionAccumulator, addInteractionFrame, finishInteractionAccumulator } from "./interactionAnalysis";
 import { addSpecialMovesFrame, createSpecialMovesAccumulator, finishSpecialMovesAccumulator, SPECIAL_MOVE_IDS, watchSpecialMoveFrameIntegrity, type SpecialMoveFrameBounds, type SpecialMoveFrameSource } from "./specialMoves";
 import { IncompleteReplayError, MAX_METADATA_BYTES, ReplayMetadataError, readReplayMetadata } from "./replayMetadata";
 import type { GameRecord, GameType, MoveAgg, PlayerSide, TechCounts } from "./types";
@@ -347,6 +348,7 @@ class StreamingFrameSummary {
   private crouchCancels: CrouchCancelAggregate | null = null;
   private specialMoves: ReturnType<typeof createSpecialMovesAccumulator> = null;
   private teams: TeamsAccumulator | null = null;
+  private interactions: ReturnType<typeof createInteractionAccumulator> = null;
 
   setup(settings: GameStartType): void {
     this.settings = settings;
@@ -356,6 +358,7 @@ class StreamingFrameSummary {
       ? createSpecialMovesAccumulator(settings.players)
       : null;
     this.teams = createTeamsAccumulator(settings);
+    this.interactions = createInteractionAccumulator(settings);
   }
 
   process(frame: FrameEntryType, frames: FramesType): void {
@@ -364,6 +367,7 @@ class StreamingFrameSummary {
     if (this.crouchCancels) addCrouchCancelFrame(this.crouchCancels, this.settings, frame);
     if (this.specialMoves) addSpecialMovesFrame(this.specialMoves, frame);
     if (this.teams) addTeamsFrame(this.teams, frame, frames);
+    if (this.interactions) addInteractionFrame(this.interactions, frame);
   }
 
   applyAerialLC(players: PlayerSide[]): void {
@@ -372,6 +376,12 @@ class StreamingFrameSummary {
 
   applySpecialMoves(players: PlayerSide[], bounds: SpecialMoveFrameBounds): void {
     if (this.settings) applySpecialMoves(this.specialMoves, this.settings, players, bounds);
+  }
+
+  applyInteractions(players: PlayerSide[], bounds: SpecialMoveFrameBounds): void {
+    if (!this.interactions || !this.settings) return;
+    const results = finishInteractionAccumulator(this.interactions, bounds);
+    this.settings.players.forEach((p, i) => Object.assign(players[i]!, results.get(p.playerIndex)));
   }
 
   teamsStats(): TeamsStats | null {
@@ -399,6 +409,7 @@ interface StreamingFrameController {
   flush: () => void;
   applyAerialLC: (players: PlayerSide[]) => void;
   applySpecialMoves: (players: PlayerSide[], bounds: SpecialMoveFrameBounds) => void;
+  applyInteractions: (players: PlayerSide[], bounds: SpecialMoveFrameBounds) => void;
   teamsStats: () => TeamsStats | null;
   crouchCancelCounts: () => Map<number, number>;
 }
@@ -481,6 +492,7 @@ function installStreamingFrameSummary(game: SlippiGame): StreamingFrameControlle
     flush,
     applyAerialLC: (players) => summary.applyAerialLC(players),
     applySpecialMoves: (players, bounds) => summary.applySpecialMoves(players, bounds),
+    applyInteractions: (players, bounds) => summary.applyInteractions(players, bounds),
     teamsStats: () => summary.teamsStats(),
     crouchCancelCounts: () => summary.crouchCancelCounts(),
   };
@@ -711,17 +723,24 @@ function parseReplayWithMode(id: string, path: string, buf: ArrayBuffer, bounded
     if (streaming) {
       streaming.applyAerialLC(players);
       streaming.applySpecialMoves(players, specialFrameBounds);
+      streaming.applyInteractions(players, specialFrameBounds);
     } else {
       const aerialLC = createAerialLCAggregate(settings)!;
       const specialMoves = createSpecialMovesAccumulator(settings.players);
+      const interactions = createInteractionAccumulator(settings);
       const frames = game.getFrames();
       for (let fn = Frames.FIRST; fn <= durationFrames; fn++) {
         const frame = frames[fn];
         if (frame) addAerialLCFrame(aerialLC, settings, frame);
         if (frame && specialMoves) addSpecialMovesFrame(specialMoves, frame);
+        if (frame && interactions) addInteractionFrame(interactions, frame);
       }
       applyAerialLC(aerialLC, settings, players);
       applySpecialMoves(specialMoves, settings, players, specialFrameBounds);
+      if (interactions) {
+        const results = finishInteractionAccumulator(interactions, specialFrameBounds);
+        settings.players.forEach((p, i) => Object.assign(players[i]!, results.get(p.playerIndex)));
+      }
     }
   }
 

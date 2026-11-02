@@ -103,7 +103,48 @@ export const SECTIONS = [
       },
       {
         term: "Grabs",
-        def: "All grab attempts, landed and whiffed — standing, dash and out-of-shield together. Shield grabs can't be isolated without frame-level data, a possible future opt-in. The game log drill-down shows landed/attempts with the success rate.",
+        def: "All grab attempts, landed and whiffed — standing, dash and out-of-shield together. The game log drill-down shows landed/attempts with the success rate. The experimental Interactions panel separately identifies grabs initiated after confirmed recent shield contact when replays have been analyzed for that context.",
+      },
+    ],
+  },
+  {
+    title: "Interactions (experimental)",
+    items: [
+      {
+        term: "Scope and coverage",
+        def: "Your most recent 150 singles games after the global filters, matching Execution's current-form window. Each family shows how many games supplied its measurements. Missing, unsupported, or incomplete frame coverage stays unavailable, never zero. Outcome rates with fewer than 20 resolved observations are marked as small samples. Experimental archive estimates use their full sampled history and follow exact character, opponent-character, and stage filters; other filters apply only to your column. These rules need comparison with reviewed replays before firm coaching conclusions.",
+      },
+      {
+        term: "Ledge choices",
+        def: "Options after leaving a ledge hold: get up, roll, attack, ledge jump, drop, drop → jump, drop → aerial, ledgedash, and regrab. Up to 30 frames of the sequence distinguish composite options; the first damaging hit or grab stops classification. Unrecognized sequences stay other / unknown. Uses and share describe observed choices, not controller inputs or ledgedash invincibility quality.",
+      },
+      {
+        term: "Out of shield",
+        def: "After shield contact requires observed shield stun within 30 frames before exiting the same shield hold. Other shield exits have no confirmed recent shield contact and are shown separately. Options include grabs, forward/back rolls, spot dodge, jump, jump → aerial, wavedash, drop/fall, and shield release. Short sequences can develop for 15 frames; unsupported character-specific options remain other / unknown.",
+      },
+      {
+        term: "Ledge and OOS outcomes",
+        def: "The first damaging hit or grab in the 30-frame window beginning at shield or ledge exit determines the outcome. Same-frame trades appear in both hit/grabbed and hit/grab landed columns. Shield contact alone is not a damaging hit. No hit/grab means no such interaction was observed within that window, not a guaranteed safe option. Outcome rates exclude unresolved uses, including a new defensive choice, unaccounted interruption/stock loss, or the replay ending before the window completes. These rates do not prove an unavoidable punish.",
+      },
+      {
+        term: "Recoveries",
+        def: "A recent opponent hit or damage animation followed by an offstage launch begins tracking. Attempts require an offstage frame outside damage/capture/knockdown/tech states, or a ledge grab; direct launch KOs still in uninterrupted hitstun and intentional trips offstage are excluded. Near the edge, observed recovery movement above or below stage height is high or low; using both is mixed. Reaching ledge is an overlapping milestone. Return means landing inside the stage bounds followed by 30 consecutive frames outside disabled states without a hit or grab. Return/death rates exclude unfinished attempts. Geometry is supported on Battlefield, Final Destination, Dream Land, Fountain of Dreams, Yoshi's Story, and explicitly frozen Pokémon Stadium; unfrozen or unknown Stadium geometry is unavailable.",
+      },
+      {
+        term: "Edgeguards",
+        def: "Every qualifying opponent recovery is an opportunity. Observed contests are classified as onstage, hold ledge, offstage high/low, mixed, or uncontested/unclear using both players' positions and actions. Holding the relevant ledge can contest without another hit. Stock loss during contest divides opponent deaths during completed contests by completed contests; unfinished contests are excluded. Opponent returns and uncontested deaths are shown separately. A death during a contest does not establish which action caused it.",
+      },
+      {
+        term: "Before openings taken",
+        def: "The most recent meaningful action within 30 frames before an incoming opening hit or grab. Follow-up hits remain in one episode until stock loss or 45 consecutive frames outside damage, capture, knockdown, and tech states. Damage/opening and death rates use resolved episodes. Share is the distribution of openings taken, not the chance of being punished per use of an action. A preceding attack may have whiffed, hit shield, traded, or been interrupted; this is descriptive context, not verified whiff-punish detection.",
+      },
+      {
+        term: "Sampled archive estimates",
+        def: "Venue, Tournament, and Pro compare the same selected measure and denominator with your local observations. The source covers every eligible bundle in the already-audited public archive: up to 100 singles games per bundle are hash-selected independently for Venue and Tournament, and Pro includes every vetted named-player side in conservative games across those bundles. Cohorts overlap. Exact Me / Vs / Stage filters apply, with no broader fallback when a matchup is missing. Benchmarks pool opportunities rather than balancing players, characters, or events; archive coverage and per-bundle caps can bias them. They are not population statistics or skill rankings. Cells show numerators and denominators, headings show measured player-games, and the panel identifies the source and sample counts. SSBM Stats community estimates are not available for these metrics.",
+      },
+      {
+        term: "Analyzing older replays",
+        def: "New full parses include the current interaction rules. Older compatible baseline stats remain usable until you choose Analyze these games or select replay files in Interactions; earlier experimental interaction counts are unavailable until re-analysis with the corrected rules. Re-analysis needs the original local replays and reads the current filtered window when using connected folders. Computation stays on your device, raw frames are discarded, and only derived summaries are saved; summaries can sync through the existing optional cloud sync. Unsupported source data remains unavailable after analysis.",
       },
     ],
   },
