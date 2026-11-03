@@ -2,3 +2,7 @@
 # /bin/sh a \r it can't parse, and the hook dies as a bad interpreter on
 # exactly the fresh clone it exists to protect.
 .githooks/** text eol=lf
+
+# Ranked artifacts have byte-level integrity receipts; keep them identical on
+# Windows checkouts, Linux CI, and the CDN (including both JSON manifests).
+public/ranked/** -text

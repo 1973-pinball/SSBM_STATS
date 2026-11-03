@@ -467,7 +467,7 @@ export function ArchiveCommunityBenchmark({
 
       <div className="acb-separation-note">
         Tournament pools eligible event-venue games, including conservatively curated tournament games, with each player-game counted once.
-        Pro Tournament uses published, evidence-backed ranked-player sides in conservative tournament games.
+        Pro Tournament uses published sides from identified players with ranking evidence in conservative tournament games.
         Archive rates pool measured opportunities and remain separate from the Community headline medians.
       </div>
       {dataset && <div className="hint">

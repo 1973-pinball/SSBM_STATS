@@ -68,6 +68,7 @@ export async function verifyRankedPublication(options = {}) {
   try {
     const manifestBytes = remote ? await fetchBytes("/ranked/manifest.json", true) : await readFile(path.join(directory, "manifest.json"));
     const manifest = JSON.parse(manifestBytes); assert.match(manifest.datasetId, /^[a-z0-9][a-z0-9._-]*$/i);
+    assert.equal(manifest.exportQualityVersion, "ranked-export-quality-v1", "unsupported ranked export eligibility version");
     const versionedDirectory = path.join(directory, manifest.datasetId);
     const nested = !remote && Boolean(await stat(path.join(versionedDirectory, "manifest.json")).catch(() => null));
     if (nested) { assert.deepEqual(await readFile(path.join(versionedDirectory, "manifest.json")), manifestBytes, "current manifest must be an exact copy of the immutable version"); consumerDirectory = versionedDirectory; }

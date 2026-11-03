@@ -1,7 +1,52 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Connect, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import { execFileSync } from 'node:child_process'
+import { readFile, realpath } from 'node:fs/promises'
+import path from 'node:path'
+
+// Vite's static handler treats *.json.gz as encoded JSON. These shards are
+// explicit gzip payloads: the client verifies compressed bytes before decoding.
+function opaqueRankedShards(): Plugin {
+  let publicDir = ''
+  let previewDir = ''
+  const shardPath = /^\/ranked\/[a-zA-Z0-9][a-zA-Z0-9._-]*\/(diamond|master)-(all|[0-9]|1[0-9]|2[0-5])\.json\.gz$/
+  const serve = (directory: string): Connect.NextHandleFunction => async (req, res, next) => {
+    const pathname = req.url?.split('?')[0] ?? ''
+    if (!directory || !shardPath.test(pathname) || !['GET', 'HEAD'].includes(req.method ?? '')) return next()
+    try {
+      const root = await realpath(directory)
+      const filename = await realpath(path.join(root, pathname.slice(1)))
+      const relative = path.relative(root, filename)
+      // Resolve symlinks as well as URL components before allowing file access.
+      if (!shardPath.test('/' + relative.split(path.sep).join('/'))) {
+        res.statusCode = 403
+        res.end()
+        return
+      }
+      const bytes = await readFile(filename)
+      res.removeHeader('Content-Encoding')
+      res.setHeader('Content-Type', 'application/gzip')
+      res.setHeader('Content-Length', bytes.length)
+      res.setHeader('X-Content-Type-Options', 'nosniff')
+      res.end(req.method === 'HEAD' ? undefined : bytes)
+    } catch (error) {
+      if (error && typeof error === 'object' && 'code' in error && ['ENOENT', 'ENOTDIR'].includes(String(error.code))) {
+        res.statusCode = 404
+        res.end()
+      } else next(error)
+    }
+  }
+  return {
+    name: 'opaque-ranked-shards',
+    configResolved(config) {
+      publicDir = config.publicDir
+      previewDir = path.resolve(config.root, config.build.outDir)
+    },
+    configureServer(server) { server.middlewares.use(serve(publicDir)) },
+    configurePreviewServer(server) { server.middlewares.use(serve(previewDir)) },
+  }
+}
 
 const buildId = (() => {
   const vercelCommit = process.env.VERCEL_GIT_COMMIT_SHA?.trim()
@@ -19,6 +64,7 @@ export default defineConfig({
     __BUILD_ID__: JSON.stringify(buildId),
   },
   plugins: [
+    opaqueRankedShards(),
     react(),
     VitePWA({
       // New deploys activate immediately; App defers only the visible page

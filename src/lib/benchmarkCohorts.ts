@@ -20,7 +20,7 @@ export const BENCHMARK_COHORTS = {
   },
   pro: {
     label: "Pro Tournament",
-    description: "Evidence-backed ranked-player appearances in conservative tournament games. Historical ranking evidence and per-metric coverage apply; this sample overlaps Tournament.",
+    description: "Appearances by identified players with ranking evidence in conservative tournament games. Historical ranking evidence and per-metric coverage apply; this sample overlaps Tournament.",
   },
 } as const;
 

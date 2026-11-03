@@ -21,6 +21,15 @@
       ]
     },
     {
+      "source": "/ranked/:dataset/:file.json.gz",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/gzip"
+        }
+      ]
+    },
+    {
       "source": "/assets/(.*)",
       "headers": [
         {

@@ -296,7 +296,7 @@ export function Interactions({ games, onAnalyze, onSelectReplayFiles, analyzing 
         </select></label>}
       </div>
       {!isDemo && (needsAnalysis || unavailable > 0) && <div className="interaction-coverage-note">
-        <p>This is coverage of your recent games in the current filter. The Venue, Tournament, and Pro samples are separate.</p>
+        <p>This is coverage of your recent games in the current filter. Ranked and tournament reference samples are shown separately below.</p>
         {needsAnalysis && <p><strong>{int(analysisCoverage.needsAnalysis)} older {analysisCoverage.needsAnalysis === 1 ? "game needs" : "games need"} interaction analysis.</strong>{" "}
           {analyzing ? "Replay analysis is running; this count updates as games finish."
             : "Analysis runs automatically when connected replay folders are accessible. If this count does not change, use Analyze these games to reconnect, or Select replay files."}
