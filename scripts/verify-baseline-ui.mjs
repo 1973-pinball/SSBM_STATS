@@ -53,7 +53,17 @@ const conservative = row("conservative", null, null, {
   metrics: { ...metrics, moves: { 13: { ...metrics.moves[13], landed: 700 } } },
 });
 const pro = row("conservative", null, null, { scope: "pro", game_count: 10, wins: 5, win_rate_game_count: 10, identified_player_count: 2 });
-const plain = text => text.replace(/<[^>]*>/g, "").replace(/&amp;/g, "&");
+const plain = text => {
+  // Removing one tag can expose another; reach a fixed point before comparing
+  // trusted SSR fixture text. This helper is not used to render untrusted HTML.
+  let previous;
+  do {
+    previous = text;
+    text = text.replace(/<[^<>]*>/g, "");
+  } while (text !== previous);
+  return text.replace(/&amp;/g, "&");
+};
+assert.equal(plain("<scr<script>ipt>fixture</scr<script>ipt>"), "fixture", "nested tags cannot be reconstructed by text extraction");
 const tableRows = markup => [...markup.matchAll(/<tr[^>]*>(.*?)<\/tr>/gs)]
   .map(match => [...match[1].matchAll(/<t[dh][^>]*>(.*?)<\/t[dh]>/gs)].map(cell => plain(cell[1])));
 
