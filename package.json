@@ -2,7 +2,7 @@
   "name": "ssbm-stats",
   "private": true,
   "license": "MIT",
-  "version": "0.5.1",
+  "version": "0.5.0",
   "type": "module",
   "engines": {
     "node": "22.x"
@@ -15,7 +15,7 @@
     "verify:cpu": "node scripts/verify-known-cpu-filter.mjs",
     "verify:filters": "node scripts/verify-custom-range.mjs",
     "verify:benchmarks": "node scripts/verify-benchmark-filters.mjs && node scripts/verify-baseline-ui.mjs && node scripts/verify-archive-pro-identity.mjs && node scripts/verify-archive-pro-schema.mjs && node scripts/verify-archive-load-preflight.mjs && node scripts/verify-ranked-source-pilot.mjs",
-    "verify:replays": "node scripts/verify-replay-retry.mjs && node scripts/verify-replay-metadata.mjs && node scripts/verify-import-report.mjs && node scripts/verify-ranked-parser.mjs",
+    "verify:replays": "node scripts/verify-replay-retry.mjs && node scripts/verify-automatic-stats-upgrade.mjs && node scripts/verify-replay-metadata.mjs && node scripts/verify-import-report.mjs && node scripts/verify-ranked-parser.mjs",
     "verify:interactions": "node --experimental-strip-types scripts/verify-defensive-interactions.mjs && node --experimental-strip-types scripts/verify-recovery-interactions.mjs && node --experimental-strip-types scripts/verify-punish-context.mjs && node scripts/verify-interaction-summary.mjs && node scripts/verify-interaction-benchmarks.mjs && node scripts/verify-interaction-analysis.mjs && node scripts/verify-cloud-stats-versions.mjs && node scripts/verify-interaction-archive-paths.mjs && node scripts/verify-automatic-interaction-analysis.mjs && node scripts/verify-interaction-pro-evidence.mjs",
     "verify:moves": "node --experimental-strip-types scripts/verify-down-b.mjs && node --experimental-strip-types scripts/verify-specials.mjs && node scripts/verify-special-stats-migration.mjs && node scripts/verify-move-comparisons.mjs && node scripts/verify-archive-move-coverage.mjs && node scripts/verify-archive-source-population.mjs",
     "verify:slpz": "node --experimental-strip-types scripts/verify-slpz.mjs",

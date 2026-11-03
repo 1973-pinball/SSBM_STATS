@@ -7,14 +7,6 @@ Everything is parsed and cached in your browser; raw replay files never leave yo
 No replays? Try the demo or browse the public Community, Tournament Predictions,
 and Liquipedia views.
 
-## Version 0.5.1 — Clearer execution charts
-
-Execution charts default to your trend plus Tournament. Use **Chart references**
-to choose which benchmark lines appear across all three charts, or hide them
-all. Detailed explanations are expandable; table highlighting is a separate
-choice. This presentation update does not require another replay refresh.
-See the [v0.5.1 notes](docs/releases/v0.5.1.md).
-
 ## Version 0.5.0 — Diamond and Master baselines
 
 This version includes the full ranked export, verified against the source and
@@ -36,9 +28,15 @@ Deployment evidence is recorded in the
   eligible contributions even when individual player cells are too sparse.
 - **Parser corrections:** stats version 10 fixes headline calculations for
   recordings with missing end events or rewritten finalized history. Existing
-  compatible stats remain visible while accessible replays are refreshed.
+  saved stats update automatically when their replay files are accessible,
+  including older games outside the current filters. Existing stats stay
+  visible until their replacements are saved; unfinished work resumes on return.
 - **Resumable data builds:** maintainers can pause downloads and parsing, retain
   verified work, and resume the same source selection from saved checkpoints.
+- **Clearer execution charts:** your trend and Tournament appear by default.
+  Use **Chart references** to choose other benchmark lines or hide them across
+  all three charts. Extended explanations are expandable; table highlighting
+  remains a separate choice.
 
 See the [v0.5.0 release notes](docs/releases/v0.5.0.md) for source selection,
 verified sample counts, limitations, and validation status. Earlier interaction
@@ -169,12 +167,14 @@ above **Move impact — volume vs wins**. It includes:
   together until stock loss or 45 frames outside damage/capture/knockdown/tech
   states. This does not establish a whiff or an unavoidable punish.
 
-New full parses include these summaries. Older compatible game stats remain
-usable while the latest 150 filtered singles are analyzed automatically in the
-background. Only matching files are re-read, using connected folders with
-existing read permission or files selected during this visit. **Analyze these
-games** is a manual reconnect/retry, and **Select replay files** handles missing
-or disconnected sources. Cloud summaries alone cannot supply raw frames.
+New full parses include these summaries. Saved game stats update automatically
+across the library when their original replay files are accessible, with small
+background batches and existing stats retained until replacements are saved.
+The separate recent-interaction queue remains scoped to the latest 150 filtered
+singles. Only matching files are re-read, using connected folders with existing
+read permission or files selected during this visit. **Analyze these games** is
+a reconnect/retry, and **Select replay files** handles missing or disconnected
+sources. Cloud summaries alone cannot supply raw frames.
 Automatic analysis attempts each older game once per visit; explicit reconnect
 or retry can try again. Frame processing stays on the device, raw frames are
 discarded, and only derived summaries are saved and eligible for the existing

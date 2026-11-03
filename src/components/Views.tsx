@@ -1456,7 +1456,7 @@ function MoveMetricChart({ games, moves, benchmarks, metric, setMetric }: {
       {activeMoves.length === 0 ? (
         <div className="empty-note">
           No per-move data is available in these games.
-          {hasStaleStats && <> Refresh older cached replays to update their measurements.</>}
+          {hasStaleStats && <> Older measurements update automatically when their replay files are accessible.</>}
         </div>
       ) : !hasData ? (
         <div className="empty-note">
@@ -1550,7 +1550,7 @@ function MoveMetricChart({ games, moves, benchmarks, metric, setMetric }: {
           </details>
         </>
       )}
-      {activeMoves.length > 0 && hasStaleStats && <div className="hint">Some cached replays use older statistics. Refresh replays to update their measurements.</div>}
+      {activeMoves.length > 0 && hasStaleStats && <div className="hint">Some cached replays use older statistics. They update automatically when their replay files are accessible.</div>}
       {isNoHitMetric && benchmarks.characterId !== null && activeMoves.map((move) => {
         const moveId = specialMoveId(move.key);
         const reason = moveId === null ? null : getSpecialMoveCapability(benchmarks.characterId!, moveId).reason;
@@ -1881,7 +1881,7 @@ function MovesSection({
         <h2>Moves</h2>
         <div className="empty-note">
           No per-move data is available in these games.
-          {hasStaleStats && <> Refresh older cached replays to update their measurements.</>}
+          {hasStaleStats && <> Older measurements update automatically when their replay files are accessible.</>}
         </div>
       </div>{interactionPanel}</>
     );
@@ -2010,7 +2010,7 @@ function MovesSection({
         </table></MatrixScroll>
         {metric === "attemptsPerGame" && <div className="hint">Activation counts use measured games across normals, aerials, and all four special directions. Unsupported copied moves, form changes, or missing frames remain unavailable. SSBMStats Community does not publish special attempts.</div>}
         {(metric === "noHitPerGame" || metric === "noHitRate") && <div className="hint">No-hit counts completed special uses with no opponent damage, including shields and defensive uses; it is not a verified whiff rate. Incomplete uses are excluded. Utility and delayed attacks have attempts only. SSBMStats Community does not publish outcomes.</div>}
-        {hasStaleStats && <div className="hint">Some cached replays use older statistics. Refresh replays to update their measurements.</div>}
+        {hasStaleStats && <div className="hint">Some cached replays use older statistics. They update automatically when their replay files are accessible.</div>}
         {(metric === "noHitPerGame" || metric === "noHitRate") && specialOutcomeReason && <div className="hint">{charName(benchmarks.characterId!)}: {specialOutcomeReason}</div>}
         <div className="hint">
           Your most recent {recent.covered.toLocaleString()} games; the selected measure also updates the trend above.
