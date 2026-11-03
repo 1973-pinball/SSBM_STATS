@@ -1,7 +1,7 @@
 # Experimental interaction references — 0.4.9
 
 The shipped reference reparses 11,141 unique singles games from 66 public replay
-bundles using the same corrected stats-version-8 detectors as local imports.
+bundles using the same stats-version-9 detectors as local imports.
 It is a convenience sample, not an estimate of the whole Melee population.
 
 | Cohort | Games | Player appearances | Ledge / OOS coverage | Recovery / edgeguard coverage | Opening-context coverage |
@@ -52,6 +52,16 @@ current filters and recent-game window. Each cell shows its numerator and
 denominator, excludes unresolved outcomes where appropriate, and marks fewer
 than 20 qualifying observations as a small sample.
 
+The recovery comparison also offers **Hit during recovery**: attempts with a
+recorded opponent hit after the initial launch divided by all recorded attempts,
+including unfinished attempts. Hits through ledge and the stable-return check
+count once per attempt. This differs from the positional edgeguard contest metric.
+Stats v9 also preserves optional C-stick input/sample counters for eligible
+shield exits. They describe observed inputs, not proven buffering or causation.
+The encoding-v2 envelope preserves missing input counters separately from zero.
+The sample seed and staging directory retain their v8 names intentionally so
+detector upgrades re-analyze the same selected games.
+
 ## Reproduction and verification
 
 `scripts/build-nikki-public-archive.mjs --population-index FILE.local.json`
@@ -83,7 +93,7 @@ one newline separator, and the supplemental JSON bytes.
 Only aggregate counters, public bundle names, provenance hashes, and sample
 counts enter `src/data/interaction-benchmarks.json`. Local replay paths, raw
 frames, game identities, player identities, and connect codes are excluded.
-Lossless counter arrays reduce the shipped JSON to 2,664,668 bytes. The data loads
+Lossless counter arrays reduce the shipped JSON to 2,939,368 bytes. The data loads
 as a separate chunk and is included in the offline cache; decoding preserves
 every counter and the distinction between missing measurements and zero.
 

@@ -57,6 +57,7 @@ if (!isMainThread) {
   }
   if (!args.has("cache")) throw new Error("--cache is required; source inputs are never downloaded by this command");
   const cache = path.resolve(args.get("cache"));
+  // Freeze the sample seed and staging location across detector upgrades.
   const staging = path.join(cache, "interaction-sample-v8");
   const bundleCount = Number(args.get("bundle-count") ?? Number.MAX_SAFE_INTEGER), perBundle = Number(args.get("per-bundle") ?? 100);
   const extractWorkers = Number(args.get("extract-workers") ?? 4);
@@ -249,7 +250,7 @@ if (!isMainThread) {
       const lanes = Array.from({ length: Math.min(width, batch.length) }, () => []);
       batch.forEach((item, i) => lanes[i % lanes.length].push(item));
       const done = await Promise.all(lanes.map(lane => new Promise((resolve, reject) => {
-        const worker = new Worker(new URL(import.meta.url), { workerData: { parser: path.join(buildDir, "parse.mjs"), statsVersion: 8, items: lane } });
+        const worker = new Worker(new URL(import.meta.url), { workerData: { parser: path.join(buildDir, "parse.mjs"), statsVersion: 9, items: lane } });
         let received = false;
         worker.on("message", rows => { received = true; resolve(rows); }); worker.on("error", reject);
         worker.on("exit", code => { if (code || !received) reject(new Error(`Parser worker exited ${code}`)); });
@@ -281,7 +282,7 @@ if (!isMainThread) {
         }
       }
     }
-    const output = { schemaVersion: 1, statsVersion: 8, generatedAt: new Date().toISOString(), sourceDataset: index.sourceDataset,
+    const output = { schemaVersion: 1, statsVersion: 9, generatedAt: new Date().toISOString(), sourceDataset: index.sourceDataset,
       sourceUrl: "https://replays.nikki.sh/",
       method: `Experimental archive sample covering ${bundles.length === grouped.size ? `all ${bundles.length} eligible audited bundles` : `the ${bundles.length} smallest eligible audited bundles`}. Up to ${perBundle} hash-selected singles games per bundle in each Venue and Tournament cohort; Pro includes all evidence-mapped player sides in those bundles' conservative tournament games. Per-bundle sampling caps and archive coverage can bias estimates; counts pool opportunities, not players. Venue may include friendlies; Tournament uses the existing conservative archive curation. Cohorts overlap and are not skill ranks. All dates; exact character, opponent and stage filters.`,
       sample: { bundles: bundles.length, games: items.length, availableGames: index.games.length, proPlayers: proPlayers.size },

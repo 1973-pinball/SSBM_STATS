@@ -266,6 +266,18 @@ select:disabled { opacity: 0.45; }
 }
 .filter-fields { display: contents; }
 .filter-mobile-summary { display: none; }
+.filters input[type="date"] {
+  min-width: 145px;
+  color-scheme: dark;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-family: var(--font-body);
+}
+.filters input[type="date"]:disabled { opacity: 0.45; }
+.filter-range-error { flex-basis: 100%; color: var(--loss); font-size: 12px; }
 .filters label,
 .filter-control {
   display: flex;
@@ -1211,6 +1223,9 @@ button.linky:hover { color: #a094ff; }
    rather than the value row, and nudged onto its baseline. */
 .sc-stock-sm { width: 15px; height: 15px; vertical-align: -3px; margin-right: 4px; }
 .sc-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.sc-secondary { margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--line); }
+.sc-secondary .sc-value { font-size: 14px; }
+.sc-secondary .sc-stock { width: 18px; height: 18px; }
 .sc-foot {
   display: flex;
   justify-content: space-between;
@@ -1747,7 +1762,9 @@ input[type="text"]:focus-visible { outline: 2px solid var(--accent); outline-off
     grid-template-columns: 84px minmax(0, 1fr);
     align-items: center;
   }
-  .filters.open .filter-fields select { width: 100%; min-width: 0; }
+  .filters.open .filter-fields select,
+  .filters.open .filter-fields input[type="date"] { width: 100%; min-width: 0; }
+  .filter-range-error { grid-column: 1 / -1; }
   .filters.open .filter-fields .mode-picker { width: 100%; min-width: 0; }
   .filters.open .filter-fields .mode-picker-option {
     display: flex;

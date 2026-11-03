@@ -63,12 +63,22 @@ export function ShareCard({ games, teamGames }: { games: ResolvedGame[]; teamGam
           </div>
 
           <div className="sc-grid">
-            {cell(
-              "Main",
-              d.mainChar ? charName(d.mainChar.id) : "—",
-              d.mainChar ? `${int(d.mainChar.games)} games logged` : undefined,
-              d.mainChar?.id,
-            )}
+            <div className="sc-cell">
+              <div className="sc-label">Main</div>
+              <div className="sc-value">
+                {d.mainChar && <img className="sc-stock" src={`/stock/${d.mainChar.id}.png`} alt="" />}
+                {d.mainChar ? charName(d.mainChar.id) : "—"}
+              </div>
+              {d.mainChar && <div className="sc-sub">{int(d.mainChar.games)} games logged</div>}
+              {d.secondaryChar && <div className="sc-secondary">
+                <div className="sc-label">Secondary</div>
+                <div className="sc-value">
+                  <img className="sc-stock" src={`/stock/${d.secondaryChar.id}.png`} alt="" />
+                  {charName(d.secondaryChar.id)}
+                </div>
+                <div className="sc-sub">{int(d.secondaryChar.games)} games logged</div>
+              </div>}
+            </div>
             {cell(
               "Record",
               `${int(d.wins)}–${int(d.losses)}`,

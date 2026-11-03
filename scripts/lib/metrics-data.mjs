@@ -123,6 +123,22 @@ export const SECTIONS = [
         def: "After shield contact requires observed shield stun within 30 frames before exiting the same shield hold. Other shield exits have no confirmed recent shield contact and are shown separately. Options include grabs, forward/back rolls, spot dodge, jump, jump → aerial, wavedash, drop/fall, and shield release. Short sequences can develop for 15 frames; unsupported character-specific options remain other / unknown.",
       },
       {
+        term: "Ledge drops and special moves",
+        def: "Drop → aerial counts normal aerial attacks, not specials. Drop → regrab requires a direct return during the tracked drop/jump sequence. Special-move stalls such as Fire Fox remain other / unknown rather than being labeled aerials or regrabs.",
+      },
+      {
+        term: "Wavedash out of shield",
+        def: "A shield-exit jump followed by an air dodge and landing within the 15-frame sequence is a wavedash, including same-frame air-dodge landings. A jump without that landing remains separate. The Wavedash row stays visible at zero when games were measured; missing coverage is unavailable.",
+      },
+      {
+        term: "C-stick input (experimental)",
+        def: "For jumps, jump → aerial, wavedashes, rolls and spot dodges, this column reports C-stick deflection on the shield-exit input frame. The denominator counts only eligible exits with both C-stick axes recorded. It does not establish that the action was caused or buffered by the C-stick: main-stick and button inputs can occur simultaneously. Missing input data is unavailable rather than neutral.",
+      },
+      {
+        term: "Hit during recovery",
+        def: "Recovery attempts with at least one observed opponent hit after the initial offstage launch, divided by all recorded attempts including unfinished ones. Multiple hits count once. Tracking continues through ledge and the stable-return check; the initial launch, non-damaging grabs, and self/environmental damage are excluded. An unhit recovery can still be contested by an opponent's positioning or ledge hold. This measure is also available in the experimental Venue, Tournament and Pro comparisons.",
+      },
+      {
         term: "Ledge and OOS outcomes",
         def: "The first damaging hit or grab in the 30-frame window beginning at shield or ledge exit determines the outcome. Same-frame trades appear in both hit/grabbed and hit/grab landed columns. Shield contact alone is not a damaging hit. No hit/grab means no such interaction was observed within that window, not a guaranteed safe option. Outcome rates exclude unresolved uses, including a new defensive choice, unaccounted interruption/stock loss, or the replay ending before the window completes. These rates do not prove an unavoidable punish.",
       },

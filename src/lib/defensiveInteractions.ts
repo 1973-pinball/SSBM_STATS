@@ -40,6 +40,10 @@ export interface ChoiceOutcomes {
   traded: number;
   noHit: number;
   incomplete: number;
+  /** Eligible shield exits with recorded C-stick input; neither causation nor a buffer detector. */
+  cStickInputs?: number;
+  /** Eligible shield exits with both finite C-stick axes on their exit frame. */
+  cStickSamples?: number;
 }
 export interface DefensiveStats {
   ledge: Partial<Record<LedgeOption, ChoiceOutcomes>>;
@@ -53,7 +57,7 @@ export interface DefensiveChoiceEvent {
   option: LedgeOption | OosOption;
   startFrame: number;
   endFrame: number;
-  outcome: Exclude<keyof ChoiceOutcomes, "attempts">;
+  outcome: Outcome;
 }
 
 type Post = NonNullable<FrameEntryType["players"][number]>["post"];
@@ -67,8 +71,9 @@ type Snapshot = {
   isAirborne: boolean | undefined;
   hitlagRemaining: number | undefined;
   immediateAirDodgeLanding: boolean;
+  cStickInput: boolean | undefined;
 };
-type Outcome = Exclude<keyof ChoiceOutcomes, "attempts">;
+type Outcome = "punished" | "hit" | "traded" | "noHit" | "incomplete";
 type Choice = {
   section: keyof DefensiveStats;
   option: LedgeOption | OosOption;
@@ -76,6 +81,7 @@ type Choice = {
   sequenceOpen: boolean;
   sawJump: boolean;
   sawAirDodge: boolean;
+  cStickInput?: boolean;
 };
 type PlayerTrack = {
   playerIndex: number;
@@ -117,6 +123,10 @@ function snapshot(post: Post | undefined, pre: Pre | undefined): Snapshot | null
     stocksRemaining: post.stocksRemaining, lastHitBy: post.lastHitBy,
     internalCharacterId: post.internalCharacterId, isAirborne: post.isAirborne,
     hitlagRemaining: post.hitlagRemaining,
+    // Same deadzone as Slippi's input counter. This only observes the stick:
+    // main-stick and button inputs may coexist, and earlier buffers are unknown.
+    cStickInput: finite(pre?.cStickX) && finite(pre?.cStickY)
+      ? Math.abs(pre.cStickX) >= 0.2875 || Math.abs(pre.cStickY) >= 0.2875 : undefined,
     // EscapeAir can collide and enter LandingFallSpecial within the same
     // simulation frame, so post states need not contain AirDodge at all.
     // Require a recorded jump/fall pre-state and a digital L/R input; an
@@ -136,12 +146,17 @@ const disrupted = (state: number) => dead(state) || isDamaged(state) || grabbed(
 const airJump = (state: number) => state === 27 || state === 28;
 const jumping = (state: number) => state >= 24 && state <= 28;
 const falling = (state: number) => state >= 29 && state <= 34;
+// Normal aerial attacks only, including G&W's character-specific aerial states.
+// Airborne specials (including Fire Fox) are not aerial attacks here.
 const aerial = (post: Snapshot) => (post.actionStateId >= 65 && post.actionStateId <= 69) ||
   (post.internalCharacterId === 24 && [347, 348, 349].includes(post.actionStateId));
 
 function emptyOutcomes(): ChoiceOutcomes {
   return { attempts: 0, punished: 0, hit: 0, traded: 0, noHit: 0, incomplete: 0 };
 }
+const cStickEligible = (option: LedgeOption | OosOption) =>
+  option === "jump" || option === "aerial" || option === "wavedash" ||
+  option === "rollForward" || option === "rollBackward" || option === "spotDodge";
 function finishChoice(track: PlayerTrack, outcome: Outcome): void {
   const choice = track.pending;
   if (!choice) return;
@@ -149,6 +164,10 @@ function finishChoice(track: PlayerTrack, outcome: Outcome): void {
   const row = rows[choice.option] ??= emptyOutcomes();
   row.attempts++;
   row[outcome]++;
+  if (choice.section !== "ledge" && cStickEligible(choice.option) && choice.cStickInput !== undefined) {
+    row.cStickSamples = (row.cStickSamples ?? 0) + 1;
+    row.cStickInputs = (row.cStickInputs ?? 0) + Number(choice.cStickInput);
+  }
   track.onChoice?.({ playerIndex: track.playerIndex, section: choice.section, option: choice.option,
     startFrame: choice.start, endFrame: track.currentFrame, outcome });
   track.pending = null;
@@ -176,7 +195,8 @@ function shieldChoice(post: Snapshot, frame: number, contacted: boolean): Choice
     : falling(state) || state === 244 ? "fall" : state === 180 || state === 14 ? "shieldRelease"
     : "unknown";
   return { section: contacted ? "oos" : "shieldExits", option, start: frame,
-    sequenceOpen: option === "jump", sawJump: jumping(state), sawAirDodge: false };
+    sequenceOpen: option === "jump", sawJump: jumping(state), sawAirDodge: false,
+    cStickInput: cStickEligible(option) ? post.cStickInput : undefined };
 }
 
 /** Recognize only observed short sequences; character-specific specials stay unknown. */
@@ -191,6 +211,8 @@ function advanceSequence(choice: Choice, post: Snapshot, frame: number): void {
   if (disrupted(state)) return;
   if (choice.section === "ledge") {
     if (onLedge(state)) {
+      // Only an uninterrupted drop/jump sequence can reach this branch. A
+      // special closes the sequence as unknown, so this is not a stall counter.
       choice.option = "regrab";
       choice.sequenceOpen = false;
     } else if (airJump(state)) {

@@ -33,7 +33,7 @@ const sum = (rows, key) => Object.values(rows).reduce((n, row) => n + row[key], 
   f.feed(recovering());
   f.land();
   const me = f.result().get(0), opp = f.result().get(1);
-  assert.deepEqual(me.recoveries.high, { attempts: 1, reachedLedge: 0, returned: 1, died: 0, incomplete: 0 });
+  assert.deepEqual(me.recoveries.high, { attempts: 1, reachedLedge: 0, hitDuringRecovery: 0, returned: 1, died: 0, incomplete: 0 });
   assert.equal(opp.edgeguards.unknown.opportunities, 1);
   assert.equal(opp.edgeguards.unknown.opponentReturned, 1);
   assert.equal(opp.edgeguards.unknown.contested, 0);
@@ -49,9 +49,85 @@ const sum = (rows, key) => Object.values(rows).reduce((n, row) => n + row[key], 
   f.feed(recovering({ positionX: 71, positionY: -8, actionStateId: 252 }));
   f.feed(recovering({ actionStateId: 0, stocksRemaining: 3, positionY: -120 }));
   const me = f.result().get(0), opp = f.result().get(1);
-  assert.deepEqual(me.recoveries.low, { attempts: 1, reachedLedge: 1, returned: 0, died: 1, incomplete: 0 });
+  assert.deepEqual(me.recoveries.low, { attempts: 1, reachedLedge: 1, hitDuringRecovery: 0, returned: 0, died: 1, incomplete: 0 });
   assert.equal(opp.edgeguards.unknown.uncontestedDeaths, 1);
   assert.equal(opp.edgeguards.unknown.stocksTaken, 0);
+}
+
+// The initiating launch is excluded; all later opponent hits count once per
+// attempt, including a rehit before the first actionable recovery frame.
+{
+  const f = fixture();
+  f.launch();
+  f.feed(recovering({ actionStateId: 87, percent: 25 }));
+  f.feed(recovering({ percent: 25 }));
+  f.land(post(), { percent: 25 });
+  assert.equal(f.result().get(0).recoveries.high.hitDuringRecovery, 1,
+    "a rehit before recovery eligibility is preserved once the attempt qualifies");
+}
+{
+  const f = fixture();
+  f.launch();
+  f.feed(recovering({ actionStateId: 87, percent: 25 }));
+  f.feed(recovering({ percent: 25 }));
+  f.feed(recovering({ actionStateId: 87, percent: 35 }));
+  f.feed(recovering({ percent: 35 }));
+  f.land(post(), { percent: 35 });
+  assert.equal(f.result().get(0).recoveries.high.hitDuringRecovery, 1,
+    "multiple rehits, including one before eligibility, count one hit recovery");
+  f.launch({ percent: 55 });
+  f.feed(recovering({ percent: 55 }));
+  f.land(post(), { percent: 55 });
+  const row = f.result().get(0).recoveries.high;
+  assert.equal(row.attempts, 2);
+  assert.equal(row.hitDuringRecovery, 1, "hit observation resets between recovery attempts");
+}
+
+// Holding ledge and grabs without damage are contests, but not observed hits.
+// Stale attacker IDs on magnifier ticks, self-damage, and unattributed damage
+// also cannot establish that the opponent hit this recovery.
+for (const extra of [
+  { actionStateId: 223, percent: 20 },
+  { percent: 21 },
+  { actionStateId: 87, percent: 21, lastHitBy: 0 },
+  { actionStateId: 87, percent: 21, lastHitBy: 255 },
+]) {
+  const f = fixture();
+  f.launch();
+  f.feed(recovering(), holding());
+  f.feed(recovering(extra), holding());
+  f.land(post(), { percent: extra.percent });
+  const result = f.result();
+  assert.equal(result.get(0).recoveries.high.hitDuringRecovery, 0,
+    `non-opponent-hit evidence does not count: ${JSON.stringify(extra)}`);
+  assert.ok(sum(result.get(1).edgeguards, "contested") > 0,
+    "the hit metric is distinct from the existing positional contest metric");
+}
+
+// Hitlag can establish a fresh opponent hit even during a non-damage animation.
+{
+  const f = fixture();
+  f.launch(); f.feed(recovering());
+  f.feed(recovering({ actionStateId: 65, percent: 25, hitlagRemaining: 2 }));
+  f.land(post(), { percent: 25 });
+  assert.equal(f.result().get(0).recoveries.high.hitDuringRecovery, 1);
+}
+
+// Observed hits survive an unresolved ending; repeated finish calls do not
+// increment them. A launch KO with rehits but no recovery eligibility stays out.
+{
+  const f = fixture();
+  f.launch(); f.feed(recovering());
+  f.feed(recovering({ actionStateId: 87, percent: 30 }));
+  const result = f.result();
+  assert.equal(result.get(0).recoveries.high.hitDuringRecovery, 1);
+  assert.equal(result.get(0).recoveries.high.incomplete, 1);
+  assert.deepEqual(f.result(), result);
+  const ko = fixture();
+  ko.launch();
+  ko.feed(recovering({ actionStateId: 87, percent: 30 }));
+  ko.feed(recovering({ actionStateId: 0, percent: 30, stocksRemaining: 3 }));
+  assert.deepEqual(ko.result().get(0).recoveries, {});
 }
 
 // No new hit is required for observing a ledge-hold contest.
@@ -227,4 +303,4 @@ const sum = (rows, key) => Object.values(rows).reduce((n, row) => n + row[key], 
     "a tech-roll slide-off just beyond the lip counts even inside the horizontal tolerance");
 }
 
-console.log("Recovery interactions: trajectory, ledge, contested outcomes, stage coverage, gaps and incomplete episodes passed.");
+console.log("Recovery interactions: trajectory, ledge, observed recovery hits, contested outcomes, stage coverage, gaps and incomplete episodes passed.");

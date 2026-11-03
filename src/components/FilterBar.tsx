@@ -2,7 +2,7 @@ import type { Account, Filters, GameType, ResolvedGame, ResolvedTeamGame } from 
 import { charName, stageName } from "../lib/melee";
 import { useMemo, useState } from "react";
 import { DEFAULT_FILTERS, accountLabel } from "../lib/types";
-import { localDay } from "../lib/stats";
+import { customRangeError, localDay } from "../lib/stats";
 import { shortDate } from "../lib/format";
 
 interface Props {
@@ -128,10 +128,13 @@ export function FilterBar({ filters, setFilters, games, teamGames, hasTeamGames,
     "30d": "Last 30 days",
     "90d": "Last 90 days",
     "1y": "Last year",
+    custom: `${filters.rangeStart ?? "Start"} – ${filters.rangeEnd ?? "End"}`,
   };
+  const rangeError = filters.range === "custom" && filters.day === null
+    ? customRangeError(filters.rangeStart, filters.rangeEnd) : null;
   const activeFilters: { key: string; label: string; clear: () => void }[] = [];
   if (filters.includeCpuGames) activeFilters.push({ key: "cpu", label: "CPU games included", clear: () => set({ includeCpuGames: false }) });
-  if (filters.range !== "all") activeFilters.push({ key: "range", label: rangeLabels[filters.range], clear: () => set({ range: "all" }) });
+  if (filters.range !== "all") activeFilters.push({ key: "range", label: rangeLabels[filters.range], clear: () => set({ range: "all", rangeStart: null, rangeEnd: null }) });
   if (filters.day) activeFilters.push({ key: "day", label: shortDate(new Date(`${filters.day}T12:00:00`)), clear: () => set({ day: null }) });
   if (filters.accountCode) {
     const account = accounts.find((a) => a.code === filters.accountCode);
@@ -175,7 +178,7 @@ export function FilterBar({ filters, setFilters, games, teamGames, hasTeamGames,
               format clears the other filters, whose option lists don't carry over. */}
           <select
             value={filters.format}
-            onChange={(e) => setFilters({ ...DEFAULT_FILTERS, format: e.target.value as Filters["format"], range: filters.range })}
+            onChange={(e) => setFilters({ ...DEFAULT_FILTERS, format: e.target.value as Filters["format"], range: filters.range, rangeStart: filters.rangeStart, rangeEnd: filters.rangeEnd })}
           >
             <option value="singles">Singles (1v1)</option>
             <option value="teams">Teams (2v2)</option>
@@ -206,7 +209,14 @@ export function FilterBar({ filters, setFilters, games, teamGames, hasTeamGames,
         <select
           value={filters.range}
           disabled={filters.day !== null}
-          onChange={(e) => set({ range: e.target.value as Filters["range"] })}
+          onChange={(e) => {
+            const range = e.target.value as Filters["range"];
+            set(range === "custom" ? {
+              range,
+              rangeStart: filters.rangeStart ?? opts.days.at(-1)?.day ?? localDay(new Date()),
+              rangeEnd: filters.rangeEnd ?? opts.days[0]?.day ?? localDay(new Date()),
+            } : { range });
+          }}
         >
           <option value="all">All time</option>
           <option value="7d">Last 7 days</option>
@@ -214,8 +224,38 @@ export function FilterBar({ filters, setFilters, games, teamGames, hasTeamGames,
           <option value="30d">Last 30 days</option>
           <option value="90d">Last 90 days</option>
           <option value="1y">Last year</option>
+          <option value="custom">Custom</option>
         </select>
       </label>
+      {filters.range === "custom" && <>
+        <label>
+          From
+          <input
+            type="date"
+            aria-label="Start date"
+            value={filters.rangeStart ?? ""}
+            max={filters.rangeEnd ?? undefined}
+            disabled={filters.day !== null}
+            aria-invalid={Boolean(rangeError)}
+            aria-describedby={rangeError ? "custom-range-error" : undefined}
+            onChange={(e) => set({ rangeStart: e.target.value || null })}
+          />
+        </label>
+        <label>
+          Through
+          <input
+            type="date"
+            aria-label="End date"
+            value={filters.rangeEnd ?? ""}
+            min={filters.rangeStart ?? undefined}
+            disabled={filters.day !== null}
+            aria-invalid={Boolean(rangeError)}
+            aria-describedby={rangeError ? "custom-range-error" : undefined}
+            onChange={(e) => set({ rangeEnd: e.target.value || null })}
+          />
+        </label>
+        {rangeError && <div className="filter-range-error" id="custom-range-error" role="status">{rangeError}</div>}
+      </>}
       <label>
         Day
         <select value={filters.day ?? ""} onChange={(e) => set({ day: e.target.value || null })}>

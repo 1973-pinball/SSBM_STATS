@@ -32,28 +32,32 @@ try {
 
   const rec = (id, statsVersion) => ({ id, statsVersion, path: "fixture", playedAt: "2026-01-01T00:00:00Z", stageId: 31,
     isTeams: false, players: [0, 1].map(port => ({ port, connectCode: null, characterId: 2, techs: {}, actions: { crouchCancels: 0 } })) });
-  assert.equal(types.CURRENT_STATS_VERSION, 8);
-  assert.equal(types.INTERACTION_STATS_VERSION, 8);
+  assert.equal(types.CURRENT_STATS_VERSION, 9);
+  assert.equal(types.INTERACTION_STATS_VERSION, 9);
   assert.equal(types.MIN_COMPATIBLE_STATS_VERSION, 6);
-  const baseline = rec("a-old", 6), previousAnalysis = rec("b-previous", 7), analyzed = rec("z-new", 8), stale = rec("stale", 5);
+  const baseline = rec("a-old", 6), previousAnalysis = rec("b-previous", 7), previousRevision = rec("c-v8", 8), analyzed = rec("z-new", 9), stale = rec("stale", 5);
   assert.ok(types.hasCurrentStats(baseline), "baseline stays usable while recent-game analysis runs");
   assert.equal(types.needsStatsRepair(baseline), false, "no whole-library schema repair for interaction upgrades");
   assert.ok(types.needsInteractionAnalysis(baseline));
   assert.ok(types.hasCurrentStats(previousAnalysis), "v7 baseline remains usable after audit corrections");
   assert.equal(types.needsStatsRepair(previousAnalysis), false, "v7 correction uses the scoped analysis queue");
   assert.ok(types.needsInteractionAnalysis(previousAnalysis), "older interaction detector needs reanalysis");
-  assert.equal(types.needsInteractionAnalysis(analyzed), false, "unsupported v8 fields don't force endless reparsing");
+  assert.ok(types.hasCurrentStats(previousRevision), "v8 baseline stays usable while recovery and defensive metrics upgrade");
+  assert.equal(types.needsStatsRepair(previousRevision), false, "v8 never triggers whole-library schema repair");
+  assert.ok(types.needsInteractionAnalysis(previousRevision), "v8 interaction metrics need the scoped v9 upgrade");
+  assert.equal(types.needsInteractionAnalysis(analyzed), false, "unsupported v9 fields don't force endless reparsing");
   assert.equal(types.hasCurrentStats(rec("invalid", 6.5)), false);
   assert.equal(dedupeRecords([baseline, analyzed])[0], analyzed);
   assert.equal(mergeGameRecords(baseline, analyzed), analyzed, "late old response can't downgrade analysis");
-  assert.equal(mergeGameRecords(previousAnalysis, analyzed), analyzed, "v7 response cannot overwrite corrected v8");
+  assert.equal(mergeGameRecords(previousAnalysis, analyzed), analyzed, "v7 response cannot overwrite current v9");
+  assert.equal(mergeGameRecords(previousRevision, analyzed), analyzed, "v8 response cannot overwrite current v9");
   assert.equal(mergeGameRecords({ ...analyzed, statsLevel: "header" }, baseline), baseline);
 
   const measurements = { ledge: { getup: { attempts: 1, punished: 0, hit: 0, traded: 0, noHit: 1, incomplete: 0 } }, oos: {}, shieldExits: {} };
-  const rows = [baseline, previousAnalysis, analyzed].map(record => ({ rec: record, me: { ...record.players[0], defense: measurements } }));
+  const rows = [baseline, previousAnalysis, previousRevision, analyzed].map(record => ({ rec: record, me: { ...record.players[0], defense: measurements } }));
   const summary = interactionSummary(rows);
-  assert.equal(summary.games, 3, "baseline games remain in overall coverage denominator");
-  assert.equal(summary.defenseGames, 1, "v6/v7 interaction fields are ignored until corrected reanalysis");
+  assert.equal(summary.games, 4, "baseline games remain in overall coverage denominator");
+  assert.equal(summary.defenseGames, 1, "v6/v7/v8 interaction fields are ignored until current reanalysis");
   assert.equal(summary.ledge.getup.attempts, 1);
 
   // A cloud-path survivor and an already-seen local alias share game content
@@ -71,15 +75,15 @@ try {
   assert.match(partial, /Retry after any recording has finished/);
   assert.equal(interactionAnalysisFeedback([], ["unrelated"], ["unrelated"]), null);
 
-  const packs = new Map([[1, { id: 1, records: [baseline, previousAnalysis, analyzed, stale] }]]);
-  const seen = new Set([baseline.id, previousAnalysis.id, analyzed.id, stale.id]);
+  const packs = new Map([[1, { id: 1, records: [baseline, previousAnalysis, previousRevision, analyzed, stale] }]]);
+  const seen = new Set([baseline.id, previousAnalysis.id, previousRevision.id, analyzed.id, stale.id]);
   const stores = {
     packs: { toArray: async () => structuredClone([...packs.values()]), put: async pack => packs.set(pack.id, pack), delete: async id => packs.delete(id) },
     seen: { bulkDelete: async ids => ids.forEach(id => seen.delete(id)) },
   };
   const upgrade = db._versions.find(v => v._cfg.version === 20)._cfg.contentUpgrade;
   await upgrade({ table: name => { assert.ok(name in stores); return stores[name]; } });
-  assert.deepEqual(packs.get(1).records, [baseline, previousAnalysis, analyzed]);
-  assert.deepEqual([...seen], [baseline.id, previousAnalysis.id, analyzed.id], "v20 preserves v6/v7 baseline seen markers");
+  assert.deepEqual(packs.get(1).records, [baseline, previousAnalysis, previousRevision, analyzed]);
+  assert.deepEqual([...seen], [baseline.id, previousAnalysis.id, previousRevision.id, analyzed.id], "v20 preserves v6/v7/v8 baseline seen markers");
   console.log("Interaction integration: full-stream coverage, scoped upgrade, newer-copy preference and v20 preservation passed.");
 } finally { await server.close(); }

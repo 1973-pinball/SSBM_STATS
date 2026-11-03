@@ -174,7 +174,7 @@ try {
   const forced = replay("forced-analysis.slp");
   const untouched = replay("outside-window.slp");
   const corrupt = replay("cached-corrupt.slp");
-  const baseline = { ...success(forced, "2026-10-10T12:00:00Z").record, statsVersion: 6 };
+  const baseline = { ...success(forced, "2026-10-10T12:00:00Z").record, statsVersion: 8 };
   const otherBaseline = { ...success(untouched, "2026-10-11T12:00:00Z").record, statsVersion: 6 };
   const corruptRecord = { ...success(corrupt).record, parseError: "already failed" };
   await putRecords([baseline, otherBaseline, corruptRecord]);
@@ -208,10 +208,10 @@ try {
   assert.equal((await run([forced], false, undefined, forceIds)).failed, 1);
   rows = await pruneDuplicates(await allRecords());
   assert.deepEqual(rows.find(rec => rec.id === forced.id), baseline, "failed analysis cannot replace valid baseline stats");
-  verdict = job => ({ ok: true, record: { ...baseline, id: job.id, path: job.path, statsVersion: 8 } });
+  verdict = job => ({ ok: true, record: { ...baseline, id: job.id, path: job.path, statsVersion: 9 } });
   assert.equal((await run([forced, untouched], false, undefined, forceIds)).total, 1);
   rows = await pruneDuplicates(await allRecords());
-  assert.equal(rows.find(rec => rec.id === forced.id).statsVersion, 8, "a forced cached game upgrades successfully");
+  assert.equal(rows.find(rec => rec.id === forced.id).statsVersion, 9, "a forced cached v8 game upgrades to v9 successfully");
   assert.deepEqual(rows.find(rec => rec.id === untouched.id), otherBaseline);
 
   // A file handle can point at a different version by the time workers read it.

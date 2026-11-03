@@ -22,6 +22,8 @@ for (let i = 2; i < process.argv.length; i += 2) {
 }
 assert.ok(args.has("cache"), "--cache is required; the audit reads existing local inputs only");
 const cache = path.resolve(args.get("cache"));
+// These are frozen sampling identifiers, not the current detector version.
+// Preserve the same population draw and extracted replay files across v9.
 const staging = path.join(cache, "interaction-sample-v8");
 const verifyFiles = args.get("verify-files") === "true";
 const hash = value => createHash("sha256").update(value).digest("hex");
@@ -158,6 +160,18 @@ try {
     const result = results.get(gameKey);
     assert.equal(result.players.length, 2); assert.equal(result.stageId, item.expected.stageId);
     assert.deepEqual(result.players.map(player => player.characterId), item.expected.characters);
+    for (const player of result.players) for (const row of Object.values(player.recovery?.recoveries ?? {})) {
+      assert.ok(Number.isSafeInteger(row.hitDuringRecovery) && row.hitDuringRecovery >= 0
+        && row.hitDuringRecovery <= row.attempts, "every measured recovery receipt includes valid observed-hit counts");
+    }
+    for (const player of result.players) for (const family of ["oos", "shieldExits"]) {
+      for (const row of Object.values(player.defense?.[family] ?? {})) {
+        if (!["cStickInputs", "cStickSamples"].some(field => Object.hasOwn(row, field))) continue;
+        assert.ok(Number.isSafeInteger(row.cStickInputs) && Number.isSafeInteger(row.cStickSamples)
+          && row.cStickInputs >= 0 && row.cStickInputs <= row.cStickSamples && row.cStickSamples <= row.attempts,
+        "observed C-stick receipts contain a complete pair within sample and attempt bounds");
+      }
+    }
   }
 
   // Recompute every exact cell and coverage count directly from per-game parsed observations.

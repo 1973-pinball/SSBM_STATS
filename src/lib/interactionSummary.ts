@@ -71,10 +71,28 @@ export function interactionSummary(games: readonly ResolvedGame[]): InteractionS
       addRows(result.ledge, defense.ledge, CHOICE_FIELDS);
       addRows(result.oos, defense.oos, CHOICE_FIELDS);
       addRows(result.shieldExits, defense.shieldExits, CHOICE_FIELDS);
+      for (const family of ["oos", "shieldExits"] as const) {
+        for (const [key, counts] of Object.entries(defense[family])) {
+          if (counts?.cStickSamples === undefined || counts.cStickInputs === undefined) continue;
+          const out = result[family][key]!;
+          out.cStickInputs = (out.cStickInputs ?? 0) + counts.cStickInputs;
+          out.cStickSamples = (out.cStickSamples ?? 0) + counts.cStickSamples;
+        }
+      }
     }
     if (recovery) {
       result.recoveryGames++;
       addRows(result.recoveries, recovery.recoveries, RECOVERY_FIELDS);
+      for (const [key, counts] of Object.entries(recovery.recoveries)) {
+        if (!counts) continue;
+        const out = result.recoveries[key]!;
+        const previousAttempts = out.attempts - counts.attempts;
+        // Partial/older counters must not turn an unmeasured hit count into zero
+        // or divide a partial numerator by the full set of attempts.
+        if (counts.hitDuringRecovery !== undefined && (previousAttempts === 0 || out.hitDuringRecovery !== undefined)) {
+          out.hitDuringRecovery = (out.hitDuringRecovery ?? 0) + counts.hitDuringRecovery;
+        } else if (counts.attempts > 0) delete out.hitDuringRecovery;
+      }
       addRows(result.edgeguards, recovery.edgeguards, EDGEGUARD_FIELDS);
     }
     if (punish) {

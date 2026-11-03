@@ -14,20 +14,25 @@ const server = await createServer({
 try {
   const { db } = await server.ssrLoadModule("/src/lib/db.ts");
   const { CURRENT_STATS_VERSION, hasCurrentStats, needsStatsRepair } = await server.ssrLoadModule("/src/lib/types.ts");
-  assert.equal(CURRENT_STATS_VERSION, 8);
+  assert.equal(CURRENT_STATS_VERSION, 9);
   const record = (id, statsVersion) => ({
     id, statsVersion, players: [{ techs: {}, actions: { crouchCancels: 0 } }],
   });
-  const current = record("current", 6);
+  const baseline = record("baseline", 6);
   const previousAnalysis = record("previous-analysis", 7);
   const correctedAnalysis = record("corrected-analysis", 8);
+  const current = record("current", 9);
   const stale = record("previous", 5);
   const downBOnly = record("down-b-only", 4);
   const legacy = record("legacy", undefined);
   const failure = { id: "failure", players: [], parseError: "unreadable replay" };
-  assert.ok(hasCurrentStats(current));
+  assert.ok(hasCurrentStats(baseline));
   assert.ok(hasCurrentStats(previousAnalysis));
   assert.ok(hasCurrentStats(correctedAnalysis));
+  assert.ok(hasCurrentStats(current));
+  for (const preserved of [baseline, previousAnalysis, correctedAnalysis, current]) {
+    assert.equal(needsStatsRepair(preserved), false, `v${preserved.statsVersion} baseline remains usable without whole-library repair`);
+  }
   assert.ok(needsStatsRepair(stale));
   assert.ok(needsStatsRepair(downBOnly));
   assert.ok(needsStatsRepair(legacy));
@@ -35,10 +40,10 @@ try {
   assert.equal(needsStatsRepair({ ...stale, statsLevel: "header" }), false);
 
   const packs = new Map([
-    [1, { id: 1, records: [stale, current, previousAnalysis, correctedAnalysis, failure] }],
+    [1, { id: 1, records: [stale, baseline, previousAnalysis, correctedAnalysis, current, failure] }],
     [2, { id: 2, records: [legacy, downBOnly] }],
   ]);
-  const seen = new Set(["current", "previous-analysis", "corrected-analysis", "previous", "down-b-only", "legacy", "failure", "duplicate-file-marker"]);
+  const seen = new Set(["baseline", "previous-analysis", "corrected-analysis", "current", "previous", "down-b-only", "legacy", "failure", "duplicate-file-marker"]);
   const stores = {
     packs: {
       toArray: async () => structuredClone([...packs.values()]),
@@ -53,9 +58,9 @@ try {
     assert.ok(name in stores, `migration must not alter ${name}`);
     return stores[name];
   } });
-  assert.deepEqual([...packs.values()], [{ id: 1, records: [current, previousAnalysis, correctedAnalysis, failure] }]);
-  assert.deepEqual([...seen].sort(), ["corrected-analysis", "current", "duplicate-file-marker", "failure", "previous-analysis"]);
-  console.log("Special stats v6 migration passed: v4/v5 payloads and markers released; current data, corruption diagnostics and duplicate markers preserved.");
+  assert.deepEqual([...packs.values()], [{ id: 1, records: [baseline, previousAnalysis, correctedAnalysis, current, failure] }]);
+  assert.deepEqual([...seen].sort(), ["baseline", "corrected-analysis", "current", "duplicate-file-marker", "failure", "previous-analysis"]);
+  console.log("Special stats v6 migration passed: v4/v5 payloads and markers released; v6/v7/v8/v9 data, corruption diagnostics and duplicate markers preserved.");
 } finally {
   await server.close();
   await rm(temporary, { recursive: true, force: true });

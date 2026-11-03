@@ -31,7 +31,7 @@ export interface InteractionBenchmarkData {
 export type InteractionBenchmarkSelection = Record<InteractionCohort, InteractionSummary | null>;
 export type InteractionFamily = "ledge" | "oos" | "shieldExits" | "recoveries" | "edgeguards" | "beforeOpening";
 export type InteractionMeasure = "usageShare" | "caughtRate" | "landedRate" | "noHitRate"
-  | "returnRate" | "deathRate" | "stockLossRate" | "openingShare" | "damagePerOpening";
+  | "returnRate" | "deathRate" | "hitDuringRecoveryRate" | "stockLossRate" | "openingShare" | "damagePerOpening";
 export interface InteractionMeasureOption { key: InteractionMeasure; label: string; format: "percent" | "number" }
 
 const CHOICE_MEASURES: readonly InteractionMeasureOption[] = [
@@ -44,6 +44,7 @@ export const INTERACTION_MEASURES: Record<InteractionFamily, readonly Interactio
   ledge: CHOICE_MEASURES, oos: CHOICE_MEASURES, shieldExits: CHOICE_MEASURES,
   recoveries: [
     { key: "usageShare", label: "Route share", format: "percent" },
+    { key: "hitDuringRecoveryRate", label: "Hit during recovery", format: "percent" },
     { key: "returnRate", label: "Returned to stage", format: "percent" },
     { key: "deathRate", label: "Died during recovery", format: "percent" },
   ],
@@ -60,9 +61,10 @@ export const INTERACTION_MEASURES: Record<InteractionFamily, readonly Interactio
 
 const FAMILIES = ["ledge", "oos", "shieldExits", "recoveries", "edgeguards", "beforeOpening"] as const;
 const CHOICE_FIELDS = ["attempts", "punished", "hit", "traded", "noHit", "incomplete"] as const;
-const RECOVERY_FIELDS = ["attempts", "reachedLedge", "returned", "died", "incomplete"] as const;
+const RECOVERY_FIELDS = ["attempts", "reachedLedge", "hitDuringRecovery", "returned", "died", "incomplete"] as const;
 const EDGEGUARD_FIELDS = ["opportunities", "contested", "completedContests", "stocksTaken", "opponentReturned", "uncontestedDeaths", "incomplete"] as const;
 const PUNISH_FIELDS = ["openings", "damage", "kills", "incomplete"] as const;
+const C_STICK_FIELDS = ["cStickInputs", "cStickSamples"] as const;
 const isObject = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value);
 const count = (value: unknown): value is number => typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 
@@ -77,7 +79,8 @@ function countsValid(map: unknown, family: InteractionFamily): boolean {
       : count(value[field]))) return false;
     const row = value as Record<string, number>;
     if (family === "recoveries") {
-      if (row.attempts !== row.returned! + row.died! + row.incomplete! || row.reachedLedge! > row.attempts!) return false;
+      if (row.attempts !== row.returned! + row.died! + row.incomplete!
+        || row.reachedLedge! > row.attempts! || row.hitDuringRecovery! > row.attempts!) return false;
     } else if (family === "edgeguards") {
       if (row.opportunities !== row.stocksTaken! + row.opponentReturned! + row.uncontestedDeaths! + row.incomplete!
         || row.completedContests! > row.contested! || row.contested! > row.opportunities!
@@ -85,6 +88,8 @@ function countsValid(map: unknown, family: InteractionFamily): boolean {
     } else if (family === "beforeOpening") {
       if (row.incomplete! > row.openings! || row.kills! > row.openings! - row.incomplete!) return false;
     } else if (row.attempts !== row.punished! + row.hit! + row.traded! + row.noHit! + row.incomplete!) return false;
+    if ((family === "oos" || family === "shieldExits") && C_STICK_FIELDS.some(field => Object.hasOwn(row, field))
+      && (!C_STICK_FIELDS.every(field => count(row[field])) || row.cStickInputs! > row.cStickSamples! || row.cStickSamples! > row.attempts!)) return false;
   }
   return true;
 }
@@ -134,7 +139,13 @@ function mergeSummary(target: InteractionSummary, source: InteractionSummary): v
     for (const [key, counts] of Object.entries(sourceMap)) {
       const out = targetMap[key];
       if (!out) { targetMap[key] = { ...counts }; continue; }
-      for (const [field, value] of Object.entries(counts)) out[field] = (out[field] ?? 0) + value;
+      const unknownHits = family === "recoveries"
+        && ((out.attempts! > 0 && !count(out.hitDuringRecovery)) || (counts.attempts! > 0 && !count(counts.hitDuringRecovery)));
+      for (const [field, value] of Object.entries(counts)) {
+        if (field === "hitDuringRecovery" && (unknownHits || !count(value))) continue;
+        out[field] = (out[field] ?? 0) + value;
+      }
+      if (unknownHits) delete out.hitDuringRecovery;
     }
   }
 }
@@ -185,6 +196,12 @@ export function interactionBenchmarkValue(summary: InteractionSummary | null, fa
     if (measure === "usageShare") {
       numerator = row?.attempts ?? 0;
       denominator = Object.values(summary.recoveries).reduce((sum, value) => sum + value.attempts, 0);
+    } else if (measure === "hitDuringRecoveryRate") {
+      // Observed hits are known even when the attempt ends unresolved. Older
+      // local analyses without this counter cannot be interpreted as no hits.
+      if (!row || !count(row.hitDuringRecovery) || row.hitDuringRecovery > row.attempts) return unavailable;
+      numerator = row.hitDuringRecovery;
+      denominator = row.attempts;
     } else if (row) {
       denominator = row.attempts - row.incomplete;
       numerator = measure === "returnRate" ? row.returned : row.died;
