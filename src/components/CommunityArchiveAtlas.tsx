@@ -1,5 +1,6 @@
-import { BENCHMARK_LABELS } from "../lib/benchmarkCohorts";
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { BENCHMARK_LABELS, type BenchmarkMetricRow } from "../lib/benchmarkCohorts";
+import { RANKED_TIERS, rankedMetricRow, rankedSampleLabel, useRankedBenchmarkRows, selectRankedBenchmarkRow, type RankedTier, type RankedBenchmarkRow } from "../lib/rankedBenchmarks";
+import { Fragment, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import type {
   CommunityBenchmarkRow,
   CommunityCharacterStageRow,
@@ -28,6 +29,8 @@ import {
 import { actionAverages, executionSummary, moveTable } from "../lib/stats";
 import { ACTION_LABELS, hasCurrentStats, type ActionCounts, type ResolvedGame } from "../lib/types";
 import "./ArchiveCommunityBenchmark.css";
+import { RankedBenchmarkSource } from "./RankedBenchmarkSource";
+import { BenchmarkSourceControl, type ComparisonSource } from "./BenchmarkSourceControl";
 
 interface ArchiveAtlasState {
   dataset: ArchiveDataset | null;
@@ -156,7 +159,7 @@ const recentGames = (games: ResolvedGame[], count: number): ResolvedGame[] => ga
 function ProControl({ archive, onCharacterChange }: { archive: ArchiveAtlasState; onCharacterChange?: (characterId: number) => void }) {
   return (
     <label>
-      Named ranked player
+      Named pro player
       <select
         value={archive.playerId ?? "none"}
         disabled={archive.pros.length === 0}
@@ -184,7 +187,7 @@ function ArchiveFrame({
   title,
   controls,
   onCharacterChange,
-  showContentWithoutArchive = false,
+  showContentWithoutArchive = true,
   children,
 }: {
   archive: ArchiveAtlasState;
@@ -233,23 +236,25 @@ interface RateSummary {
   players?: number;
 }
 
-type MatchupSortKey = "opponent" | "games" | "you" | "community" | "tournament" | "proAggregate" | "pro";
-type StageSortKey = "stage" | "you" | "community" | "tournament" | "proAggregate" | "pro";
+type MatchupSortKey = RankedTier | "opponent" | "games" | "you" | "community" | "tournament" | "proAggregate" | "pro";
+type StageSortKey = RankedTier | "stage" | "you" | "community" | "tournament" | "proAggregate" | "pro";
 type SortDirection = "asc" | "desc";
 
-const rateSummary = (row: ArchiveRollup | undefined): RateSummary | null => row ? {
+const rateSummary = (row: BenchmarkMetricRow | undefined): RateSummary | null => row ? {
   wins: row.wins,
   decided: row.win_rate_game_count,
   games: row.game_count,
 } : null;
 
-function RateCell({ value, showSample = true }: { value: RateSummary | null | undefined; showSample?: boolean }) {
+const rankedRateSummary = (row: RankedBenchmarkRow): RateSummary => ({ wins: row.wins, decided: row.decidedPlayerGames, games: row.playerGames });
+
+function RateCell({ value, showSample = true, sampleLabel = "player-games" }: { value: RateSummary | null | undefined; showSample?: boolean; sampleLabel?: string }) {
   if (!value || value.decided === 0) return <td className="data atlas-rate-cell">—</td>;
   const rate = value.wins / value.decided;
   return (
     <td className={`data atlas-rate-cell ${value.games < 10 ? "atlas-low-sample" : ""}`}>
       <b style={{ color: winRateColor(rate) }}>{pct(rate)}</b>
-      {showSample && <span className="sample-note">{value.games.toLocaleString()} games</span>}
+      {showSample && <span className="sample-note">{value.games.toLocaleString()} {sampleLabel}</span>}
     </td>
   );
 }
@@ -290,6 +295,7 @@ export function ArchiveMatchupAtlasComparison({
   onCharacterChange?: (characterId: number) => void;
 }) {
   const archive = useArchiveAtlas(characterId);
+  const ranked = useRankedBenchmarkRows(characterId);
   const [sort, setSort] = useState<{ key: MatchupSortKey | null; direction: SortDirection }>({ key: "games", direction: "desc" });
   useEffect(() => {
     if (!archive.selectedPro && sort.key === "pro") setSort({ key: "games", direction: "desc" });
@@ -315,10 +321,12 @@ export function ArchiveMatchupAtlasComparison({
     players: row.players,
   }]));
   const archiveStage = stageId === 0 ? null : stageId;
+  const rankedRates = Object.fromEntries(RANKED_TIERS.map(tier => [tier, new Map(ranked.rows[tier].filter(row => row.opponentCharacterId !== null && row.stageId === archiveStage).map(row => [row.opponentCharacterId!, rankedRateSummary(row)]))])) as Record<RankedTier, Map<number, RateSummary>>;
   const broad = archiveRateMap(archive.fieldRows, "broad", archiveStage);
   const proAggregate = archiveRateMap(archive.proAggregateRows, "conservative", archiveStage);
   const pro = archiveRateMap(archive.proRows, "conservative", archiveStage);
   const sourceFor = (key: MatchupSortKey, opponentId: number): RateSummary | null | undefined => {
+    if (key === "diamond" || key === "master") return rankedRates[key].get(opponentId);
     if (key === "you") return local.get(opponentId);
     if (key === "community") return community.get(opponentId);
     if (key === "tournament") return broad.get(opponentId);
@@ -326,8 +334,8 @@ export function ArchiveMatchupAtlasComparison({
     if (key === "pro") return pro.get(opponentId);
     return null;
   };
-  const publishedOpponents = [...new Set([...community.keys(), ...broad.keys(), ...proAggregate.keys(), ...pro.keys()])];
-  const opponents = (games.length > 0 ? [...local.keys()] : publishedOpponents)
+  const publishedOpponents = [...new Set([...rankedRates.diamond.keys(), ...rankedRates.master.keys(), ...community.keys(), ...broad.keys(), ...proAggregate.keys(), ...pro.keys()])];
+  const opponents = [...new Set([...local.keys(), ...publishedOpponents])]
     .sort((a, b) => {
       if (sort.key === null) {
         return Math.max(broad.get(b)?.games ?? 0, community.get(b)?.games ?? 0)
@@ -376,11 +384,12 @@ export function ArchiveMatchupAtlasComparison({
 
   return (
     <ArchiveFrame archive={archive} eyebrow="Matchup Atlas" title={`Your ${charName(characterId)} matchups across the full field`} controls={controls} onCharacterChange={onCharacterChange}>
-      {opponents.length ? <div className="table-scroll"><table><thead><tr>{sortableHeader("opponent", "Opponent")}{sortableHeader("games", "Games", true)}{sortableHeader("you", "You", true)}{sortableHeader("community", BENCHMARK_LABELS.community, true)}{sortableHeader("tournament", BENCHMARK_LABELS.tournament, true)}{sortableHeader("proAggregate", BENCHMARK_LABELS.pro, true)}{archive.selectedPro && sortableHeader("pro", archive.selectedPro.display_name, true)}</tr></thead><tbody>
-        {opponents.map((opponentId) => <tr key={opponentId}><td>{charName(opponentId)}</td><td className="data">{local.get(opponentId)?.games.toLocaleString() ?? "—"}</td><RateCell value={local.get(opponentId)} showSample={false} /><RateCell value={community.get(opponentId)} /><RateCell value={broad.get(opponentId)} /><RateCell value={proAggregate.get(opponentId)} />{archive.selectedPro && <RateCell value={pro.get(opponentId)} />}</tr>)}
+      {opponents.length ? <div className="table-scroll"><table><thead><tr>{sortableHeader("opponent", "Opponent")}{sortableHeader("games", "Games", true)}{sortableHeader("you", "You", true)}{RANKED_TIERS.map(tier => <Fragment key={tier}>{sortableHeader(tier, BENCHMARK_LABELS[tier], true)}</Fragment>)}{sortableHeader("community", BENCHMARK_LABELS.community, true)}{sortableHeader("tournament", BENCHMARK_LABELS.tournament, true)}{sortableHeader("proAggregate", BENCHMARK_LABELS.pro, true)}{archive.selectedPro && sortableHeader("pro", archive.selectedPro.display_name, true)}</tr></thead><tbody>
+        {opponents.map((opponentId) => <tr key={opponentId}><td>{charName(opponentId)}</td><td className="data">{local.get(opponentId)?.games.toLocaleString() ?? "—"}</td><RateCell value={local.get(opponentId)} showSample={false} />{RANKED_TIERS.map(tier => <RateCell key={tier} value={rankedRates[tier].get(opponentId)} />)}<RateCell value={community.get(opponentId)} /><RateCell value={broad.get(opponentId)} /><RateCell value={proAggregate.get(opponentId)} />{archive.selectedPro && <RateCell value={pro.get(opponentId)} />}</tr>)}
       </tbody></table></div> : <div className="empty-note">{games.length > 0 ? `No opponents appear in your latest ${lookbackGames.toLocaleString()} matching games.` : "No matching matchup samples are available."}</div>}
       <div className="hint">Header samples count decided results in the displayed matchups; unknown outcomes are excluded from win-rate columns. SSBMStats Community counts are approximate. My games lookback scopes only your most recent matching games; benchmark columns retain their full published samples.</div>
       {gameType !== "all" && <div className="hint">Your and SSBMStats Community columns use the selected mode. Historical archive columns are offline event games.</div>}
+      <RankedBenchmarkSource state={ranked} />
     </ArchiveFrame>
   );
 }
@@ -422,6 +431,7 @@ export function ArchiveStageAtlasComparison({
   onCharacterChange?: (characterId: number) => void;
 }) {
   const archive = useArchiveAtlas(characterId);
+  const ranked = useRankedBenchmarkRows(characterId);
   const [sort, setSort] = useState<{ key: StageSortKey | null; direction: SortDirection }>({ key: null, direction: "desc" });
   useEffect(() => {
     if (!archive.selectedPro && sort.key === "pro") setSort({ key: null, direction: "desc" });
@@ -442,10 +452,12 @@ export function ArchiveStageAtlasComparison({
   const community = communityStageMap(opponentId === null
     ? communityCharacterStages
     : communityRows.filter((row) => row.opponentCharacterId === opponentId));
+  const rankedRates = Object.fromEntries(RANKED_TIERS.map(tier => [tier, new Map(ranked.rows[tier].filter(row => row.opponentCharacterId === opponentId && row.stageId !== null).map(row => [row.stageId!, rankedRateSummary(row)]))])) as Record<RankedTier, Map<number, RateSummary>>;
   const broad = archiveStageMap(archive.fieldRows, "broad", opponentId);
   const proAggregate = archiveStageMap(archive.proAggregateRows, "conservative", opponentId);
   const pro = archiveStageMap(archive.proRows, "conservative", opponentId);
   const sourceFor = (key: StageSortKey, stageId: number): RateSummary | null | undefined => {
+    if (key === "diamond" || key === "master") return rankedRates[key].get(stageId);
     if (key === "you") return local.get(stageId);
     if (key === "community") return community.get(stageId);
     if (key === "tournament") return broad.get(stageId);
@@ -454,7 +466,7 @@ export function ArchiveStageAtlasComparison({
     return null;
   };
   const stages = INCLUDED_STAGE_IDS
-    .filter((id) => local.has(id) || community.has(id) || broad.has(id) || proAggregate.has(id) || pro.has(id))
+    .filter((id) => rankedRates.diamond.has(id) || rankedRates.master.has(id) || local.has(id) || community.has(id) || broad.has(id) || proAggregate.has(id) || pro.has(id))
     .sort((a, b) => {
       if (sort.key === null) return INCLUDED_STAGE_IDS.indexOf(a) - INCLUDED_STAGE_IDS.indexOf(b);
       if (sort.key === "stage") {
@@ -488,10 +500,11 @@ export function ArchiveStageAtlasComparison({
 
   return (
     <ArchiveFrame archive={archive} eyebrow="Stage Atlas" title={`${charName(characterId)} vs ${opponentId === null ? "all opponents" : charName(opponentId)} across the full field`} controls={controls} onCharacterChange={onCharacterChange}>
-      {stages.length ? <div className="table-scroll"><table><thead><tr>{sortableHeader("stage", "Stage")}{sortableHeader("you", "You", true)}{sortableHeader("community", BENCHMARK_LABELS.community, true)}{sortableHeader("tournament", BENCHMARK_LABELS.tournament, true)}{sortableHeader("proAggregate", BENCHMARK_LABELS.pro, true)}{archive.selectedPro && sortableHeader("pro", archive.selectedPro.display_name, true)}</tr></thead><tbody>
-        {stages.map((id) => <tr key={id}><td>{stageName(id)}</td><RateCell value={local.get(id)} /><RateCell value={community.get(id)} /><RateCell value={broad.get(id)} /><RateCell value={proAggregate.get(id)} />{archive.selectedPro && <RateCell value={pro.get(id)} />}</tr>)}
+      {stages.length ? <div className="table-scroll"><table><thead><tr>{sortableHeader("stage", "Stage")}{sortableHeader("you", "You", true)}{RANKED_TIERS.map(tier => <Fragment key={tier}>{sortableHeader(tier, BENCHMARK_LABELS[tier], true)}</Fragment>)}{sortableHeader("community", BENCHMARK_LABELS.community, true)}{sortableHeader("tournament", BENCHMARK_LABELS.tournament, true)}{sortableHeader("proAggregate", BENCHMARK_LABELS.pro, true)}{archive.selectedPro && sortableHeader("pro", archive.selectedPro.display_name, true)}</tr></thead><tbody>
+        {stages.map((id) => <tr key={id}><td>{stageName(id)}</td><RateCell value={local.get(id)} sampleLabel="games" />{RANKED_TIERS.map(tier => <RateCell key={tier} value={rankedRates[tier].get(id)} />)}<RateCell value={community.get(id)} /><RateCell value={broad.get(id)} /><RateCell value={proAggregate.get(id)} />{archive.selectedPro && <RateCell value={pro.get(id)} />}</tr>)}
       </tbody></table></div> : <div className="empty-note">No stage-specific sample is available for this matchup.</div>}
       <div className="hint">Header samples count decided results in the displayed stages; unknown outcomes are excluded. SSBMStats Community counts are approximate. My games lookback scopes only your most recent matching games; benchmark columns retain their full published samples.</div>
+      <RankedBenchmarkSource state={ranked} />
     </ArchiveFrame>
   );
 }
@@ -501,7 +514,7 @@ interface GroupedArchiveMove extends ArchiveMoveMetrics {
   label: string;
 }
 
-function groupArchiveMoves(row: ArchiveRollup | null): Map<string, GroupedArchiveMove> {
+function groupArchiveMoves(row: BenchmarkMetricRow | null): Map<string, GroupedArchiveMove> {
   const grouped = new Map<string, GroupedArchiveMove>();
   for (const [moveId, move] of Object.entries(row?.metrics.moves ?? {})) {
     const group = moveGroup(Number(moveId));
@@ -536,7 +549,7 @@ function groupArchiveMoves(row: ArchiveRollup | null): Map<string, GroupedArchiv
 }
 
 type MoveMetric = "attempts" | "noHitPerGame" | "noHitRate" | "landed" | "damage" | "kills" | "killPct" | "openings" | "openingDamage";
-type MoveSortKey = "move" | "you" | "community" | "tournament" | "proAggregate" | "pro";
+type MoveSortKey = RankedTier | "move" | "you" | "community" | "tournament" | "proAggregate" | "pro";
 
 const attemptMetric = (metric: MoveMetric) => metric === "attempts" ? "attemptsPerGame"
   : metric === "noHitPerGame" || metric === "noHitRate" ? metric : null;
@@ -549,7 +562,7 @@ function communityMoveValue(move: CommunityMoveRow | undefined, metric: MoveMetr
   return formatMoveMetric(communityMoveMetric(move, metric, totalDamage), metric);
 }
 
-function archiveMoveValue(move: GroupedArchiveMove | undefined, metric: MoveMetric, row: ArchiveRollup | null, moveKey: string) {
+function archiveMoveValue(move: GroupedArchiveMove | undefined, metric: MoveMetric, row: BenchmarkMetricRow | null, moveKey: string) {
   const measure = attemptMetric(metric);
   const sample = measure ? archiveMoveSample(row, moveKey, measure) : undefined;
   return <>{formatMoveMetric(archiveMoveMetric(move, metric, row), metric)}{sample && <span className="sample-note">{sample}</span>}</>;
@@ -580,7 +593,7 @@ function communityMoveMetric(move: CommunityMoveRow | undefined, metric: MoveMet
   return move.kills > 0 ? move.killPctSum / move.kills : null;
 }
 
-function archiveMoveMetric(move: GroupedArchiveMove | undefined, metric: MoveMetric, row: ArchiveRollup | null): number | null {
+function archiveMoveMetric(move: GroupedArchiveMove | undefined, metric: MoveMetric, row: BenchmarkMetricRow | null): number | null {
   if (!move || !row || row.game_count === 0) return null;
   const measure = attemptMetric(metric);
   if (measure) {
@@ -631,7 +644,7 @@ function differenceStyle(difference: ReturnType<typeof moveDifference>): CSSProp
 
 const ratio = (numerator: number, denominator: number): number | null => denominator > 0 ? numerator / denominator : null;
 
-function archiveActionPerGame(row: ArchiveRollup | null, key: keyof ActionCounts): number | null {
+function archiveActionPerGame(row: BenchmarkMetricRow | null, key: keyof ActionCounts): number | null {
   if (!row || row.game_count <= 0) return null;
   const value = row.metrics.actions?.[key];
   return value === undefined ? null : value / row.game_count;
@@ -661,7 +674,7 @@ const EXECUTION_PROFILE_ROWS: { key: ExecutionProfileField; label: string; perce
   { key: "ipm", label: "Inputs / min", percent: false },
 ];
 
-function archiveExecutionFields(row: ArchiveRollup | null): Record<ExecutionProfileField, number | null> {
+function archiveExecutionFields(row: BenchmarkMetricRow | null): Record<ExecutionProfileField, number | null> {
   if (!row) return { lCancel: null, groundTech: null, wallTech: null, ipm: null };
   const metrics = row.metrics;
   const groundSuccess = metrics.techInPlace + metrics.techToward + metrics.techAway;
@@ -698,7 +711,9 @@ export function ArchiveMoveAtlasComparison({
   onCharacterChange?: (characterId: number) => void;
 }) {
   const archive = useArchiveAtlas(characterId);
+  const ranked = useRankedBenchmarkRows(characterId);
   const [metric, setMetric] = useState<MoveMetric>("landed");
+  const [comparisonSource, setComparisonSource] = useState<ComparisonSource>("tournament");
   const [sort, setSort] = useState<{ key: MoveSortKey; direction: SortDirection }>({ key: "you", direction: "desc" });
   const [minAttemptsInput, setMinAttemptsInput] = useState("1");
   const [minActionsInput, setMinActionsInput] = useState("1");
@@ -717,14 +732,21 @@ export function ArchiveMoveAtlasComparison({
   const broadRow = archive.fieldRows.find((row) => row.population === "broad" && row.opponent_character_id === null && row.stage_id === null) ?? null;
   const proAggregateRow = archive.proAggregateRows.find((row) => row.opponent_character_id === null && row.stage_id === null) ?? null;
   const proRow = archive.proRows.find((row) => row.opponent_character_id === null && row.stage_id === null) ?? null;
+  const rankedRows = Object.fromEntries(RANKED_TIERS.map(tier => [tier, selectRankedBenchmarkRow(ranked.rows[tier], { characterId, opponentCharacterId: null, stageId: null })])) as Record<RankedTier, RankedBenchmarkRow | null>;
+  const rankedMetrics = Object.fromEntries(RANKED_TIERS.map(tier => [tier, rankedMetricRow(rankedRows[tier], "move")])) as Record<RankedTier, BenchmarkMetricRow | null>;
+  const rankedMoves = { diamond: groupArchiveMoves(rankedMetrics.diamond), master: groupArchiveMoves(rankedMetrics.master) };
   const broadMoves = groupArchiveMoves(broadRow);
   const proAggregateMoves = groupArchiveMoves(proAggregateRow);
   const proMoves = groupArchiveMoves(proRow);
+  const comparisonRow = comparisonSource === "diamond" || comparisonSource === "master" ? rankedMetrics[comparisonSource] : comparisonSource === "pro" ? proAggregateRow : broadRow;
+  const comparisonMoves = comparisonSource === "diamond" || comparisonSource === "master" ? rankedMoves[comparisonSource] : comparisonSource === "pro" ? proAggregateMoves : broadMoves;
+  const comparisonActionRow = comparisonSource === "diamond" || comparisonSource === "master" ? rankedMetricRow(rankedRows[comparisonSource], "action") : comparisonSource === "pro" ? proAggregateRow : broadRow;
   useEffect(() => {
     if (!archive.selectedPro && sort.key === "pro") setSort({ key: "you", direction: "desc" });
   }, [archive.selectedPro, sort.key]);
   const communityDamage = communityRows.reduce((sum, row) => sum + row.damage, 0);
   const sortValue = (key: string, source: MoveSortKey): number | null => {
+    if (source === "diamond" || source === "master") return archiveMoveMetric(rankedMoves[source].get(key), metric, rankedMetrics[source]);
     if (source === "you") return localMoveMetric(localByKey.get(key), metric, localMoves.covered);
     if (source === "community") return communityMoveMetric(communityByKey.get(key), metric, communityDamage);
     if (source === "tournament") return archiveMoveMetric(broadMoves.get(key), metric, broadRow);
@@ -732,11 +754,11 @@ export function ArchiveMoveAtlasComparison({
     if (source === "pro") return archiveMoveMetric(proMoves.get(key), metric, proRow);
     return null;
   };
-  const moveKeys = [...new Set([...localByKey.keys(), ...communityByKey.keys(), ...broadMoves.keys(), ...proAggregateMoves.keys(), ...proMoves.keys()])]
+  const moveKeys = [...new Set([...localByKey.keys(), ...rankedMoves.diamond.keys(), ...rankedMoves.master.keys(), ...communityByKey.keys(), ...broadMoves.keys(), ...proAggregateMoves.keys(), ...proMoves.keys()])]
     .filter((key) => {
       if ((metric === "noHitPerGame" || metric === "noHitRate") && specialMoveId(key) === null) return false;
       const move = localByKey.get(key);
-      if (!move) return false;
+      if (!move) return localMoves.rows.length === 0;
       // Untracked moves must remain visible in landed/damage measures.
       const myAttempts = localMoveMetric(move, "attempts", localMoves.covered);
       return myAttempts === null || myAttempts >= minAttempts;
@@ -810,6 +832,7 @@ export function ArchiveMoveAtlasComparison({
       actionPerGame: (key) => archiveActionPerGame(proAggregateRow, key),
     },
   ];
+  executionSources.splice(1, 0, ...RANKED_TIERS.map(tier => ({ key: tier, label: BENCHMARK_LABELS[tier], sampleNote: rankedSampleLabel(rankedRows[tier]), fields: archiveExecutionFields(rankedMetricRow(rankedRows[tier])), actionPerGame: (key: keyof ActionCounts) => archiveActionPerGame(rankedMetricRow(rankedRows[tier], "action"), key) })));
   if (archive.selectedPro) executionSources.push({
     key: `pro:${archive.selectedPro.id}`,
     label: archive.selectedPro.display_name,
@@ -833,7 +856,7 @@ export function ArchiveMoveAtlasComparison({
   };
 
   return (
-    <ArchiveFrame archive={archive} eyebrow="Move Atlas" title={`Your ${charName(characterId)} move profile across the full field`} controls={controls} onCharacterChange={onCharacterChange} showContentWithoutArchive>
+    <ArchiveFrame archive={archive} eyebrow="Move Atlas" title={`Your ${charName(characterId)} move profile across the full field`} controls={<>{controls}<BenchmarkSourceControl value={comparisonSource} onChange={setComparisonSource} /></>} onCharacterChange={onCharacterChange} showContentWithoutArchive>
       <div className="acb-move-heading">
         <h3>Move profile</h3>
         <div className="acb-profile-controls">
@@ -845,23 +868,21 @@ export function ArchiveMoveAtlasComparison({
         ? <div className="hint">No-hit counts completed special uses with no opponent damage, including shields and defensive uses; it is not a verified whiff rate. Incomplete uses are excluded. Utility and delayed attacks have attempts only; hover a move name for its limits.</div>
         : <div className="hint">Attempt rates use measured games for each special direction. Unsupported copied moves, form changes, or missing frames remain unavailable. Damage / opening includes follow-up damage.</div>}
       {hasStaleStats && <div className="hint">Some cached replays use older statistics. Refresh replays to update their measurements.</div>}
-      {moveKeys.length ? <div className="table-scroll"><table><thead><tr>{sortableMoveHeader("move", "Move")}{sortableMoveHeader("you", "You", `${localMoves.covered.toLocaleString()} games`)}{sortableMoveHeader("community", BENCHMARK_LABELS.community, communityGames === null ? "sample not yet publishable" : `${communityGames.toLocaleString()} player-games`)}{sortableMoveHeader("tournament", BENCHMARK_LABELS.tournament, `${broadRow?.game_count.toLocaleString() ?? "—"} player-games`)}{sortableMoveHeader("proAggregate", BENCHMARK_LABELS.pro, `${proAggregateRow?.game_count.toLocaleString() ?? "—"} player-games · ${countNoun(proAggregateRow?.identified_player_count, "pro")}`)}{archive.selectedPro && sortableMoveHeader("pro", archive.selectedPro.display_name, `${proRow?.game_count.toLocaleString() ?? "—"} games`)}</tr></thead><tbody>
+      {moveKeys.length ? <div className="table-scroll"><table><thead><tr>{sortableMoveHeader("move", "Move")}{sortableMoveHeader("you", "You", `${localMoves.covered.toLocaleString()} games`)}{RANKED_TIERS.map(tier => <Fragment key={tier}>{sortableMoveHeader(tier, BENCHMARK_LABELS[tier], rankedSampleLabel(rankedRows[tier]))}</Fragment>)}{sortableMoveHeader("community", BENCHMARK_LABELS.community, communityGames === null ? "sample not yet publishable" : `${communityGames.toLocaleString()} player-games`)}{sortableMoveHeader("tournament", BENCHMARK_LABELS.tournament, `${broadRow?.game_count.toLocaleString() ?? "—"} player-games`)}{sortableMoveHeader("proAggregate", BENCHMARK_LABELS.pro, `${proAggregateRow?.game_count.toLocaleString() ?? "—"} player-games · ${countNoun(proAggregateRow?.identified_player_count, "pro")}`)}{archive.selectedPro && sortableMoveHeader("pro", archive.selectedPro.display_name, `${proRow?.game_count.toLocaleString() ?? "—"} games`)}</tr></thead><tbody>
         {moveKeys.map((key) => {
           const mine = localMoveMetric(localByKey.get(key), metric, localMoves.covered);
-          const tournamentField = archiveMoveMetric(broadMoves.get(key), metric, broadRow);
-          const field = tournamentField;
-          const comparisonRow = broadRow;
+          const field = archiveMoveMetric(comparisonMoves.get(key), metric, comparisonRow);
           const measure = attemptMetric(metric);
-          const localMove = localByKey.get(key)!;
+          const localMove = localByKey.get(key);
           const comparisonGames = measure ? archiveMoveComparisonGames(comparisonRow, key, measure) : comparisonRow?.game_count ?? 0;
-          const localSampleGames = measure ? localMoveComparisonGames(localMove, measure, localMoves.covered) : localMoves.covered;
+          const localSampleGames = measure && localMove ? localMoveComparisonGames(localMove, measure, localMoves.covered) : localMoves.covered;
           const difference = moveDifference(mine, field, metric, localSampleGames, comparisonGames);
           const localValue = localMoveValue(localByKey.get(key), metric, localMoves.covered);
-          const comparisonLabel = "Tournament";
+          const comparisonLabel = BENCHMARK_LABELS[comparisonSource];
           const sample = measure ? localMoveSample(localByKey.get(key), measure) : undefined;
           const specialId = specialMoveId(key);
           const outcomeReason = specialId === null ? undefined : getSpecialMoveCapability(characterId, specialId).reason ?? undefined;
-          return <tr key={key}><td title={outcomeReason}>{localByKey.get(key)?.label ?? moveGroupLabel(key)}</td><td className={`data ${difference ? `community-diff-${difference.direction}` : ""}`} style={differenceStyle(difference)} title={difference ? `${difference.direction === "above" ? "Higher than" : "Lower than"} the ${comparisonLabel} archive benchmark; highlight intensity reflects the size of the difference` : undefined} aria-label={difference ? `${localValue}, ${difference.direction === "above" ? "higher" : "lower"} than the ${comparisonLabel} archive benchmark` : undefined}>{localValue}{sample && <span className="sample-note">{sample}</span>}{difference && <span className="community-diff-cue" aria-hidden="true">{difference.direction === "above" ? "▲" : "▼"}</span>}</td><td className="data">{communityMoveValue(communityByKey.get(key), metric, communityDamage)}</td><td className="data">{archiveMoveValue(broadMoves.get(key), metric, broadRow, key)}</td><td className="data">{archiveMoveValue(proAggregateMoves.get(key), metric, proAggregateRow, key)}</td>{archive.selectedPro && <td className="data">{archiveMoveValue(proMoves.get(key), metric, proRow, key)}</td>}</tr>;
+          return <tr key={key}><td title={outcomeReason}>{localByKey.get(key)?.label ?? moveGroupLabel(key)}</td><td className={`data ${difference ? `community-diff-${difference.direction}` : ""}`} style={differenceStyle(difference)} title={difference ? `${difference.direction === "above" ? "Higher than" : "Lower than"} the ${comparisonLabel} archive benchmark; highlight intensity reflects the size of the difference` : undefined} aria-label={difference ? `${localValue}, ${difference.direction === "above" ? "higher" : "lower"} than the ${comparisonLabel} archive benchmark` : undefined}>{localValue}{sample && <span className="sample-note">{sample}</span>}{difference && <span className="community-diff-cue" aria-hidden="true">{difference.direction === "above" ? "▲" : "▼"}</span>}</td>{RANKED_TIERS.map(tier => <td className="data" key={tier}>{archiveMoveValue(rankedMoves[tier].get(key), metric, rankedMetrics[tier], key)}</td>)}<td className="data">{communityMoveValue(communityByKey.get(key), metric, communityDamage)}</td><td className="data">{archiveMoveValue(broadMoves.get(key), metric, broadRow, key)}</td><td className="data">{archiveMoveValue(proAggregateMoves.get(key), metric, proAggregateRow, key)}</td>{archive.selectedPro && <td className="data">{archiveMoveValue(proMoves.get(key), metric, proRow, key)}</td>}</tr>;
         })}
       </tbody></table></div> : <div className="empty-note">No recorded moves match this view. Lower the tracked-attempt minimum or broaden your game selection.</div>}
 
@@ -878,11 +899,10 @@ export function ArchiveMoveAtlasComparison({
             {EXECUTION_PROFILE_ROWS.map((row) => <tr key={row.key}><td>{row.label}</td>{executionSources.map((source) => <td className="data" key={source.key}>{row.percent ? pct(source.fields[row.key]) : num(source.fields[row.key], 1)}</td>)}</tr>)}
             {visibleActions.map(({ key, label }) => {
               const mine = executionSources[0]!.actionPerGame(key);
-              const tournamentField = archiveActionPerGame(broadRow, key);
-              const field = tournamentField;
-              const comparisonGames = broadRow?.game_count ?? 0;
+              const field = archiveActionPerGame(comparisonActionRow, key);
+              const comparisonGames = comparisonActionRow?.game_count ?? 0;
               const difference = moveDifference(mine, field, "attempts", localActions.covered, comparisonGames);
-              const comparisonLabel = "Tournament";
+              const comparisonLabel = BENCHMARK_LABELS[comparisonSource];
               return <tr key={key}><td>{key === "grabs" ? "Grab attempts" : label} / game</td>{executionSources.map((source, index) => {
                 const value = source.actionPerGame(key);
                 const formatted = num(value, 2);
@@ -904,10 +924,11 @@ export function ArchiveMoveAtlasComparison({
         for the same reason, and its damage/kill shares cover published move rows. These values do not decide which
         rows clear the minimum. The move minimum applies only to available attempt rates in the You column;
         recorded moves without attempt counts remain visible and show a dash for attempts. Both minimums default to 1,
-        and selecting a named pro does not change which rows appear. The You action cells compare with Tournament,
+        and selecting a named pro does not change which rows appear. The You action cells compare with {BENCHMARK_LABELS[comparisonSource]},
         and brighter red or blue means a larger difference. My games lookback
         scopes only the You column; every benchmark column retains its full published sample.
       </div>
+      <RankedBenchmarkSource state={ranked} />
     </ArchiveFrame>
   );
 }

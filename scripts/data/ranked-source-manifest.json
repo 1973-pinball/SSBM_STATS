@@ -1,0 +1,659 @@
+{
+  "repository": "erickfm/melee-ranked-replays",
+  "revision": "ef54ddc230e01373ff2a179b49a7e559af788081",
+  "selectionMethod": "Complete smallest compressed shard per character folder and relevant rank pair (26 characters × diamond-diamond, master-master, master-diamond, diamond-platinum, master-platinum). Deterministic convenience sample, not random, representative, or the complete ranked mirror. Ties use path order.",
+  "sourceUrl": "https://huggingface.co/datasets/erickfm/melee-ranked-replays/tree/ef54ddc230e01373ff2a179b49a7e559af788081",
+  "compressedBytes": 118457396250,
+  "files": [
+    {
+      "path": "NESS/NESS_master-master_a6.tar.gz",
+      "bytes": 665357,
+      "sha256": "7405b8c55b06074ca223dffc179b86f719dcfb862d91f84137aacd902497b01e"
+    },
+    {
+      "path": "MEWTWO/MEWTWO_master-master_a6.tar.gz",
+      "bytes": 773488,
+      "sha256": "ec988a720cc59275de7a69bb618e400f2f526617812cba5e384bcc5a41d24e64"
+    },
+    {
+      "path": "KIRBY/KIRBY_master-master_a5.tar.gz",
+      "bytes": 1003899,
+      "sha256": "e7f5711cc2c6275721a0836737e51e489977ca48a8f630965e2cf66230c69065"
+    },
+    {
+      "path": "BOWSER/BOWSER_master-master_a2.tar.gz",
+      "bytes": 2000229,
+      "sha256": "3015b8df142c5c4fa82aab3398920f9fcfc93006cc17188c1e45edb8763f8ccd"
+    },
+    {
+      "path": "GAMEANDWATCH/GAMEANDWATCH_master-master_a2.tar.gz",
+      "bytes": 2884058,
+      "sha256": "81c672fa5812af08fe1b1b135efdf65d7bc9254bd1d17589555ca2a51b105a8d"
+    },
+    {
+      "path": "PICHU/PICHU_master-master_a3.tar.gz",
+      "bytes": 3222139,
+      "sha256": "2454566028e3ce559c98a3542020d660a7ca43e159bd41ff47952426773f8f43"
+    },
+    {
+      "path": "PICHU/PICHU_diamond-diamond_a6.tar.gz",
+      "bytes": 3380219,
+      "sha256": "e951d89a7210ad8f9569e42e6c9298536907e1471f86f1e5d04d498ed09bd32a"
+    },
+    {
+      "path": "KIRBY/KIRBY_master-diamond_a2.tar.gz",
+      "bytes": 3643461,
+      "sha256": "fa6779744c56a94a8960e7e5a45e68ad840f2150ddf359be7c9f37c0cb488c15"
+    },
+    {
+      "path": "ZELDA/ZELDA_master-master_m6.tar.gz",
+      "bytes": 4130236,
+      "sha256": "c85046cd79c952f05b0669e3c70170c121dfa8cd6e2860a8496497d11f3d2ad4"
+    },
+    {
+      "path": "KIRBY/KIRBY_diamond-diamond_a2.tar.gz",
+      "bytes": 4549650,
+      "sha256": "c0423a0c7c89c2fee3d33a451a8250bc0184c34f807ddf55dc8a908cbe21f503"
+    },
+    {
+      "path": "PICHU/PICHU_master-diamond_a6.tar.gz",
+      "bytes": 5086385,
+      "sha256": "fb5c8a600ca838062c2cabf331cbad34673b6bf3e7dab795656e78e3ddfa885b"
+    },
+    {
+      "path": "PICHU/PICHU_master-platinum_a1.tar.gz",
+      "bytes": 7664221,
+      "sha256": "bc9a2ca52dcbd6258e95226db7f83c68f04329cfabb571dd6307331a7a6b53d2"
+    },
+    {
+      "path": "KIRBY/KIRBY_master-platinum_a2.tar.gz",
+      "bytes": 8208834,
+      "sha256": "73ffbb2b90bfa52de0bd648f0859be444957a90958490c919bdf228271cac333"
+    },
+    {
+      "path": "ROY/ROY_master-master_a1.tar.gz",
+      "bytes": 9629088,
+      "sha256": "93cb1e5a679b1c108cf770df270fa37d4bd72164f48d2820a689e2a03d0c80be"
+    },
+    {
+      "path": "ROY/ROY_diamond-diamond_a3.tar.gz",
+      "bytes": 9700045,
+      "sha256": "01a862ea2ffac905696259cd7baa7e90ff8777d91dcfab702086ac5fa252fc89"
+    },
+    {
+      "path": "ZELDA/ZELDA_diamond-diamond_m4.tar.gz",
+      "bytes": 12178544,
+      "sha256": "7bd2247e4bec2e03cb2d8c5a05dcfc2ee2068d0fe956c137c6f2bac379e57fa9"
+    },
+    {
+      "path": "MARIO/MARIO_master-master_a1.tar.gz",
+      "bytes": 12387618,
+      "sha256": "b93c2ca1d7b46296810e3e690b815d0482928f52b94463f4eef5c94e835f16e0"
+    },
+    {
+      "path": "LINK/LINK_diamond-diamond_a3.tar.gz",
+      "bytes": 15299720,
+      "sha256": "8428dde3de40d8540d9f0be38d47a098ff93856dd2dffe69c466b6f45f9c4372"
+    },
+    {
+      "path": "KIRBY/KIRBY_diamond-platinum_a2.tar.gz",
+      "bytes": 16186354,
+      "sha256": "3cd47108df2ec2b1abea3b28621c7dfa7c7012cf8bfaa908ea23958da39ab954"
+    },
+    {
+      "path": "PICHU/PICHU_diamond-platinum_a5.tar.gz",
+      "bytes": 16462017,
+      "sha256": "f0d00a26c27fa75174bc65dd7870acce05889487d0874f87d75ad7caf639d1f5"
+    },
+    {
+      "path": "ZELDA/ZELDA_master-diamond_m4.tar.gz",
+      "bytes": 16609853,
+      "sha256": "599f66c2df13fb391787b0c8b96eb0199f5b6f4386c90fab225a39c8bdb5adb3"
+    },
+    {
+      "path": "YLINK/YLINK_master-master_a6.tar.gz",
+      "bytes": 20130473,
+      "sha256": "eabfedc8a22fc2b82579fc4ca06822ff36547cc80990673b7e73add095a89a79"
+    },
+    {
+      "path": "MEWTWO/MEWTWO_diamond-diamond_a4.tar.gz",
+      "bytes": 21055899,
+      "sha256": "745e493519f001faf4f7ec00ea8a4e57949eb77d773c0a5c801bad00bf6958bb"
+    },
+    {
+      "path": "DK/DK_diamond-diamond_a1.tar.gz",
+      "bytes": 22940767,
+      "sha256": "44bff036a83bbd4667e8df938b2be9a2c7e0a9efeaa061a261d8d3c9f00b42f3"
+    },
+    {
+      "path": "LUIGI/LUIGI_master-master_a3.tar.gz",
+      "bytes": 26940884,
+      "sha256": "1b2390d9e1725e63da9958fdf47833af209648896a75003eb51a5c6f3e1e02fd"
+    },
+    {
+      "path": "BOWSER/BOWSER_diamond-diamond_a3.tar.gz",
+      "bytes": 27821667,
+      "sha256": "f09a1a06820bc77c414072a0a7c00579cc7fdd972d687344135314a76707b1c4"
+    },
+    {
+      "path": "GAMEANDWATCH/GAMEANDWATCH_master-platinum_a2.tar.gz",
+      "bytes": 33274270,
+      "sha256": "b9563421051e55f56bbe514238c222a4ee58e6ba392ca82365b262748f98892f"
+    },
+    {
+      "path": "YOSHI/YOSHI_diamond-diamond_a3.tar.gz",
+      "bytes": 33854508,
+      "sha256": "e70e6eaac340df49dc97859d717553f5c8fc7fa098e10093a48e9a2e5eed85c9"
+    },
+    {
+      "path": "ZELDA/ZELDA_master-platinum_m1.tar.gz",
+      "bytes": 34569505,
+      "sha256": "39782a4200e49aa180ef60892206a94079303e597e034b7d37a57d9ffb9a2682"
+    },
+    {
+      "path": "GAMEANDWATCH/GAMEANDWATCH_diamond-diamond_a5.tar.gz",
+      "bytes": 37188547,
+      "sha256": "1f6e44032f41be45cb06cdbc56e28d681edfe6d6da1780c5ae114362366a5aa6"
+    },
+    {
+      "path": "YLINK/YLINK_diamond-diamond_a1.tar.gz",
+      "bytes": 40027049,
+      "sha256": "3294457efa81e4c954f0e072c70085f54af0ae974a365f5c7ff175b8e7199898"
+    },
+    {
+      "path": "MEWTWO/MEWTWO_master-diamond_a4.tar.gz",
+      "bytes": 44675602,
+      "sha256": "bddb2b2032fd4e93ee75f1bef1c97128cca7236b1ce0e5329d29280922080ab0"
+    },
+    {
+      "path": "MARIO/MARIO_diamond-diamond_a3.tar.gz",
+      "bytes": 48970699,
+      "sha256": "d8c4b886033543665ea268fffbcfe4e35eea0c32372e18e96f76d8fb185b7703"
+    },
+    {
+      "path": "BOWSER/BOWSER_master-diamond_a3.tar.gz",
+      "bytes": 51286635,
+      "sha256": "b06aaacd330a199595ce96d690cb227766ff3ed55d3db2267d699b565d7d3fd1"
+    },
+    {
+      "path": "LUIGI/LUIGI_diamond-diamond_a3.tar.gz",
+      "bytes": 51525406,
+      "sha256": "d0458ac710b81e26e90424667f49c21f155b7f1e6b7f21fa4331166ded321c31"
+    },
+    {
+      "path": "BOWSER/BOWSER_master-platinum_a1.tar.gz",
+      "bytes": 53012367,
+      "sha256": "9256b16691e74ae2dc70cb4634bb0166269e2dc193b3fc000defd607dd6ba31a"
+    },
+    {
+      "path": "YLINK/YLINK_master-diamond_a2.tar.gz",
+      "bytes": 58861589,
+      "sha256": "e92e3e6c0f4d2471c656ae544b5c9b84d62344b14b4cb1edcb738a8e7a490bff"
+    },
+    {
+      "path": "BOWSER/BOWSER_diamond-platinum_a3.tar.gz",
+      "bytes": 61420363,
+      "sha256": "ca3957db6d4f29f5dc4d55e9f0f8ce60bc7de6496b789fd3d5bf220f5b56dfcf"
+    },
+    {
+      "path": "LUIGI/LUIGI_master-diamond_a3.tar.gz",
+      "bytes": 61476927,
+      "sha256": "cf7bb4486a7f3ee912340dff585b43c65758f3490ea72fda183702a08cb3f518"
+    },
+    {
+      "path": "ROY/ROY_master-diamond_a1.tar.gz",
+      "bytes": 62376659,
+      "sha256": "c99a096a5aeb11ed107cfae90a6e9727dc5c31aa7778a951522b8ce1b1752fa2"
+    },
+    {
+      "path": "ROY/ROY_master-platinum_a4.tar.gz",
+      "bytes": 67041384,
+      "sha256": "7b30cb49a165c47caffae0bb528175544cda45668f202717cfd614210a6f5440"
+    },
+    {
+      "path": "NESS/NESS_master-platinum_a1.tar.gz",
+      "bytes": 67346347,
+      "sha256": "123b7e2db8885f360fe71cf6f62f1668dcc4a4b8be3e843517b35781a80aeb82"
+    },
+    {
+      "path": "LUIGI/LUIGI_master-platinum_a3.tar.gz",
+      "bytes": 68137342,
+      "sha256": "e19530b6880bb876c5f5ccb2c2074d6b3b4d4774883d53f8d61a6b9f2e1e9c08"
+    },
+    {
+      "path": "YLINK/YLINK_master-platinum_a2.tar.gz",
+      "bytes": 68759105,
+      "sha256": "df03eb2cb643dd169f15b2260fb80bc675cbd0cf977e2dcd09201d0a57351978"
+    },
+    {
+      "path": "GAMEANDWATCH/GAMEANDWATCH_master-diamond_a2.tar.gz",
+      "bytes": 73377216,
+      "sha256": "e275aeaa25516848b4fb12dce0bbd86c30765b0c748dde5f03c34fcab01b9fb7"
+    },
+    {
+      "path": "ROY/ROY_diamond-platinum_a3.tar.gz",
+      "bytes": 78816242,
+      "sha256": "3898240a6dbb8f71fe1b7da081b2455e0fe87f5dcfd0956805be93f8504339b3"
+    },
+    {
+      "path": "LINK/LINK_master-diamond_a3.tar.gz",
+      "bytes": 92420496,
+      "sha256": "f92ac05b7870e66f6e61875078a62e50c8665ae58c79e13655d7d4ab202fb815"
+    },
+    {
+      "path": "ZELDA/ZELDA_diamond-platinum_m1.tar.gz",
+      "bytes": 93806132,
+      "sha256": "7cf4a77445ca6c9b8bc35993642a015564906ccb9945401cdbddea509c1ae4ec"
+    },
+    {
+      "path": "MEWTWO/MEWTWO_master-platinum_a6.tar.gz",
+      "bytes": 107991978,
+      "sha256": "b08de9b954c4f04e5dbfe1dfeefc6bda9dfffab0f1ad271ef363971589b45386"
+    },
+    {
+      "path": "PIKACHU/PIKACHU_diamond-diamond_a1.tar.gz",
+      "bytes": 108171656,
+      "sha256": "8fb89fb245f780664e6bef90ff039ee1c0d7f8a94acbe7e5404c6b2fecf7efb1"
+    },
+    {
+      "path": "LUIGI/LUIGI_diamond-platinum_a3.tar.gz",
+      "bytes": 114374441,
+      "sha256": "5a3f173e56f1e925478c57125a4f196bb1d30a8d5ea66503afa567aee09793ae"
+    },
+    {
+      "path": "MARIO/MARIO_master-diamond_a1.tar.gz",
+      "bytes": 115379775,
+      "sha256": "f18cd8be4d94bb51245a008184e57c3328b0bb8e96174f3a0eb3099c1a0760e9"
+    },
+    {
+      "path": "DK/DK_diamond-platinum_a1.tar.gz",
+      "bytes": 128894997,
+      "sha256": "c21db61c6c6cfab9b743089fedcc86244046a32ceeed18f21e58eaccbba84290"
+    },
+    {
+      "path": "MARIO/MARIO_master-platinum_a5.tar.gz",
+      "bytes": 136667435,
+      "sha256": "1eb2f0d4a266624ad42300d1d416e2d59327e58640f17701969d22a1c0398e6f"
+    },
+    {
+      "path": "NESS/NESS_diamond-diamond_a5.tar.gz",
+      "bytes": 137800555,
+      "sha256": "0afce743b8087b66de59aef51cbe529d6805421744b98b461549b7448eb47e75"
+    },
+    {
+      "path": "GANONDORF/GANONDORF_diamond-diamond_a5.tar.gz",
+      "bytes": 139230887,
+      "sha256": "466bc4ff01395fb590f04d135263e66b5558a4c62b8151ec72f484eeefc529e3"
+    },
+    {
+      "path": "DK/DK_master-platinum_a1.tar.gz",
+      "bytes": 155680180,
+      "sha256": "dfc5ef0226d12af8fcad6efced645788a0d6d6fabd95ec4a1a97b965eea5dfec"
+    },
+    {
+      "path": "LINK/LINK_master-master_a3.tar.gz",
+      "bytes": 158074090,
+      "sha256": "4c570dfa018f9ca17d80e76aaeb172f229f3b8d892b415d168e611c747df0db6"
+    },
+    {
+      "path": "DK/DK_master-diamond_a1.tar.gz",
+      "bytes": 162650859,
+      "sha256": "8d4f6a9d89ea7245b7ceb390148d354512830c05ad033fb364c20f80a9ba8312"
+    },
+    {
+      "path": "GANONDORF/GANONDORF_master-master_a6.tar.gz",
+      "bytes": 173522708,
+      "sha256": "f5b3c9177ca74504f3984e2820cd4bc31c00e59a5a639cdfe7d83f69c7a80388"
+    },
+    {
+      "path": "GAMEANDWATCH/GAMEANDWATCH_diamond-platinum_a2.tar.gz",
+      "bytes": 179536774,
+      "sha256": "e9daa8e90810d7f9f9f775436a397a570a2e3739f12f434b9cf733defbe79b50"
+    },
+    {
+      "path": "LINK/LINK_master-platinum_a1.tar.gz",
+      "bytes": 182549737,
+      "sha256": "c4f85545589bcd8d27211e281c6784640cc85efa45192706a4d9b9e66a3e07e3"
+    },
+    {
+      "path": "DOC/DOC_master-master_a2.tar.gz",
+      "bytes": 186413131,
+      "sha256": "98da8d83461c3613e907ff63b73fdd4eb788f12464cefa79b8a25bbb5d47dea0"
+    },
+    {
+      "path": "YLINK/YLINK_diamond-platinum_a2.tar.gz",
+      "bytes": 193032757,
+      "sha256": "502b1e2322a4349ec4cd11f2fdf1271dab11b43d16ee72c3ddb2622d972d33d4"
+    },
+    {
+      "path": "NESS/NESS_master-diamond_a6.tar.gz",
+      "bytes": 197047550,
+      "sha256": "825756c01ebd572fdbcc4b692b9992d6f356cefcb228f0c54d5a931cd8c6d3cd"
+    },
+    {
+      "path": "MEWTWO/MEWTWO_diamond-platinum_a4.tar.gz",
+      "bytes": 211411629,
+      "sha256": "2827c66cd74a8bce31a38aeb418d3e2027c732a0319b303827a2515fdfb30b36"
+    },
+    {
+      "path": "DOC/DOC_diamond-diamond_a3.tar.gz",
+      "bytes": 219124307,
+      "sha256": "5ef6ecef1dc3b08dea5d8d6ff08c3339ac68435ad62ca8d8e85132e23276f978"
+    },
+    {
+      "path": "PIKACHU/PIKACHU_diamond-platinum_a1.tar.gz",
+      "bytes": 224422970,
+      "sha256": "081064ac01fac8bb8a5f6641f96a0da239b3b422b96b815bd4aaf36a089daa31"
+    },
+    {
+      "path": "ICE_CLIMBERS/ICE_CLIMBERS_diamond-diamond_a3.tar.gz",
+      "bytes": 239928133,
+      "sha256": "86d66b1318f57c379ed3959dd01e371a87ed674b9b74be8f4b43d919a282f82c"
+    },
+    {
+      "path": "DK/DK_master-master_a1.tar.gz",
+      "bytes": 255996895,
+      "sha256": "fb5d1c836c9d37c67b55b5068c1b367238a63fecbc2b1ea1016fa4f04c361463"
+    },
+    {
+      "path": "YOSHI/YOSHI_master-diamond_a5.tar.gz",
+      "bytes": 271448059,
+      "sha256": "9866a233b0f59a8e9667438e1d56874f8f6b6b01d2b4e97ae6056b25faa95d22"
+    },
+    {
+      "path": "NESS/NESS_diamond-platinum_a5.tar.gz",
+      "bytes": 273184839,
+      "sha256": "e4ffdbb9b2944f1ad7f917a8cf20825cafe54187fcdfcfd7a39d9707425f40fe"
+    },
+    {
+      "path": "DOC/DOC_master-platinum_a1.tar.gz",
+      "bytes": 292579776,
+      "sha256": "30a104ff0bb891098bf8b101158944f79c39b26ab6a1bfbf4ce65041f6c01021"
+    },
+    {
+      "path": "MARIO/MARIO_diamond-platinum_a3.tar.gz",
+      "bytes": 315969803,
+      "sha256": "f2002cb7cb301056dca955e6af0367613f7e3d813149140d10d13966b988949e"
+    },
+    {
+      "path": "YOSHI/YOSHI_master-master_a5.tar.gz",
+      "bytes": 319443590,
+      "sha256": "abedc11a7b8415aa16530a003b20c2ad35ab912ef67c41ef6a246cfa96b0113c"
+    },
+    {
+      "path": "YOSHI/YOSHI_diamond-platinum_a1.tar.gz",
+      "bytes": 323493332,
+      "sha256": "0f8b7eac2a047e4634620e96834dfce19b13b5bcf83ea22a5e27f75b61af48aa"
+    },
+    {
+      "path": "GANONDORF/GANONDORF_master-platinum_a6.tar.gz",
+      "bytes": 360359221,
+      "sha256": "5f77360d37d683adc2da94a4e3fa2cc5d857d8b5145c9d03662526a8894f6179"
+    },
+    {
+      "path": "PIKACHU/PIKACHU_master-platinum_a1.tar.gz",
+      "bytes": 366230179,
+      "sha256": "c8a3550976a1a308ee965f6c5168f5b51e11e709545e57e24b208d72b96f492b"
+    },
+    {
+      "path": "LINK/LINK_diamond-platinum_a1.tar.gz",
+      "bytes": 375445701,
+      "sha256": "aee2a12655e9115247562331630371ae8af1acfe7bca0e4ee7e6f947e6e13998"
+    },
+    {
+      "path": "SAMUS/SAMUS_diamond-diamond_a5.tar.gz",
+      "bytes": 445351819,
+      "sha256": "4a4f23a7110086b5be7386a0757e411168fb6359c429237a624010d16642db14"
+    },
+    {
+      "path": "YOSHI/YOSHI_master-platinum_a5.tar.gz",
+      "bytes": 467493603,
+      "sha256": "bf67045cdd2297672712062d39f4e0382f3e5768db2f9b69408c4bfb3b2bc1c8"
+    },
+    {
+      "path": "GANONDORF/GANONDORF_master-diamond_a5.tar.gz",
+      "bytes": 473763320,
+      "sha256": "e9e7943d2e2a24013b571a0472e005644e1ce9796fc7344ea82c9db1d0e917b2"
+    },
+    {
+      "path": "GANONDORF/GANONDORF_diamond-platinum_a1.tar.gz",
+      "bytes": 528946369,
+      "sha256": "470f8c6c77ed449811af4e450a5b7bd84487f309eb6b1ffafbe220efda779318"
+    },
+    {
+      "path": "DOC/DOC_master-diamond_a2.tar.gz",
+      "bytes": 545727418,
+      "sha256": "0b6c781023d7690b04f4f8247eab2ff297c3565d5b5988e0689567e7697107bf"
+    },
+    {
+      "path": "DOC/DOC_diamond-platinum_a1.tar.gz",
+      "bytes": 549177074,
+      "sha256": "5f520c2952fc85e855a7ad8f71fe5c5a9a174675cdcf81b596a254a78901a479"
+    },
+    {
+      "path": "PIKACHU/PIKACHU_master-diamond_a1.tar.gz",
+      "bytes": 612549675,
+      "sha256": "23186eaeec6b50cb47d33e8a4510023875474c4f4c77ae3755988cf0f7bb1b4b"
+    },
+    {
+      "path": "CPTFALCON/CPTFALCON_diamond-diamond_a1.tar.gz",
+      "bytes": 625318756,
+      "sha256": "e7906939235c1841d8abb2e8eb160a7ed84b0d0da35407b5b053b85c5b5f5acb"
+    },
+    {
+      "path": "ICE_CLIMBERS/ICE_CLIMBERS_master-master_a2.tar.gz",
+      "bytes": 728003790,
+      "sha256": "ea6835e64fbf61d73961b9cdaebff132a1a595c02f96c8d4a586f1555a16a5d6"
+    },
+    {
+      "path": "PEACH/PEACH_diamond-diamond_a1.tar.gz",
+      "bytes": 738288756,
+      "sha256": "f95be12a65f9e786e8d6e2a9e1bdbce2895315ecae5af2cc5f129a5c44162b79"
+    },
+    {
+      "path": "JIGGLYPUFF/JIGGLYPUFF_diamond-diamond_a1.tar.gz",
+      "bytes": 781545035,
+      "sha256": "2eb4b6c9183257abb4b59ee09fd1fd1434557824347f46dd6b353632c293ccb3"
+    },
+    {
+      "path": "ICE_CLIMBERS/ICE_CLIMBERS_diamond-platinum_a3.tar.gz",
+      "bytes": 798966668,
+      "sha256": "7a81a6720f65cddc3b4e96c0177998a17d17835f5722ee56a2fc46fdc70aab8a"
+    },
+    {
+      "path": "SHEIK/SHEIK_diamond-diamond_a1.tar.gz",
+      "bytes": 815007024,
+      "sha256": "55da639679f8efe2cd59182c95626bae527729bf4ec5c0d39a7655aeb344c323"
+    },
+    {
+      "path": "ICE_CLIMBERS/ICE_CLIMBERS_master-diamond_a2.tar.gz",
+      "bytes": 883605525,
+      "sha256": "b1132e02221bf675d22be4ec7287c85337d98e54f7cc51ac842acc923fc8aedc"
+    },
+    {
+      "path": "ICE_CLIMBERS/ICE_CLIMBERS_master-platinum_a2.tar.gz",
+      "bytes": 888015722,
+      "sha256": "b9823f644ec1a67c5e6b89df85d936a35910da777fabad6858025c860ae118fb"
+    },
+    {
+      "path": "SAMUS/SAMUS_master-platinum_a1.tar.gz",
+      "bytes": 987288287,
+      "sha256": "aab5971e73ca51bf4040892c0e9bc3352e51398915dead66a1b0bcb2ffef6e1f"
+    },
+    {
+      "path": "PIKACHU/PIKACHU_master-master_a2.tar.gz",
+      "bytes": 987439012,
+      "sha256": "93b8b5ac8eb525ce306f2e82068c0c4357bb464d6b2bffc185f2cb0bde80ad42"
+    },
+    {
+      "path": "SAMUS/SAMUS_master-master_a3.tar.gz",
+      "bytes": 1123926658,
+      "sha256": "ef5c773829d2bb6358d7173261a49b533a14fa474383aedd3ee4aad435902d12"
+    },
+    {
+      "path": "MARTH/MARTH_diamond-diamond_a1.tar.gz",
+      "bytes": 1193966112,
+      "sha256": "4c6896712f80e8762e706806561ffb54b6b8b7f81f635e75edeee90c09d63776"
+    },
+    {
+      "path": "PEACH/PEACH_master-master_a6.tar.gz",
+      "bytes": 1317389450,
+      "sha256": "92572b5ad9ed08b5e4cdca31669881ddd8b4684110d28a701526dc7d67509649"
+    },
+    {
+      "path": "JIGGLYPUFF/JIGGLYPUFF_master-platinum_a3.tar.gz",
+      "bytes": 1324768107,
+      "sha256": "91f438175f3d69056d331c66f203d34ece5bad73064ca804c08d489977ed298f"
+    },
+    {
+      "path": "SAMUS/SAMUS_master-diamond_a3.tar.gz",
+      "bytes": 1363219668,
+      "sha256": "b46a037de98b3f83f76f7caa797e618c660de58ebcacc63de38e7fcc2bfc9a5a"
+    },
+    {
+      "path": "SAMUS/SAMUS_diamond-platinum_a3.tar.gz",
+      "bytes": 1455666569,
+      "sha256": "5aaaf0d99288c3178354345f0e985162f6d3f0a25993de6a0c15c126675006a2"
+    },
+    {
+      "path": "CPTFALCON/CPTFALCON_master-master_a5.tar.gz",
+      "bytes": 1479084312,
+      "sha256": "2e1085e32f0e04a392cd91bf7cc8403b75ca5c2f4d5a95b3d4f15326ab467cfb"
+    },
+    {
+      "path": "PEACH/PEACH_master-platinum_a3.tar.gz",
+      "bytes": 1578304763,
+      "sha256": "bbf8469daa81f4129640dfee10a8e06c4094de0a76cf1f6c388768dcaee413d2"
+    },
+    {
+      "path": "JIGGLYPUFF/JIGGLYPUFF_master-master_a2.tar.gz",
+      "bytes": 1617817739,
+      "sha256": "3e078978dc48b9f835700a9f2aa40594c4b26661f1ab1a784b690ff2f0e8cbb8"
+    },
+    {
+      "path": "CPTFALCON/CPTFALCON_master-platinum_a1.tar.gz",
+      "bytes": 1706629700,
+      "sha256": "0e38e7cd395ccd259e309da09434e19e9355a5039dbde29098bd25e863c6fbed"
+    },
+    {
+      "path": "MARTH/MARTH_master-master_a2.tar.gz",
+      "bytes": 1840703593,
+      "sha256": "a9644d7dd15755eabf039c8eef5479c7ee17ac9445d32ca0e4657daa9a25da22"
+    },
+    {
+      "path": "JIGGLYPUFF/JIGGLYPUFF_diamond-platinum_a4.tar.gz",
+      "bytes": 1841738270,
+      "sha256": "e3ceb6b6241a74aa04a3e1be454c24ffb52a0cfe5c39f65d9d509d50eb36b4ff"
+    },
+    {
+      "path": "PEACH/PEACH_master-diamond_a1.tar.gz",
+      "bytes": 1914919382,
+      "sha256": "ed4b708c53661ad9117a18ec0764c40cd503f905999a8bdd25cd06593a3a8ded"
+    },
+    {
+      "path": "CPTFALCON/CPTFALCON_master-diamond_a2.tar.gz",
+      "bytes": 1966079193,
+      "sha256": "745415adecf386126bc1fb783b8c042af91d01f0bcbbca66608517cbcbc30b59"
+    },
+    {
+      "path": "SHEIK/SHEIK_master-master_a2.tar.gz",
+      "bytes": 2011633906,
+      "sha256": "0bd07eaa6734756c0bdb76aa9b3dd4e40ff500e44d1b68792feeb4ff30d3c0f9"
+    },
+    {
+      "path": "SHEIK/SHEIK_master-platinum_a1.tar.gz",
+      "bytes": 2095944410,
+      "sha256": "52490b416d8846ce4392aca8e135243028e6e8726147ff7149b0980ac159e9c2"
+    },
+    {
+      "path": "FALCO/FALCO_master-master_a2.tar.gz",
+      "bytes": 2279630372,
+      "sha256": "3d892703a7dfd97f2ec644b8eefc3ae96fed95e6fbef970a444d7b11b02d2b2a"
+    },
+    {
+      "path": "FALCO/FALCO_diamond-diamond_a3.tar.gz",
+      "bytes": 2520198194,
+      "sha256": "21b3e8e8aa253e9b7057fb18ee879622f7a26c324056289efe95d10e182ccdf7"
+    },
+    {
+      "path": "FOX/FOX_diamond-diamond_a1.tar.gz",
+      "bytes": 2532008241,
+      "sha256": "b059608cce6eb12f5940ff8af07002dc0cdae49d3dd1ef0d7e9053a664735576"
+    },
+    {
+      "path": "PEACH/PEACH_diamond-platinum_a3.tar.gz",
+      "bytes": 2560608509,
+      "sha256": "b09cde232537f2e4eaed099b0f186e44f9408b3d65b7e0cb0296d7f60ee24e7c"
+    },
+    {
+      "path": "JIGGLYPUFF/JIGGLYPUFF_master-diamond_a5.tar.gz",
+      "bytes": 2610688307,
+      "sha256": "e5928cafbfab42357c333f3e4915d0acc63f4195298aec32f7381708153f37ae"
+    },
+    {
+      "path": "SHEIK/SHEIK_master-diamond_a1.tar.gz",
+      "bytes": 2614701327,
+      "sha256": "ee25d9327366a9f34150f7ead68b730a7bae218551f52e5580fda536b075a529"
+    },
+    {
+      "path": "CPTFALCON/CPTFALCON_diamond-platinum_a1.tar.gz",
+      "bytes": 2728745541,
+      "sha256": "2a96677b5218666191b241f9450111867ecc9b3bd6bd5f95537f8df89b16ce69"
+    },
+    {
+      "path": "MARTH/MARTH_master-diamond_a5.tar.gz",
+      "bytes": 2802923512,
+      "sha256": "928e634fcd06f737f9a1448b476be8e1b22a5c549eaec80c1dd2c3744b75b853"
+    },
+    {
+      "path": "MARTH/MARTH_master-platinum_a1.tar.gz",
+      "bytes": 2818107550,
+      "sha256": "df6c6ec6d1b9afe24e68246c59d1207c7339af316dd691f50639b30f438b21c6"
+    },
+    {
+      "path": "SHEIK/SHEIK_diamond-platinum_a1.tar.gz",
+      "bytes": 3021598950,
+      "sha256": "8e3c5eefe859fbdfe044d240ae65aeb01a578ae2e930ce72f1a44f73f81ff498"
+    },
+    {
+      "path": "MARTH/MARTH_diamond-platinum_a1.tar.gz",
+      "bytes": 3970206205,
+      "sha256": "f119b607240a3b8e69c7fb99c1276ac12382e2335fc57c182a39ae773aeb5db7"
+    },
+    {
+      "path": "FALCO/FALCO_master-platinum_a1.tar.gz",
+      "bytes": 4220157072,
+      "sha256": "a616e081af749d77733151f6825ca0dc8bbb592f292927a454e85da5f6efe930"
+    },
+    {
+      "path": "FALCO/FALCO_master-diamond_a2.tar.gz",
+      "bytes": 4583233862,
+      "sha256": "1dbbf6a4c7d96be3559e103fe61157b7bbb47dce8c19d31750f69a896dae1786"
+    },
+    {
+      "path": "FOX/FOX_master-master_a2.tar.gz",
+      "bytes": 4941611851,
+      "sha256": "50e5d8da47cec3bc0caf2ebce224f023570e7064201a1688ad12171f8281b81a"
+    },
+    {
+      "path": "FOX/FOX_master-platinum_a1.tar.gz",
+      "bytes": 5191497926,
+      "sha256": "027514a10f790defd8633f9136d6b35298ff73107ee3a36821b71747d8d1960e"
+    },
+    {
+      "path": "FOX/FOX_diamond-platinum_a1.tar.gz",
+      "bytes": 7384560268,
+      "sha256": "131a3caaf63ab505a8471dd1e787e4bb7a57b7bbbd3261107a4a6b4e4e380ba2"
+    },
+    {
+      "path": "FOX/FOX_master-diamond_a5.tar.gz",
+      "bytes": 7781656101,
+      "sha256": "2a3fa0685844dfa81d90c03d8bae12c4e7f6a2fb429bfe930c13ba226797b80d"
+    },
+    {
+      "path": "FALCO/FALCO_diamond-platinum_a3.tar.gz",
+      "bytes": 8024145338,
+      "sha256": "fc9277a600dadbffc141e7bfcb9e4ddadeaebc1a50ed9567cc079546f0540baf"
+    }
+  ]
+}

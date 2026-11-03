@@ -9,6 +9,14 @@
 
 export const SECTIONS = [
   {
+    title: "Benchmark samples",
+    items: [
+      { term: "Diamond Slippi and Master Slippi", def: "Historical anonymized recordings with per-player source tier labels. These are selected complete source shards, not a representative sample of the ladder. Rank timing, season, replay dates, and unique-player counts are unknown. Only recordings passing the disclosed quality gates contribute. Counts are player-games: a same-tier match can contribute two sides. Mixed-tier matches contribute each side to its own tier. Repeated anonymous tier labels do not identify people. Success rates pool measured opportunities. Openings/kill, damage/opening, and inputs/min headline comparisons average the available per-game values; per-game move counts use measured player-games. No player-balanced or current-rank claims are made." },
+      { term: "Exact ranked comparisons", def: "Ranked references match the selected character, opponent character, and stage where those controls apply. An all-character or all-opponent view selects its separately published aggregate, without adding overlapping rows. A missing or unsupported measurement stays unavailable; measured zero remains zero. Execution tournament references retain all stages, while ranked references follow Stage. Local time, mode, account, and named-opponent filters do not narrow the historical benchmark sample. Source details show the snapshot and selection method." },
+      { term: "Comparison highlighting and advice", def: "Choose Diamond Slippi, Master Slippi, Tournament, or Pro Tournament to highlight differences or inform move-habit advice. Tournament remains the default. A missing selected cohort never falls back to another cohort. Coach move comparisons use the matching character across all opponents and stages, and preserve local-only advice when source evidence is unavailable. Differences indicate habits, not better play or a skill percentile. SSBMStats Community headline medians retain their separate player-balanced estimator and publication thresholds." },
+    ],
+  },
+  {
     title: "Results",
     items: [
       {
@@ -75,11 +83,11 @@ export const SECTIONS = [
       },
       {
         term: "Special attempts and no-hit rates",
-        def: "Attempts/game divides move activations by games with measured attempts, including measured zero-use games. Specials with reliable damage attribution also track completed uses with and without opponent damage. No-hit uses/game divides no-hit uses by outcome-tracked games. No-hit rate divides no-hit uses by completed uses and excludes incomplete uses. Shield contact and defensive uses are included, so this is not a verified whiff rate or attempts minus landed hits. Utility, counter, and independently persisting projectile/item moves have attempts only. Tournament, Pro Tournament, and named-player comparisons use the same per-move denominators. Older local statistics need refreshing; missing or incomplete source observations remain unavailable. Archive comparisons require measured samples for each move.",
+        def: "Attempts/game divides move activations by games with measured attempts, including measured zero-use games. Specials with reliable damage attribution also track completed uses with and without opponent damage. No-hit uses/game divides no-hit uses by outcome-tracked games. No-hit rate divides no-hit uses by completed uses and excludes incomplete uses. Shield contact and defensive uses are included, so this is not a verified whiff rate or attempts minus landed hits. Utility, counter, and independently persisting projectile/item moves have attempts only. Diamond Slippi, Master Slippi, Tournament, Pro Tournament, and named-player comparisons use the same per-move denominators. Older local statistics need refreshing; missing or incomplete source observations remain unavailable. Archive comparisons require measured samples for each move.",
       },
       {
         term: "Move comparisons",
-        def: "Choose a measure to compare your move effectiveness with SSBMStats Community, Tournament, and Pro Tournament samples. Landed per game is the default; damage, kill, and other available measures use the same selection in the Move trend chart. Your Execution values cover the most recent rolling window after filters; reference values are fixed aggregates over their published samples. Missing measurements stay blank rather than counting as zero.",
+        def: "Choose a measure to compare your move effectiveness with Diamond Slippi, Master Slippi, SSBMStats Community, Tournament, and Pro Tournament samples. Landed per game is the default; damage, kill, and other available measures use the same selection in the Move trend chart. Your Execution values cover the most recent rolling window after filters; reference values are fixed aggregates over their published samples. Missing measurements stay blank rather than counting as zero.",
       },
       {
         term: "L-cancel %",
@@ -136,7 +144,7 @@ export const SECTIONS = [
       },
       {
         term: "Hit during recovery",
-        def: "Recovery attempts with at least one observed opponent hit after the initial offstage launch, divided by all recorded attempts including unfinished ones. Multiple hits count once. Tracking continues through ledge and the stable-return check; the initial launch, non-damaging grabs, and self/environmental damage are excluded. An unhit recovery can still be contested by an opponent's positioning or ledge hold. This measure is also available in the experimental Tournament and Pro Tournament comparisons.",
+        def: "Recovery attempts with at least one observed opponent hit after the initial offstage launch, divided by all recorded attempts including unfinished ones. Multiple hits count once. Tracking continues through ledge and the stable-return check; the initial launch, non-damaging grabs, and self/environmental damage are excluded. An unhit recovery can still be contested by an opponent's positioning or ledge hold. This measure is also available in the experimental ranked and tournament comparisons.",
       },
       {
         term: "Ledge and OOS outcomes",
@@ -156,7 +164,7 @@ export const SECTIONS = [
       },
       {
         term: "Sampled archive estimates",
-        def: "Tournament and Pro Tournament compare the same selected measure and denominator with your local observations. The source covers every eligible bundle in the already-audited public archive: Tournament is the deduplicated union of up to 100 hash-selected venue games and up to 100 hash-selected conservative tournament games per bundle; Pro Tournament includes every vetted named-player side in conservative games across those bundles. Cohorts overlap. Exact Me / Vs / Stage filters apply, with no broader fallback when a matchup is missing. Benchmarks pool opportunities rather than balancing players, characters, or events; archive coverage and per-bundle caps can bias them. They are not population statistics or skill rankings. Cells show numerators and denominators, headings show measured player-games, and the panel identifies the source and sample counts. SSBMStats Community estimates are not available for these metrics.",
+        def: "Diamond Slippi, Master Slippi, Tournament, and Pro Tournament compare the same selected measure and denominator with your local observations. The source covers every eligible bundle in the already-audited public archive: Tournament is the deduplicated union of up to 100 hash-selected venue games and up to 100 hash-selected conservative tournament games per bundle; Pro Tournament includes every vetted named-player side in conservative games across those bundles. Cohorts overlap. Exact Me / Vs / Stage filters apply, with no broader fallback when a matchup is missing. Benchmarks pool opportunities rather than balancing players, characters, or events; archive coverage and per-bundle caps can bias them. They are not population statistics or skill rankings. Cells show numerators and denominators, headings show measured player-games, and the panel identifies the source and sample counts. SSBMStats Community estimates are not available for these metrics.",
       },
       {
         term: "Analyzing older replays",

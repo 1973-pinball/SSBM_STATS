@@ -399,8 +399,8 @@ class StreamingFrameSummary {
  * look back one frame only; online rollback candidates are not finalized yet,
  * so they remain in the parser until safe. Batching keeps Stats.process() on a
  * tight loop instead of re-entering it for every frame, while changing the full
- * parse from retaining every large frame object twice to retaining at most 8,192
- * finalized frames plus the small rollback window.
+ * parse from retaining every large frame object twice to retaining a batch of
+ * 2,048 finalized frames plus the small rollback and lookback windows.
  *
  * The private-field guard mirrors dropUnreadComputers: an upstream shape change
  * falls back to the old full-frame pass, which is slower but correct.
@@ -460,12 +460,15 @@ function installStreamingFrameSummary(game: SlippiGame): StreamingFrameControlle
     }
     summaryNextFrame = latestFinalized + 1;
 
-    // Keep the last finalized frame for the next batch's one-frame lookback,
-    // plus any newer unfinalized rollback candidates held by the parser.
+    // Stats need the last finalized frame for their one-frame lookback. Keep
+    // its predecessor in the parser too: without an END event, slippi-js's
+    // getLatestFrame() deliberately reads latestFrameIndex - 1. A final flush
+    // must not erase that observed stock state while leaving the result unknown.
+    // Newer unfinalized rollback candidates also remain in the parser.
     const keptParserFrames: FramesType = {};
     for (const key of Object.keys(parserFrames)) {
       const fn = Number(key);
-      if (fn >= latestFinalized) keptParserFrames[fn] = parserFrames[fn]!;
+      if (fn >= latestFinalized - 1) keptParserFrames[fn] = parserFrames[fn]!;
     }
     parser.frames = keptParserFrames;
     const lastStatsFrame = stats.frames?.[latestFinalized];
@@ -632,6 +635,15 @@ function parseReplayWithMode(id: string, path: string, buf: ArrayBuffer, bounded
   // that slippi-js cannot decode, including the old Unicode name-length bug.
   const metadata = readReplayMetadata(game, new Uint8Array(buf));
   const gameEnd = game.getGameEnd();
+  // Some recordings rewrite already-finalized history. Bounded computers may
+  // have consumed and discarded those original frames, so their accumulated
+  // stats cannot be corrected in place. Re-read only this exceptional replay
+  // with retained frames, which lets the library compute from the final frame
+  // objects. The same integrity monitor runs there: special/interaction coverage
+  // still fails closed. Ordinary rollback never takes this fallback.
+  if (streaming && finalizedFrameIntegrity() === null) {
+    return parseReplayWithMode(id, path, buf, false);
+  }
   streaming?.flush();
   const stats = game.getStats();
   const latestFrame = game.getLatestFrame();

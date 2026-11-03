@@ -158,12 +158,14 @@ export function hasFullStats(rec: GameRecord): boolean {
  * Bump when a full replay parse gains fields that cannot be derived from an
  * older cached/cloud record. The marker lives inside the cloud JSON payload,
  * so no Supabase schema migration is needed.
- * Version 9 adds observed hits during recovery attempts. Versions 6–8 still
- * supply valid baseline stats; the latest filtered interaction window upgrades
- * automatically when its replay files are accessible.
+ * Version 10 corrects bounded parsing at missing-END and rewritten-finalized
+ * frame boundaries. Compatible v6–9 baselines remain visible while explicit
+ * refresh or the latest filtered interaction window reparses available files.
+ * Interaction detector compatibility stays at v9 (observed recovery hits).
  */
-export const CURRENT_STATS_VERSION = 9;
+export const CURRENT_STATS_VERSION = 10;
 export const INTERACTION_STATS_VERSION = 9;
+export const PARSER_CORRECTION_STATS_VERSION = 10;
 /** v6 baseline stats remain valid; contextual upgrades stay scoped to recent games. */
 export const MIN_COMPATIBLE_STATS_VERSION = 6;
 
@@ -193,6 +195,16 @@ export function hasCurrentStats(rec: GameRecord): boolean {
  */
 export function needsStatsRepair(rec: GameRecord): boolean {
   return rec.parseError === undefined && hasFullStats(rec) && !hasCurrentStats(rec);
+}
+
+/** Target a parser correction without releasing otherwise compatible cache rows.
+ * Keep this separate from needsStatsRepair: historical DB migrations use that
+ * predicate to remove obsolete payloads and must preserve v6–9 baselines. */
+export function needsParserRepair(rec: GameRecord): boolean {
+  return rec.parseError === undefined && hasFullStats(rec)
+    && Number.isInteger(rec.statsVersion)
+    && (rec.statsVersion ?? 0) >= MIN_COMPATIBLE_STATS_VERSION
+    && (rec.statsVersion ?? 0) < PARSER_CORRECTION_STATS_VERSION;
 }
 
 /** Used by the bounded automatic queue and an explicit retry/reconnect action. */

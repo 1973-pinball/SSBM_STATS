@@ -1,4 +1,4 @@
-import { hasFullStats, INTERACTION_STATS_VERSION, needsInteractionAnalysis } from "./types";
+import { hasFullStats, INTERACTION_STATS_VERSION, needsInteractionAnalysis, needsParserRepair } from "./types";
 import type { ResolvedGame } from "./types";
 import type { ChoiceOutcomes } from "./defensiveInteractions";
 import type { EdgeguardOutcomes, RecoveryOutcomes } from "./recoveryInteractions";
@@ -31,6 +31,9 @@ export function interactionAnalysisCoverage(games: readonly ResolvedGame[]): Int
       result.needsAnalysis++;
       continue;
     }
+    // Keep compatible v9 measurements available while the bounded recent-game
+    // queue refreshes the parser. Missing fields still count as unavailable.
+    if (needsParserRepair(game.rec)) result.needsAnalysis++;
     for (const family of ["defense", "recovery", "punish"] as const) {
       if ((game.rec.statsVersion ?? 0) < INTERACTION_STATS_VERSION || !game.me[family]) result.unavailable[family]++;
     }

@@ -59,7 +59,7 @@ globalThis.__ssbmArchiveTestClient = {
   },
 };
 const server = await createServer({
-  configFile: false, server: { middlewareMode: true }, appType: "custom",
+  configFile: false, server: { middlewareMode: true, hmr: false, ws: false, watch: null }, appType: "custom",
   optimizeDeps: { noDiscovery: true, include: [] },
   plugins: [{
     name: "isolated-archive-client",

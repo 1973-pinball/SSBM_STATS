@@ -6,7 +6,9 @@ import type { ModelWorkerJob, ModelWorkerResult } from "../worker/model.worker";
 import { COACH_MIN_DECIDED, recommendations, type CoachMoveBenchmark } from "../lib/coach";
 import { num, pct, winRateColor } from "../lib/format";
 import { moveGroup } from "../lib/melee";
-import { fetchArchiveCommunityBenchmarks, fetchLatestArchiveDataset, type ArchiveRollup } from "../lib/publicArchive";
+import { fetchArchiveCommunityBenchmarks, fetchArchiveProAggregateAtlasRows, fetchLatestArchiveDataset } from "../lib/publicArchive";
+import { BENCHMARK_LABELS, RANKED_SOURCE_DESCRIPTION, type BenchmarkMetricRow } from "../lib/benchmarkCohorts";
+import { fetchRankedBenchmarkRows, rankedMetricRow, selectRankedBenchmarkRow, type RankedTier } from "../lib/rankedBenchmarks";
 // Statically imported, not lazy: Sessions used to be its own tab and chunk, and
 // now renders inside this one directly under the coach list.
 import { Sessions } from "./Sessions";
@@ -134,41 +136,41 @@ function useWinModel(
  */
 const COACH_VISIBLE = 5;
 
-function coachMoveBenchmark(row: ArchiveRollup): CoachMoveBenchmark {
+function coachMoveBenchmark(row: BenchmarkMetricRow, sourceLabel: string): CoachMoveBenchmark {
   const landedByMove: Record<string, number> = {};
   for (const [moveId, metrics] of Object.entries(row.metrics.moves ?? {})) {
     const key = moveGroup(Number(moveId)).key;
     landedByMove[key] = (landedByMove[key] ?? 0) + metrics.landed;
   }
-  return { characterId: row.character_id!, gameCount: row.game_count, landedByMove };
+  return { characterId: row.character_id!, gameCount: row.game_count, landedByMove, sourceLabel };
 }
 
-function useTournamentMoveBenchmarks(games: ResolvedGame[]): CoachMoveBenchmark[] {
-  const characterIds = useMemo(
-    () => [...new Set(games.map((game) => game.me.characterId))].sort((a, b) => a - b),
-    [games],
-  );
-  const [benchmarks, setBenchmarks] = useState<CoachMoveBenchmark[]>([]);
+type CoachSource = RankedTier | "tournament" | "pro";
+function useMoveBenchmarks(games: ResolvedGame[], source: CoachSource): CoachMoveBenchmark[] {
+  const characterIds = useMemo(() => [...new Set(games.map(game => game.me.characterId))].sort((a, b) => a - b), [games]);
+  const key = source + ":" + characterIds.join(",");
+  const [result, setResult] = useState<{ key: string; rows: CoachMoveBenchmark[] }>({ key: "", rows: [] });
   useEffect(() => {
     let alive = true;
-    void fetchLatestArchiveDataset()
-      .then(async (dataset) => {
-        if (!dataset) return [];
-        const rows = await Promise.all(characterIds.map(async (characterId) => {
-          const result = await fetchArchiveCommunityBenchmarks(dataset.id, characterId);
-          return result.broad;
-        }));
-        return rows.filter((row): row is ArchiveRollup => row !== null).map(coachMoveBenchmark);
-      })
-      .then((next) => { if (alive) setBenchmarks(next); })
-      .catch(() => { if (alive) setBenchmarks([]); });
+    const load = async () => {
+      if (source === "diamond" || source === "master") {
+        return Promise.all(characterIds.map(async characterId => rankedMetricRow(selectRankedBenchmarkRow(await fetchRankedBenchmarkRows(source, characterId), { characterId, opponentCharacterId: null, stageId: null }), "move")));
+      }
+      const dataset = await fetchLatestArchiveDataset();
+      if (!dataset) return [];
+      return Promise.all(characterIds.map(async characterId => source === "pro"
+        ? (await fetchArchiveProAggregateAtlasRows(dataset.id, characterId)).find(row => row.opponent_character_id === null && row.stage_id === null) ?? null
+        : (await fetchArchiveCommunityBenchmarks(dataset.id, characterId)).broad));
+    };
+    void load().then(rows => { if (alive) setResult({ key, rows: rows.filter((row): row is BenchmarkMetricRow => row !== null).map(row => coachMoveBenchmark(row, BENCHMARK_LABELS[source])) }); })
+      .catch(() => { if (alive) setResult({ key, rows: [] }); });
     return () => { alive = false; };
-  }, [characterIds]);
-  return benchmarks;
+  }, [characterIds, key, source]);
+  return result.key === key ? result.rows : [];
 }
 
 /** Ranked plain-English "do this" list — the tab's front door for non-stats readers. */
-function CoachPanel({ games, tournamentMoveBenchmarks }: { games: ResolvedGame[]; tournamentMoveBenchmarks: CoachMoveBenchmark[] }) {
+function CoachPanel({ games, tournamentMoveBenchmarks, source, setSource }: { games: ResolvedGame[]; tournamentMoveBenchmarks: CoachMoveBenchmark[]; source: CoachSource; setSource: (source: CoachSource) => void }) {
   const recs = useMemo(
     () => recommendations(games, Infinity, { tournamentMoveBenchmarks }),
     [games, tournamentMoveBenchmarks],
@@ -178,7 +180,7 @@ function CoachPanel({ games, tournamentMoveBenchmarks }: { games: ResolvedGame[]
   const shown = expanded ? recs : recs.slice(0, COACH_VISIBLE);
   return (
     <div className="panel">
-      <h2>The short version — what to change</h2>
+      <div className="panel-heading-row"><h2>The short version — what to change</h2><label>Move comparison<select value={source} onChange={event => setSource(event.target.value as CoachSource)}>{(["diamond", "master", "tournament", "pro"] as const).map(key => <option key={key} value={key}>{BENCHMARK_LABELS[key]}</option>)}</select></label></div>
       {recs.length === 0 ? (
         <div className="empty-note">
           Nothing stands out yet — either there aren't ~{COACH_MIN_DECIDED}+ decided games in this filter, or your
@@ -204,7 +206,7 @@ function CoachPanel({ games, tournamentMoveBenchmarks }: { games: ResolvedGame[]
       <div className="hint">
         Ranked by effect size × evidence, each against your own overall win rate — the top {COACH_VISIBLE} show by
         default. Anything that doesn't clear a significance bar is left out entirely. The models below show the full
-        picture behind these. Move-habit advice also checks the matching character's tournament benchmark when available.
+        picture behind these. Move-habit advice also checks {BENCHMARK_LABELS[source]} for the matching character across all opponents and stages when available. Missing samples keep the local-only advice; they never substitute another cohort. {(source === "diamond" || source === "master") && RANKED_SOURCE_DESCRIPTION}
       </div>
     </div>
   );
@@ -247,7 +249,8 @@ function CoefBar({ coef, max }: { coef: number; max: number }) {
 
 export function Insights({ games }: { games: ResolvedGame[] }) {
   const [includeOutcome, setIncludeOutcome] = useState(false);
-  const tournamentMoveBenchmarks = useTournamentMoveBenchmarks(games);
+  const [coachSource, setCoachSource] = useState<CoachSource>("tournament");
+  const tournamentMoveBenchmarks = useMoveBenchmarks(games, coachSource);
 
   const features = useMemo(
     () => WIN_MODEL_FEATURES.filter((f) => f.group === "execution" || includeOutcome),
@@ -341,7 +344,7 @@ export function Insights({ games }: { games: ResolvedGame[] }) {
   if (!model || !primary) {
     return (
       <>
-        <CoachPanel games={games} tournamentMoveBenchmarks={tournamentMoveBenchmarks} />
+        <CoachPanel games={games} tournamentMoveBenchmarks={tournamentMoveBenchmarks} source={coachSource} setSource={setCoachSource} />
 
         <div className="panel">
           <h2>What predicts your wins</h2>
@@ -368,7 +371,7 @@ export function Insights({ games }: { games: ResolvedGame[] }) {
 
   return (
     <>
-      <CoachPanel games={games} tournamentMoveBenchmarks={tournamentMoveBenchmarks} />
+      <CoachPanel games={games} tournamentMoveBenchmarks={tournamentMoveBenchmarks} source={coachSource} setSource={setCoachSource} />
 
       <div className="panel">
         <h2>What would help you win — logistic regression</h2>

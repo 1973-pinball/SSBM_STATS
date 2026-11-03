@@ -55,10 +55,12 @@ or filters. When the exact selected file version remains in the cache, the
 report can inspect it without reparsing. A newer file's modified date does not
 necessarily mean its recorded game date is newer.
 
-## Community and tournament benchmarks
+## Ranked, community, and tournament benchmarks
 
-The Community section compares your local character stats against three samples:
+The Community section compares your local character stats against five samples:
 
+- **Diamond Slippi** — eligible player sides labelled Diamond in a pinned historical ranked replay sample.
+- **Master Slippi** — eligible player sides labelled Master in the same sample. Mixed-tier games assign each side independently; Platinum opponents do not become Diamond or Master sides.
 - **SSBMStats Community** — privacy-thresholded aggregates from users who explicitly opted in. Headline medians retain their player-balanced estimator.
 - **Tournament** — eligible event-venue recordings from [Nikki's public Slippi archive](https://replays.nikki.sh/), including conservative tournament sets, counted once. This is the former broad Venue population, not the sum of the old columns.
 - **Pro Tournament** — evidence-backed named-player sides in conservative tournament games, with an optional named-player comparison. Historical ranking evidence is retained; this is not a sample of the current Top 100.
@@ -73,8 +75,18 @@ The new revision pools Pro counters before sparse individual-player cells are su
 
 Raw `.slp` files, source paths, unresolved tags, connect codes, and private user identifiers are not published. The archive contains only derived game/player statistics and rollups, in tables separate from private user-sync data.
 
-Diamond/Master source investigation and remaining ranked-tier work are tracked
-in the [benchmark baseline roadmap](docs/benchmark-baselines-roadmap.md).
+Diamond/Master use exact character, opponent, and stage aggregates from a frozen
+130-archive convenience sample. Dates, season, rank timing, and unique players
+are unknown; these are not current ladder averages or skill percentiles. Ranked
+shards load independently of Tournament and are verified before use. Unsupported
+measurements remain unavailable, and each metric retains its own measured-game
+denominator. The comparison control can use Diamond, Master, Tournament, or Pro
+for move/action highlighting and Insights; Tournament remains the default.
+Execution's ranked references follow Me / Vs / Stage. Its existing Tournament
+and Pro execution references retain their disclosed all-stage scope.
+See the [ranked release guide](docs/ranked-baselines-release.md) for source
+selection, parser corrections, reproduction, and coverage, and the
+[baseline roadmap](docs/benchmark-baselines-roadmap.md) for remaining work.
 
 ## Tournament Predictions
 

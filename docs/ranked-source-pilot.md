@@ -1,9 +1,13 @@
 # Ranked source pilot
 
-Audited 2026-11-03. **Bulk ranked ingestion remains blocked:** four of the
-13 sampled recordings fail the dashboard's existing bounded/retained parser
-parity check. No production data was imported, no ranked cohort was published,
-and no parser or completeness guard was changed.
+Audited 2026-11-03. The initial audit found four bounded/retained parser parity
+failures among 13 recordings. **Those parser discrepancies are now fixed in
+stats version 10:** all 13 recordings agree across both parser paths. The
+missing-END and invalid-finalization recordings still fail ranked publication
+eligibility; correcting their headline stats does not make them complete games.
+This document preserves the initial observations below. The production pipeline
+and larger source selection are documented in the
+[ranked release guide](ranked-baselines-release.md).
 
 ## Source and reproduction
 
@@ -29,7 +33,7 @@ node scripts/ranked-source-pilot.mjs
 node scripts/verify-parse.mjs "$HOME/.cache/SSBM_DASHBOARD_ranked_pilot/ef54ddc230e01373ff2a179b49a7e559af788081/replays" 13
 ```
 
-The last command intentionally exposes the four unresolved parity failures.
+The last command now passes all 13 parity comparisons after the v10 fixes.
 The first command checks pure rank, deduplication, safe archive handling and
 completeness boundaries without network access. The pilot downloads at most
 15 MB of replay archives and reuses verified cached files on rerun. An alternate

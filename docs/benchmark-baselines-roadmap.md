@@ -1,20 +1,23 @@
 # Benchmark baseline roadmap
 
-Updated 2026-11-03. Tournament consolidation and the main Pro rebuild are
-implemented and verified. The v11 archive was published on 2026-11-03 after
-the additive schema migration; v10 remains available as an immutable revision. A bounded ranked pilot is implemented and
-audited; full ingestion awaits its parser and source-evidence gates. The goal is one consistent set
-of comparisons across Community, Execution, Move/Matchup/Stage Atlas,
-Interactions, and Insights. See the [release guide](benchmark-baselines-release.md)
-for reproducible rebuilds, validation, and the database prerequisite.
+Updated 2026-11-03. Tournament consolidation and the main Pro rebuild are live,
+including the site release in [PR 10](https://github.com/1973-pinball/SSBM_STATS/pull/10).
+The v11 archive was published on 2026-11-03 after the additive schema migration;
+v10 remains available as an immutable revision. The ranked pilot's parser fixes,
+versioned ingestion/storage, and Diamond/Master comparison UI are implemented.
+The selected 130-archive bulk build is in progress; full selected-population
+reconciliation and ranked publication remain pending. See the
+[archive release guide](benchmark-baselines-release.md) and
+[ranked release guide](ranked-baselines-release.md) for reproducible builds and
+validation.
 
 ## Comparison groups
 
 | Display name | Membership | First release |
 | --- | --- | --- |
-| Diamond Slippi | Player sides labelled Diamond in the audited ranked source | After ranked pilot passes |
-| Master Slippi | Player sides labelled Master in the audited ranked source | After ranked pilot passes |
-| Platinum Slippi | Player sides labelled Platinum in the same source | Supported additional tier |
+| Diamond Slippi | Player sides labelled Diamond in the audited ranked source | Implemented; bulk validation and publication pending |
+| Master Slippi | Player sides labelled Master in the audited ranked source | Implemented; bulk validation and publication pending |
+| Platinum Slippi | Player sides labelled Platinum in the same source | Future only; no public baseline or selector in this release |
 | SSBMStats Community | Existing consenting users and publishable aggregate cells | Preserve existing consent and thresholds |
 | Tournament | Deduplicated union of the existing Venue and Tournament populations | Implemented; former broad sample for full archive, union for sampled interactions |
 | Pro Tournament | Evidence-backed named-player sides in conservative tournament games | Reconciled and published as v11 |
@@ -31,7 +34,7 @@ every included game was a verified bracket game.
 
 ## Ranked replay source
 
-The candidate is Fizzi's anonymized Slippi ranked collections, credited by
+The source is Fizzi's anonymized Slippi ranked collections, credited by
 [Slippi-AI](https://github.com/vladfi1/slippi-ai#acknowledgements).
 [HAL's raw replay list](https://github.com/ericyuegu/hal#raw-replays) links six
 original dumps whose filenames total 850,155 replays. These are source counts,
@@ -42,18 +45,25 @@ A convenient mirror is
 It distributes raw replays by character and rank pair, including Platinum,
 Diamond, and Master. The same game can appear in both characters' folders;
 rank pairs in filenames are sorted and cannot establish player-port order.
-Record the upstream release terms and attribution; the mirror is labelled MIT
-by its redistributor. Inventory actual files and pin a revision before selecting
-downloads. The original roadmap entry has not been recovered; these links are
-the verified starting point for the new source audit.
+The mirror is labelled MIT by its redistributor; the original dumps' license
+has not been independently established. Attribution and this limitation are
+recorded in the ranked release guide. The frozen
+[source manifest](../scripts/data/ranked-source-manifest.json) pins revision
+`ef54ddc230e01373ff2a179b49a7e559af788081` and 130 complete archives totaling
+118,457,396,250 compressed bytes. It selects the smallest archive for each of
+26 character folders and five rank pairs containing Diamond or Master, with
+path order breaking size ties. This deterministic convenience sample is not
+the complete mirror or a representative ladder sample. Platinum opponents
+remain in eligible Diamond/Master games without adding a Platinum baseline.
 
 [HAL's replay indexer](https://raw.githubusercontent.com/ericyuegu/hal/main/hal/data/index.py)
 documents empty metadata in anonymized recordings and recovery of frame counts
 from frames. Its data pipeline retains per-player game-start labels. The pilot
-must verify those labels, date availability, and terminal-frame evidence against
-our parser. It must not weaken existing completeness guards simply to increase
-measured counts. Missing dates and repeated anonymous labels also mean the
-normal timestamp/player-based game identity cannot be assumed safe.
+verified those labels against actual slots, found dates unavailable, and tested
+terminal-frame evidence against our parser. Eligibility retains the existing
+completeness guards. Full content hashes and validated raw-command wrapper
+identity replace the timestamp/player identity that is unsafe for missing dates
+and repeated anonymous labels.
 
 Use raw replays for this work. A processed machine-learning corpus may filter
 gameplay or omit inputs needed for dashboard metrics. No claim of player-balanced
@@ -124,7 +134,7 @@ availability and the gain from new events remain to be measured.
 
 ### 1 Establish a common cohort contract
 
-- [ ] Define source-independent cohort IDs, labels, snapshot/parser versions,
+- [x] Define source-independent cohort IDs, labels, snapshot/parser versions,
   tier or identity evidence, supported filters, estimator, and metric coverage.
   Keep ranked source storage separate from the archive's `broad|conservative`
   population enum and private community tables.
@@ -132,12 +142,13 @@ availability and the gain from new events remain to be measured.
   per-game measures as totals over measured player-games where the source
   provides those counters. Preserve explicitly labelled Community medians and
   other existing distributions separately; do not relabel them as pooled means.
-- [ ] Show source, historical date/season status, matching player-games, measured
+- [x] Show source, historical date/season status, matching player-games, measured
   opportunities, and distinct players only when the source can establish them.
   Unsupported metrics remain unavailable, not zero or a broader-filter fallback.
 
 Primary surfaces: `src/lib/publicArchive.ts`, `src/lib/community.ts`,
-`src/lib/interactionBenchmarks.ts`, and a new shared cohort adapter/registry.
+`src/lib/interactionBenchmarks.ts`, `src/lib/benchmarkCohorts.ts`, and
+`src/lib/rankedBenchmarks.ts`.
 
 ### 2 Expand the main Pro archive and consolidate Tournament
 
@@ -166,19 +177,29 @@ Primary surfaces: `scripts/build-nikki-public-archive.mjs`,
 
 The [reproducible pilot and coverage report](ranked-source-pilot.md) audits four
 pinned shards totaling 13.7 MB: 13 unique games, 15 Master sides and 11 Diamond
-sides. All dates and rank timing remain unknown. Four games fail bounded versus
-retained parser parity; nine games pass the provisional gate. No ranked rows
-were published. The sample lacks real dittos and duplicate character-shard
-copies, so the following unchecked gates remain required.
+sides. All dates and rank timing remain unknown. Stats version 10 fixes all
+four discrepancies: all 13 games now pass bounded/retained parser parity.
+Three missing-END games and one invalid-finalization recording remain excluded
+by ranked eligibility; headline corrections do not make these complete games.
+Normal rollback retains the bounded parser, while rewritten finalized history
+uses a retained-frame fallback without weakening integrity guards. Detector
+version 9 remains compatible with existing Tournament/Pro interactions.
+Compatible saved stats remain available until targeted refresh replaces them;
+the database remains version 20. No ranked rows have been published.
 
-- [ ] Audit a small source sample spanning same-tier and mixed-tier matches,
-  multiple characters, dittos, missing metadata, and incomplete recordings.
+- [x] Audit a small source sample spanning same-tier and mixed-tier matches,
+  multiple characters, missing metadata, and incomplete recordings.
+- [ ] Reconcile real dittos and cross-character-shard duplicates in the full
+  selected population. The 13-game pilot has neither; synthetic regression
+  coverage is implemented and is not a replacement for this source audit.
 - [x] Resolve tier per actual player slot. Master versus Diamond contributes
   one Master side and one Diamond side. Keep unknown or conflicting tiers out.
-- [ ] Deduplicate by replay content and a validated game identity across source
+- [x] Deduplicate by replay content and a validated game identity across source
   archives and character shards. Verify that anonymous names do not merge
-  unrelated matches or manufacture unique-player counts.
-- [ ] Verify character-ID conversion, terminal/rollback handling, metric parity,
+  unrelated matches or manufacture unique-player counts. Identical raw command
+  streams with different wrappers merge only when slot tiers, sanitized metrics,
+  and all source/quality evidence agree; conflicts stop the export.
+- [x] Verify character-ID conversion, terminal/rollback handling, metric parity,
   and coverage with the dashboard parser. Do not copy external ML filters that
   discard deaths or recoveries relevant to these benchmarks.
 - [x] Record rank timing as unknown unless the source establishes game-time or
@@ -186,28 +207,36 @@ copies, so the following unchecked gates remain required.
   download timestamp. Report bytes/game, extraction space, throughput, and
   eligible counts before estimating a full run.
 
-Deliverable: a source manifest, reproducible ingestion prototype, coverage
-matrix, and a measured storage/runtime estimate. This gate determines whether
-the first ranked release can support only baseline stats or interactions too.
+The pilot report, source manifest, ingestion pipeline, and focused regression
+checks are implemented. Baseline stats and interaction measurements have
+independent coverage. The 13-game runtime/storage observations are biased toward
+small Bowser/Pichu archives; full-run estimates and final eligible counts must
+come from the selected bulk build.
 
 ### 4 Publish ranked aggregates and integrate comparisons
 
-- [ ] Build resumable, versioned tier aggregates for character, opponent, and
-  stage dimensions using only supported measurements. Publish derived counters;
-  retain raw replays and working identity data locally.
-- [ ] Select storage after the pilot: existing archive-style paginated aggregate
-  tables are a candidate; avoid shipping the raw corpus or a huge app JSON.
-- [ ] Apply the same labels and cohort selection to Community, Execution,
+- [x] Build resumable, versioned tier aggregates for character, opponent, and
+  stage dimensions using only supported measurements. Export only derived
+  counters; retain raw replays and working identity data locally.
+- [x] Select storage: a small current manifest and immutable gzip shards by
+  tier/character, loaded on demand with byte-count, hash, schema, and parser
+  checks. Raw replays stay local and ranked shards are outside the PWA precache.
+- [x] Apply the same labels and cohort selection to Community, Execution,
   Move/Matchup/Stage Atlas, Interactions, chart reference lines, and Insights.
-  Include comparison highlighting and coach recommendations, which currently
-  prefer conservative Tournament and fall back to Venue.
-- [ ] Preserve Community's existing 25-contributor/100-player-game publication
+  Include comparison highlighting and coach recommendations. Exact ranked
+  cells remain unavailable when absent; coaching states its all-opponent and
+  all-stage scope instead of silently substituting a different cohort.
+- [x] Preserve Community's existing 25-contributor/100-player-game publication
   thresholds. Community interactions, wall-tech rates, and special outcome
   triples require separate aggregate/schema work if full parity is wanted;
   they do not appear automatically through this consolidation.
-- [ ] Update the Metrics Guide, README, source disclosures, sample labels, and
+- [x] Update the Metrics Guide, README, source disclosures, sample labels, and
   stale-data/error behavior. Ranked benchmarks are a historical recording sample,
   not skill percentiles or an estimate of all current ladder players.
+- [ ] Complete the 130-archive build, reconcile source/duplicate/rejection counts
+  and per-family denominators independently, and inspect final exported cells.
+- [ ] Publish the validated ranked manifest and immutable shards, deploy the
+  comparison UI, and verify production hashes, exact filters, and source states.
 
 Primary UI surfaces: `Community.tsx`, `ArchiveCommunityBenchmark.tsx`,
 `CommunityArchiveAtlas.tsx`, `Views.tsx`, `Interactions.tsx`, `Insights.tsx`,
@@ -222,25 +251,29 @@ Primary UI surfaces: `Community.tsx`, `ArchiveCommunityBenchmark.tsx`,
   Under retained eligibility, expect 98 players, 1,338 singles games and 1,883
   singles sides; all-format named totals are 1,420 games and 1,998 sides. The
   115 doubles sides and overall Venue/Tournament populations remain unchanged.
-- [ ] Mixed-tier assignment, duplicate shards, anonymous identities, missing
+- [x] Mixed-tier assignment, duplicate shards, anonymous identities, missing
   dates, incomplete frames, exact filters, and unavailable-versus-zero all have
   focused checks using real source evidence and appropriate regression fixtures.
-- [ ] Run benchmark filter, Atlas selection, interaction codec/receipt and archive
-  export checks; run Community checks if its schema changes; pass the production
-  build and inspect the final tables/charts before publication.
+- [x] Prior Pro/Tournament release: benchmark filter, Atlas selection, interaction
+  codec/receipt, archive export, and production build checks passed; deployed
+  tables/charts and v11 source counts were verified.
+- [ ] Ranked release: pass the full integration checks and production build,
+  independently reconcile the entire selected export, and inspect the final
+  populated tables/charts before publication.
 
-The shared labels and current-cohort adapters are implemented. The full ranked
-source contract remains open until the pilot establishes rank timing, identity,
-dates, and measurement coverage. The interaction artifact is schema 2 / encoding
+The shared labels and source adapters are implemented. Ranked rank timing,
+season, dates, and unique-player counts remain explicitly unknown; publication
+does not require inventing them. The interaction artifact is schema 2 / encoding
 3: Tournament contains 10,098 games and 20,196 sides after removing 869 games
 shared by the old draws. All Pro counters and all cached parse results are
 unchanged. Main v11 adds 365 pooled Pro cells while preserving all 48,030 field
 rollups. Local build, lint, benchmark, move, interaction, and independent source
-receipt checks pass. Main archive v11 is published; the site changes deploy through
+receipt checks passed for the Pro/Tournament release. Main archive v11 and its
+site changes are live through
 [PR 10](https://github.com/1973-pinball/SSBM_STATS/pull/10).
 
-Remaining order: finish the protected-branch site rollout, then resolve the
-ranked pilot's missing-end and heavy-rollback parity
-failures and extend its ditto/duplicate coverage; then choose the ranked storage
-and ingestion scope from measured coverage. Bulk ranked download and current-rank
-claims are not implied by the pilot.
+Remaining order: finish the selected ranked bulk build already in progress;
+reconcile eligibility, duplicates, tiers, and measurement coverage across that
+population; verify the populated UI and production build; then publish and
+verify the ranked release. Final accepted counts remain pending. Platinum is
+future scope, and current-rank or player-balanced claims remain unsupported.

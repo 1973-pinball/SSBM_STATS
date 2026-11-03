@@ -94,6 +94,13 @@ function countsValid(map: unknown, family: InteractionFamily): boolean {
   return true;
 }
 
+export function isInteractionSummary(row: unknown): row is InteractionSummary {
+  return isObject(row)
+    && ["games", "defenseGames", "recoveryGames", "punishGames"].every(key => count(row[key]))
+    && Number(row.defenseGames) <= Number(row.games) && Number(row.recoveryGames) <= Number(row.games) && Number(row.punishGames) <= Number(row.games)
+    && FAMILIES.every(family => countsValid(row[family], family));
+}
+
 /** Fail closed for old detector versions, malformed denominators, or duplicated exact cells. */
 export function parseInteractionBenchmarkData(raw: unknown): InteractionBenchmarkData | null {
   if (!isObject(raw) || raw.schemaVersion !== 2 || raw.statsVersion !== INTERACTION_STATS_VERSION
@@ -225,9 +232,9 @@ export function interactionBenchmarkValue(summary: InteractionSummary | null, fa
   return { value: denominator > 0 ? numerator / denominator : null, numerator, denominator, measuredGames };
 }
 
-export function interactionComparisonKeys(local: InteractionSummary, benchmarks: InteractionBenchmarkSelection, family: InteractionFamily): string[] {
+export function interactionComparisonKeys(local: InteractionSummary, benchmarks: Record<string, InteractionSummary | null>, family: InteractionFamily): string[] {
   const keys = new Set(Object.keys(local[family]));
-  for (const cohort of INTERACTION_COHORTS) for (const key of Object.keys(benchmarks[cohort]?.[family] ?? {})) keys.add(key);
+  for (const summary of Object.values(benchmarks)) for (const key of Object.keys(summary?.[family] ?? {})) keys.add(key);
   const countFor = (key: string) => {
     const row = local[family][key];
     return row ? "attempts" in row ? row.attempts : "opportunities" in row ? row.opportunities : row.openings : 0;

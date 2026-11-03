@@ -1,7 +1,7 @@
 import { gameKey } from "./dedupe";
 import type { DiscoveredFile } from "./pool";
 import type { GameRecord } from "./types";
-import { needsInteractionAnalysis } from "./types";
+import { needsInteractionAnalysis, needsParserRepair } from "./types";
 
 /** A moved/cloud copy shares an attempt with the same saved analysis version. */
 export function interactionAnalysisAttemptKey(record: GameRecord): string {
@@ -20,7 +20,9 @@ export function automaticInteractionTargets(
 ): GameRecord[] {
   if (!Number.isInteger(limit) || limit <= 0) return [];
   return chronologicalRecords.slice(-limit).filter(record =>
-    needsInteractionAnalysis(record) && !attemptedKeys.has(interactionAnalysisAttemptKey(record)),
+    !record.isTeams && record.players.length === 2
+      && (needsInteractionAnalysis(record) || needsParserRepair(record))
+      && !attemptedKeys.has(interactionAnalysisAttemptKey(record)),
   );
 }
 

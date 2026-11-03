@@ -13,7 +13,7 @@ try {
     players: [0, 1].map(port => ({ port, connectCode: `PLAYER#${port}`, characterId: 2 })),
   });
   const file = rec => ({ id: rec.id, path: rec.path, format: "slp", file: {} });
-  const records = Array.from({ length: 200 }, (_, i) => record(i, i >= 195 ? 9 : 6 + i % 3));
+  const records = Array.from({ length: 200 }, (_, i) => record(i, i >= 195 ? 10 : 6 + i % 4));
   const attempted = new Set();
   const targets = automaticInteractionTargets(records, attempted);
   assert.equal(targets.length, 145, "5 current games in the latest 150 leave exactly 145 upgrades");
@@ -22,13 +22,16 @@ try {
 
   targets.forEach(rec => attempted.add(interactionAnalysisAttemptKey(rec)));
   assert.deepEqual(automaticInteractionTargets(records, attempted), [], "attempted games must not pull in 50 older games");
-  const upgraded = records.map(rec => ({ ...rec, statsVersion: 9 }));
+  const upgraded = records.map(rec => ({ ...rec, statsVersion: 10 }));
   assert.deepEqual(automaticInteractionTargets(upgraded, new Set()), [], "upgrades do not expand the rolling scope");
   assert.deepEqual(automaticInteractionTargets(records, new Set(), 0), []);
   assert.deepEqual(automaticInteractionTargets([], new Set()), []);
   const previousRevision = record(201, 8);
   assert.deepEqual(automaticInteractionTargets([previousRevision], new Set()), [previousRevision],
     "saved v8 interaction stats receive the automatic v9 upgrade");
+  const previousParser = record(202, 9);
+  assert.deepEqual(automaticInteractionTargets([previousParser], new Set()), [previousParser],
+    "detector-compatible v9 receives the bounded v10 parser correction");
 
   const original = record(500);
   const local = { ...original, id: "local/moved.slp|100|999", path: "local/moved.slp" };
@@ -59,9 +62,9 @@ try {
     "conflicting content identities are not enough to identify a moved replay");
   assert.deepEqual(matchInteractionAnalysisFiles([original], [file(local)], [{ ...local, parseError: "unreadable" }]).files, []);
 
-  const unsupported = record(600, 9);
+  const unsupported = record(600, 10);
   assert.deepEqual(automaticInteractionTargets([unsupported], new Set()), [],
-    "current v9 without supported interaction fields must not retry endlessly");
+    "current v10 without supported interaction fields must not retry endlessly");
   assert.deepEqual(automaticInteractionTargets([
     { ...original, statsLevel: "header" }, { ...original, parseError: "bad" },
     { ...original, isTeams: true }, { ...original, players: [] },
