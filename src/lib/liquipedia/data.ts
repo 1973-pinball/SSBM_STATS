@@ -8,7 +8,7 @@
 
 import type { Major, PlayerMeta, RankingEdition, Source } from "./types";
 
-export const DATA_AS_OF = "2026-09-14";
+export const DATA_AS_OF = "2026-11-03";
 
 export const SOURCES: Source[] = [
   {
@@ -1864,6 +1864,14 @@ export const MAJORS: Major[] = [
     "date": "2026-09-13",
     "winner": "Hungrybox",
     "runnerUp": "Krudo",
+    "tier": "major"
+  },
+  {
+    "name": "Tipped Off 17: Haunted",
+    "year": 2026,
+    "date": "2026-11-01",
+    "winner": "Zain",
+    "runnerUp": "Joshman",
     "tier": "major"
   }
 ];
