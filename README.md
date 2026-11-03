@@ -7,31 +7,35 @@ Everything is parsed and cached in your browser; raw replay files never leave yo
 No replays? Try the demo or browse the public Community, Tournament Predictions,
 and Liquipedia views.
 
-## Release 0.4.9 — Interaction analysis
+## Version 0.5.0 — Diamond and Master baselines
 
-- **Ledge and out of shield:** choice frequency and follow-up hit/grab outcomes,
-  including sequences such as ledgedashes, wavedashes, and jump → aerial.
-- **Recoveries and edgeguards:** high/low recovery routes, ledge and stage
-  returns, edgeguard tactics, and observed stock-loss outcomes.
-- **Before openings taken:** preceding actions and ensuing damage or stock loss,
-  providing context without claiming verified whiffs or unavoidable punishes.
-- **Archive estimates:** experimental Tournament and Pro Tournament comparisons
-  matching character, opponent character, and stage across 11,141 public games,
-  including 1,883 Pro appearances from 98 mapped players, with visible samples.
-- **Replay-audited detection:** longer ledgedash sequence recognition, platform
-  shield drops, and input-supported wavedash landings.
-- **Automatic recent-game analysis:** update older replays in the filtered
-  150-game window when local files are accessible, while keeping existing stats
-  usable. Coverage notes distinguish pending analysis from unavailable data.
-- **OOS wavedashes:** distinguish jump → air dodge → landing from jumps, and
-  keep measured zero-use Wavedash rows visible.
-- **C-stick input:** an experimental OOS column shows observed stick input,
-  without claiming buffering or which control caused the action.
-- **Recovery hits:** show attempts hit after the initial launch by route,
-  including experimental Tournament and Pro Tournament comparisons.
-- **Player card:** show the filtered second-most-played character beneath Main.
-- **Custom ranges:** choose inclusive local start/end dates with calendar
-  controls or typed entry, for singles and teams.
+This version includes the full ranked export, verified against the source and
+parser cache, alongside the Tournament consolidation and expanded Pro archive.
+Deployment evidence is recorded in the
+[v0.5.0 release](https://github.com/1973-pinball/SSBM_STATS/releases/tag/v0.5.0).
+
+- **Five comparison groups:** Diamond Slippi, Master Slippi, SSBMStats Community,
+  Tournament, and Pro Tournament, with source and measurement coverage visible.
+- **Historical ranked comparisons:** Diamond and Master references for headline,
+  matchup, stage, move, execution, and interaction metrics. All 26 characters
+  can be browsed in Community without importing local games. Missing references
+  stay unavailable instead of substituting a broader sample.
+- **Consolidated Tournament:** the former Venue and Tournament populations are
+  combined without counting shared games twice. The interaction sample contains
+  10,098 distinct games and 20,196 player-games.
+- **Expanded Pro Tournament:** the main archive now includes 98 mapped players,
+  1,883 singles player-games, and 1,338 distinct games. Pooled comparisons retain
+  eligible contributions even when individual player cells are too sparse.
+- **Parser corrections:** stats version 10 fixes headline calculations for
+  recordings with missing end events or rewritten finalized history. Existing
+  compatible stats remain visible while accessible replays are refreshed.
+- **Resumable data builds:** maintainers can pause downloads and parsing, retain
+  verified work, and resume the same source selection from saved checkpoints.
+
+See the [v0.5.0 release notes](docs/releases/v0.5.0.md) for source selection,
+verified sample counts, limitations, and validation status. Earlier interaction
+features are documented in the
+[v0.4.9 release](https://github.com/1973-pinball/SSBM_STATS/releases/tag/v0.4.9).
 
 ## How it works
 
@@ -76,7 +80,15 @@ The new revision pools Pro counters before sparse individual-player cells are su
 Raw `.slp` files, source paths, unresolved tags, connect codes, and private user identifiers are not published. The archive contains only derived game/player statistics and rollups, in tables separate from private user-sync data.
 
 Diamond/Master use exact character, opponent, and stage aggregates from a frozen
-130-archive convenience sample. Dates, season, rank timing, and unique players
+130-archive convenience sample. The bundled `ranked-hf-ef54ddc-v1` export contains
+74,910 eligible distinct games: Diamond has 55,993 player-games across 49,404
+games; Master has 58,642 player-games across 49,365 games. Both tiers cover all
+26 characters, and their game counts overlap. The 54 compressed shards contain
+6,344 aggregate rows and total 10,562,606 bytes. Full source/cache reconciliation
+passed. The export rejects 36,222 games, including 320
+with invalid upstream air-dodge counts; both sides of those games are excluded
+without changing the detector or treating negative counts as zero.
+Dates, season, rank timing, and unique players
 are unknown; these are not current ladder averages or skill percentiles. Ranked
 shards load independently of Tournament and are verified before use. Unsupported
 measurements remain unavailable, and each metric retains its own measured-game

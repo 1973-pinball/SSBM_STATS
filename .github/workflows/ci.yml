@@ -72,6 +72,12 @@ jobs:
       - name: Verify ranked source boundaries, aggregation and exact comparisons
         run: npm run verify:ranked
 
+      - name: Verify ranked pause, resume and checkpoint controls
+        run: npm run verify:ranked:jobs
+
+      - name: Verify published ranked artifacts and exact count partitions
+        run: npm run verify:ranked:published
+
       - name: Local forecast pipeline tests (fixtures only; no credentials)
         run: npm run test:forecast
 

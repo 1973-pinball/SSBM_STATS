@@ -5,6 +5,7 @@ import { INTERACTION_CODEC_OPTIONS } from "../../src/lib/interactionBenchmarkCod
 
 export const RANKED_SCHEMA_VERSION = 1;
 export const RANKED_QUALITY_VERSION = "ranked-quality-v1";
+export const RANKED_EXPORT_QUALITY_VERSION = "ranked-export-quality-v1";
 export const RANKED_TIERS = ["diamond", "master", "platinum"];
 export const RANKED_STAGES = [2, 3, 8, 28, 31, 32];
 export const ACTIONS = ["rolls", "airDodges", "spotDodges", "wavedashes", "wavelands", "dashDances", "ledgeGrabs", "crouchCancels", "grabs"];
@@ -26,6 +27,14 @@ const count = n => Number.isSafeInteger(n) && n >= 0;
 const hash = value => createHash("sha256").update(value).digest("hex");
 export const rankedCellKey = row => JSON.stringify([row.tier, row.characterId, row.opponentCharacterId, row.stageId]);
 const increment = (coverage, frames) => { coverage.playerGames++; coverage.durationFrames += frames; };
+
+/** Export eligibility is separate from immutable replay inspection. Slippi's
+ * action computer can produce a negative air-dodge count; schema v1 requires
+ * complete, valid base measurements, so exclude both sides rather than clamp. */
+export function rankedExportRejectionReasons(result) {
+  return result.record?.players.some(side => Number.isSafeInteger(side.actions?.airDodges) && side.actions.airDodges < 0)
+    ? ["invalid-air-dodge-count"] : [];
+}
 
 function emptyMetrics() {
   return { durationFrames: 0, damageTotal: 0, neutralWins: 0,

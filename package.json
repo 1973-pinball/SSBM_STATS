@@ -2,7 +2,7 @@
   "name": "ssbm-stats",
   "private": true,
   "license": "MIT",
-  "version": "0.4.9",
+  "version": "0.5.0",
   "type": "module",
   "engines": {
     "node": "22.x"
@@ -23,8 +23,13 @@
     "archive:load": "node scripts/load-public-archive.mjs",
     "ranked:download": "node scripts/download-ranked-sources.mjs",
     "ranked:build": "node --max-old-space-size=16384 scripts/build-ranked-baselines.mjs",
-    "verify:ranked": "node scripts/verify-ranked-source-pilot.mjs && node scripts/verify-ranked-aggregation.mjs && node scripts/verify-ranked-worker-failures.mjs && node scripts/verify-ranked-benchmarks.mjs && node scripts/verify-ranked-publication-checks.mjs",
+    "ranked:run": "node scripts/ranked-baseline-job.mjs run",
+    "ranked:pause": "node scripts/ranked-baseline-job.mjs pause",
+    "ranked:resume": "node scripts/ranked-baseline-job.mjs resume",
+    "ranked:status": "node scripts/ranked-baseline-job.mjs status",
+    "verify:ranked": "node scripts/verify-ranked-source-pilot.mjs && node scripts/verify-ranked-aggregation.mjs && node scripts/verify-ranked-export-quality.mjs && node scripts/verify-ranked-worker-failures.mjs && node scripts/verify-ranked-benchmarks.mjs && node scripts/verify-ranked-publication-checks.mjs && node scripts/verify-ranked-static-serving.mjs",
     "verify:ranked:published": "node --max-old-space-size=16384 scripts/verify-ranked-publication.mjs",
+    "verify:ranked:jobs": "node scripts/verify-ranked-download-resume.mjs && node scripts/verify-ranked-pause-resume.mjs && node scripts/verify-ranked-baseline-job.mjs",
     "forecast": "node scripts/forecast.mjs",
     "forecast:riptide": "node scripts/forecast.mjs bracket-report --event tournament/riptide-2026-4/event/melee-singles --refresh",
     "predictions:build": "node scripts/build-site-predictions.mjs",

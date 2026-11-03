@@ -16,6 +16,7 @@ const read = async file => JSON.parse(await readFile(file, "utf8"));
 const manifest = await read(path.join(directory, "manifest.json")), id = manifest.datasetId;
 assert.equal(manifest.schemaVersion, 1); assert.ok(manifest.statsVersion >= 10); assert.equal(manifest.interactionStatsVersion, 9);
 assert.equal(manifest.rankTiming, "unknown"); assert.equal(manifest.rankSeason, null); assert.equal(manifest.rankDate, null); assert.equal(manifest.uniquePlayers, null);
+assert.equal(manifest.exportQualityVersion, "ranked-export-quality-v1");
 const receipt = await read(path.join(cache, `${id}.build.local.json`));
 assert.equal(receipt.manifestSha256, sha(await readFile(path.join(directory, "manifest.json"))));
 const selectionBytes = await readFile(path.join(cache, `${id}.selection.local.json`)), selection = JSON.parse(selectionBytes);
@@ -114,6 +115,7 @@ function contribute(target, game, side, slot, gameHash) {
   }
 }
 const rawStreams = new Map(), rejections = {}, observedTierPlayerGames = {};
+const exportQuality = { version: "ranked-export-quality-v1", invalidAirDodgeGames: 0, invalidAirDodgeSides: 0 };
 let accepted = 0, rejected = 0, wrappers = 0;
 for (const selected of [...selection.replays].sort((a, b) => a.sha256.localeCompare(b.sha256))) {
   const parsed = await read(path.join(cache, "parsed", selection.parserFingerprint, selected.sha256 + ".json"));
@@ -122,12 +124,14 @@ for (const selected of [...selection.replays].sort((a, b) => a.sha256.localeComp
   const conflict = result.tiers.length !== 2 || result.tiers.some(tier => !["diamond", "master", "platinum"].includes(tier))
     || [...source.pairs].some(pair => pair !== [...result.tiers].sort().join("/"));
   assert.equal(selected.sourceRankPairConflict, conflict);
-  const reasons = [...new Set([...result.reasons, ...(conflict ? ["source-rank-pair-conflict"] : [])])];
+  const invalidAirDodgeSides = result.record?.players.filter(side => Number.isSafeInteger(side.actions?.airDodges) && side.actions.airDodges < 0).length ?? 0;
+  const reasons = [...new Set([...result.reasons, ...(conflict ? ["source-rank-pair-conflict"] : []), ...(invalidAirDodgeSides ? ["invalid-air-dodge-count"] : [])])];
   if (result.rawCommandSha256) {
     const signature = JSON.stringify({ tiers: result.tiers, reasons: [...reasons].sort(), record: result.record });
     if (rawStreams.has(result.rawCommandSha256)) { assert.equal(rawStreams.get(result.rawCommandSha256), signature); wrappers++; continue; }
     rawStreams.set(result.rawCommandSha256, signature);
   }
+  if (invalidAirDodgeSides) { exportQuality.invalidAirDodgeGames++; exportQuality.invalidAirDodgeSides += invalidAirDodgeSides; }
   if (reasons.length) { rejected++; for (const reason of reasons) bump(rejections, reason); continue; }
   const game = result.record; assert.ok(game && game.statsVersion === manifest.statsVersion && game.players.length === 2); accepted++;
   game.players.forEach((side, slot) => {
@@ -158,11 +162,12 @@ for (const [cell, row] of actual) {
   }
 }
 assert.deepEqual(observedTierPlayerGames, receipt.observedTierPlayerGames);
+assert.deepEqual(exportQuality, receipt.exportQuality);
 const report = { ok: true, datasetId: id, checkedAt: new Date().toISOString(), manifestSha256: receipt.manifestSha256,
   sourceArchives: selection.archives.length, sourceOccurrences: occurrenceCount, uniqueReplayBytes: occurrences.size, wrapperDuplicateCopies: wrappers,
-  acceptedGames: accepted, rejectedGames: rejected, observedTierPlayerGames, publishedTiers: manifest.tiers,
+  acceptedGames: accepted, rejectedGames: rejected, exportQuality, observedTierPlayerGames, publishedTiers: manifest.tiers,
   exactRowsVerified: actual.size, shardCount: manifest.shards.length, compressedBytesVerified: bytes,
-  checks: ["source/member receipts", "byte and validated-wrapper deduplication", "actual-slot rank and archive/member pair agreement", "all eight exact filters",
+  checks: ["source/member receipts", "byte and validated-wrapper deduplication", "export eligibility and invalid-air-dodge exclusions", "actual-slot rank and archive/member pair agreement", "all eight exact filters",
     "distinct games and decided wins", "all headline/action/move/interaction counters", "every metric's measured-game/frame denominators", "strict public field allowlists"], publicationPerformed: false };
 const reportFile = path.join(cache, `${id}.verification.local.json`); await writeFile(reportFile, JSON.stringify(report, null, 2) + "\n");
 console.log(JSON.stringify({ ...report, reportFile }, null, 2));

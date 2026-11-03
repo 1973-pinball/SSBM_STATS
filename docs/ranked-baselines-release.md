@@ -5,6 +5,50 @@ tiers are the anonymized source labels attached to each actual player slot.
 They do not establish current rank, a particular season, or game-time rank.
 Dates, rank timing, unique players, and player-balanced estimates are unavailable.
 
+## Verified export status
+
+The full selected population has been built as `ranked-hf-ef54ddc-v1` on
+2026-11-03. Public-export and actual-consumer validation passed for all 54 gzip
+shards, 6,344 exact aggregate rows, and 1,895 aggregate partitions. Both Diamond
+and Master have samples for all 26 playable characters. The shard payload totals
+10,562,606 compressed bytes; the manifest remains a separate small JSON file.
+Independent full-source/cache reconciliation passed at 21:57 UTC on 2026-11-03.
+The verified dataset is bundled in v0.5.0. Deployment evidence is recorded in the
+[GitHub release](https://github.com/1973-pinball/SSBM_STATS/releases/tag/v0.5.0).
+
+| Verified dataset measure | Count |
+| --- | ---: |
+| Complete source archives | 130 |
+| Replay occurrences | 134,904 |
+| Unique whole-file hashes | 111,132 |
+| Repeated byte-identical copies | 23,772 |
+| Equivalent metadata-wrapper duplicates | 0 |
+| Accepted distinct games | 74,910 |
+| Rejected games | 36,222 |
+| Diamond player-games / distinct games | 55,993 / 49,404 |
+| Master player-games / distinct games | 58,642 / 49,365 |
+
+All exported tier sides have decided results: 27,178 Diamond
+wins and 34,357 Master wins. The accepted games also contain 35,185 Platinum
+opponent sides, retained in source evidence without a public Platinum baseline.
+Tier distinct-game counts overlap and must not be summed. Rejection reasons can
+overlap within one rejected game; their counts must not be summed either.
+
+The manifest SHA-256, checked against the build and independent verification
+receipts, is:
+
+```text
+735bd7dc96865c39ab98e538afcc95255bb517a384a4bf2d4e8c78131c864db0
+```
+
+The build receipt records zero new parses and reuse of all 111,132 inspected
+files. Independent verification reconciled all source/member receipts, byte and
+wrapper duplicate decisions, eligibility exclusions, actual-slot tiers, all
+eight filter combinations, distinct-game/win counts, and every headline, action,
+move, and interaction counter and measured-game/frame denominator. The local
+report is `ranked-hf-ef54ddc-v1.verification.local.json`; it records
+`publicationPerformed: false`. Production publication remains a separate step.
+
 ## Source and selection
 
 Source: [erickfm/melee-ranked-replays at ef54ddc230e01373ff2a179b49a7e559af788081](https://huggingface.co/datasets/erickfm/melee-ranked-replays/tree/ef54ddc230e01373ff2a179b49a7e559af788081).
@@ -55,6 +99,36 @@ LRAS/no-contest, short, incomplete, or contradictory recordings are excluded
 and counted by rejection reason. The per-slot tier evidence must agree with the
 unordered filename rank pair. A sorted filename pair never assigns player ports.
 
+### Invalid upstream air-dodge counts
+
+The full 130-archive inspection completed with 134,904 replay occurrences and
+111,132 unique whole-file hashes. Before final metadata-wrapper deduplication,
+321 player sides in 320 of the 75,230 otherwise eligible replay files had
+negative air-dodge counts from slippi-js 9.1.2. The export excludes each affected
+game in full, including its opponent, rather than clamping the count or using
+partial action denominators. The audit exclusion covers 640 sides:
+234 Diamond, 281 Master, and 125 Platinum. The completed build confirms the same
+320 excluded games and 321 invalid side measurements after duplicate handling;
+it found no equivalent metadata-wrapper duplicates. Independent reconciliation
+confirmed these counts against the full source and cache.
+
+The export rejection reason is `invalid-air-dodge-count`, applied when either
+player's `actions.airDodges` is a negative safe integer. Other malformed action
+counts, including missing or noninteger air-dodge counts, still stop export
+validation. This gate runs before metadata-wrapper deduplication, so duplicate
+equivalence also checks the same final eligibility decision. The public manifest
+records `exportQualityVersion: ranked-export-quality-v1` and describes the gate.
+Schema 1 retains complete base-metric coverage for every accepted player-game.
+The cached replay inspections, parser fingerprint, and source recordings remain
+unchanged; aggregation was rebuilt from the saved parses.
+
+A synthetic reproduction demonstrated that the upstream action computer can
+subtract an air dodge twice. It does not establish the exact trigger in each
+affected recording. The detector is unchanged, and this negative-count gate
+does not establish that every nonnegative count is correct. Exclusions are
+concentrated in some characters, adding selection bias to an already nonrandom
+sample; the result is not a representative ladder estimate.
+
 Whole replay content hashes identify duplicate copies across character archives.
 Files with identical raw command streams but different metadata wrappers count
 once only after their sanitized metrics, tiers, and eligibility decisions agree;
@@ -99,6 +173,51 @@ the complete selection; downloads resume `.partial` files and publish a cached
 archive only after hash verification. Keep at least 25 GB of additional free
 space for parsing/audit artifacts.
 
+For a managed run with periodic checkpoints, start the job once and use the
+saved configuration for later resumes:
+
+```powershell
+npm run ranked:run -- --pause-after-archives 10
+npm run ranked:status
+npm run ranked:pause
+npm run ranked:resume
+```
+
+The batch limit counts newly processed complete archives; validated cached
+archives do not consume it. `ranked:pause` also works partway through an archive:
+the builder drains its in-flight workers, saves their results, and closes the
+source stream. Downloads stop cleanly and retain partial bytes for HTTP range
+resume. No partial aggregate export is published. Wait for status `paused`
+before closing the terminal or shutting down. Resume verifies the saved source
+selection, reuses completed archive/member receipts and parsed records, and
+continues the unfinished archive. Ctrl+C requests the same graceful pause.
+
+`npm run ranked:resume -- --pause-after-archives 0` disables the batch limit.
+The first `ranked:run` can set `--cache`, `--source-manifest`, `--dataset-id`,
+`--output`, `--workers`, and `--concurrency`; resume preserves those exact
+settings. The controller prevents simultaneous jobs for the same cache and
+keeps logs and checkpoints there. A completed build is still separate from
+verification and publication.
+
+Progress reports show verified download bytes as a percentage of the pinned
+118.5 GB selection. Processing percentage uses fully processed compressed source
+volume, including reused receipts; it is a progress proxy, not a replay-count or
+time-remaining estimate. Large archives can take longer between percentage jumps.
+The unique replay count updates during an archive. Raw bytes and already parsed
+records remain local across pauses.
+
+On resume, the builder first revalidates cached archives and reloads their
+receipts. Status keeps the previous drained checkpoint separate from the
+current run's counters. Once fresh progress confirms the same pinned source
+and parser identity, the overall completed-work figure stays at least as high
+as that checkpoint while `phase: revalidating-cache` reports the smaller current
+revalidation count. Before identity is confirmed, the old figure is labelled
+historical rather than newly verified. Changed source/parser identities and
+failed or orphaned runs cannot inherit that progress floor. Status commands
+only read these records; the controller saves checkpoints at normal pauses.
+
+The lower-level download/build commands are also available:
+
 ```powershell
 $rankedCache = Join-Path $env:USERPROFILE '.cache/SSBM_DASHBOARD_ranked_baselines'
 npm run ranked:download -- --cache "$rankedCache" --concurrency 6
@@ -108,8 +227,10 @@ npm run verify:ranked
 ```
 
 Downloads and parsing can overlap by adding `--wait-downloads true` to the build.
-Changing parser/gate source invalidates its parse-cache fingerprint; unchanged
-files reuse verified cache entries. A later publication must use a new dataset
+Changing parser or replay-inspection gates invalidates the parse-cache
+fingerprint; unchanged inputs reuse verified cache entries. Export eligibility
+and aggregation changes require a rebuilt and independently verified export;
+they do not rewrite the cached replay inspections. A later publication must use a new dataset
 ID and retain previously published immutable assets. Stage and independently
 verify the entire export before copying it into `public/ranked`, then pass the
 repository checks and production build before pushing a release PR. Merge only

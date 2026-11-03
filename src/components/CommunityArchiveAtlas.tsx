@@ -388,7 +388,7 @@ export function ArchiveMatchupAtlasComparison({
         {opponents.map((opponentId) => <tr key={opponentId}><td>{charName(opponentId)}</td><td className="data">{local.get(opponentId)?.games.toLocaleString() ?? "—"}</td><RateCell value={local.get(opponentId)} showSample={false} />{RANKED_TIERS.map(tier => <RateCell key={tier} value={rankedRates[tier].get(opponentId)} />)}<RateCell value={community.get(opponentId)} /><RateCell value={broad.get(opponentId)} /><RateCell value={proAggregate.get(opponentId)} />{archive.selectedPro && <RateCell value={pro.get(opponentId)} />}</tr>)}
       </tbody></table></div> : <div className="empty-note">{games.length > 0 ? `No opponents appear in your latest ${lookbackGames.toLocaleString()} matching games.` : "No matching matchup samples are available."}</div>}
       <div className="hint">Header samples count decided results in the displayed matchups; unknown outcomes are excluded from win-rate columns. SSBMStats Community counts are approximate. My games lookback scopes only your most recent matching games; benchmark columns retain their full published samples.</div>
-      {gameType !== "all" && <div className="hint">Your and SSBMStats Community columns use the selected mode. Historical archive columns are offline event games.</div>}
+      {gameType !== "all" && <div className="hint">Your and SSBMStats Community columns use the selected mode. Tournament columns retain event recordings; Diamond Slippi and Master Slippi retain their historical ranked source sample.</div>}
       <RankedBenchmarkSource state={ranked} />
     </ArchiveFrame>
   );

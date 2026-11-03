@@ -5,8 +5,10 @@ including the site release in [PR 10](https://github.com/1973-pinball/SSBM_STATS
 The v11 archive was published on 2026-11-03 after the additive schema migration;
 v10 remains available as an immutable revision. The ranked pilot's parser fixes,
 versioned ingestion/storage, and Diamond/Master comparison UI are implemented.
-The selected 130-archive bulk build is in progress; full selected-population
-reconciliation and ranked publication remain pending. See the
+The selected 130-archive bulk build and staged export are complete. Public-data,
+actual-consumer, and independent full source/cache reconciliation checks passed.
+The verified ranked dataset is bundled in v0.5.0; deployment evidence is recorded
+in the [GitHub release](https://github.com/1973-pinball/SSBM_STATS/releases/tag/v0.5.0). See the
 [archive release guide](benchmark-baselines-release.md) and
 [ranked release guide](ranked-baselines-release.md) for reproducible builds and
 validation.
@@ -15,8 +17,8 @@ validation.
 
 | Display name | Membership | First release |
 | --- | --- | --- |
-| Diamond Slippi | Player sides labelled Diamond in the audited ranked source | Implemented; bulk validation and publication pending |
-| Master Slippi | Player sides labelled Master in the audited ranked source | Implemented; bulk validation and publication pending |
+| Diamond Slippi | Player sides labelled Diamond in the audited ranked source | v0.5.0: 55,993 verified player-games |
+| Master Slippi | Player sides labelled Master in the audited ranked source | v0.5.0: 58,642 verified player-games |
 | Platinum Slippi | Player sides labelled Platinum in the same source | Future only; no public baseline or selector in this release |
 | SSBMStats Community | Existing consenting users and publishable aggregate cells | Preserve existing consent and thresholds |
 | Tournament | Deduplicated union of the existing Venue and Tournament populations | Implemented; former broad sample for full archive, union for sampled interactions |
@@ -55,6 +57,23 @@ recorded in the ranked release guide. The frozen
 path order breaking size ties. This deterministic convenience sample is not
 the complete mirror or a representative ladder sample. Platinum opponents
 remain in eligible Diamond/Master games without adding a Platinum baseline.
+
+The full staged export `ranked-hf-ef54ddc-v1` contains 74,910 accepted distinct
+games and 36,222 rejected games from 111,132 unique whole-file hashes. The scan
+found 134,904 replay occurrences, 23,772 repeated byte-identical copies, and no
+equivalent metadata-wrapper duplicates. Diamond has 55,993 player-games across
+49,404 games; Master has 58,642 player-games across 49,365 games. Both tiers cover
+all 26 playable characters. The 54 gzip shards contain 6,344 rows and total
+10,562,606 bytes; public/client validation checked 1,895 aggregate partitions.
+Independent full-source/cache reconciliation confirmed these counts at 21:57 UTC
+on 2026-11-03.
+
+An explicit export gate excludes 320 games containing 321 negative upstream
+air-dodge measurements, removing both sides and preserving complete base-metric
+coverage. Source recordings and cached parses remain unchanged. This exclusion
+is character-concentrated, and nonnegative upstream counts are not established
+as error-free. See the [release report](ranked-baselines-release.md) for the
+artifact hash, audit, and limitations. No ranked dataset is deployed yet.
 
 [HAL's replay indexer](https://raw.githubusercontent.com/ericyuegu/hal/main/hal/data/index.py)
 documents empty metadata in anonymized recordings and recovery of frame counts
@@ -189,9 +208,10 @@ the database remains version 20. No ranked rows have been published.
 
 - [x] Audit a small source sample spanning same-tier and mixed-tier matches,
   multiple characters, missing metadata, and incomplete recordings.
-- [ ] Reconcile real dittos and cross-character-shard duplicates in the full
-  selected population. The 13-game pilot has neither; synthetic regression
-  coverage is implemented and is not a replacement for this source audit.
+- [x] Reconcile both actual player slots, distinct games, and cross-character-shard
+  duplicates across the full selected population. The independent verifier checks
+  all eligible source records and exact cells, beyond the 13-game pilot and
+  synthetic duplicate fixtures.
 - [x] Resolve tier per actual player slot. Master versus Diamond contributes
   one Master side and one Diamond side. Keep unknown or conflicting tiers out.
 - [x] Deduplicate by replay content and a validated game identity across source
@@ -210,8 +230,8 @@ the database remains version 20. No ranked rows have been published.
 The pilot report, source manifest, ingestion pipeline, and focused regression
 checks are implemented. Baseline stats and interaction measurements have
 independent coverage. The 13-game runtime/storage observations are biased toward
-small Bowser/Pichu archives; full-run estimates and final eligible counts must
-come from the selected bulk build.
+small Bowser/Pichu archives; the completed bulk build and independent reconciliation
+now provide the selected population's counts recorded above.
 
 ### 4 Publish ranked aggregates and integrate comparisons
 
@@ -233,10 +253,14 @@ come from the selected bulk build.
 - [x] Update the Metrics Guide, README, source disclosures, sample labels, and
   stale-data/error behavior. Ranked benchmarks are a historical recording sample,
   not skill percentiles or an estimate of all current ladder players.
-- [ ] Complete the 130-archive build, reconcile source/duplicate/rejection counts
-  and per-family denominators independently, and inspect final exported cells.
-- [ ] Publish the validated ranked manifest and immutable shards, deploy the
-  comparison UI, and verify production hashes, exact filters, and source states.
+- [x] Complete the 130-archive build and stage the full export; pass public-data
+  and actual-consumer checks for all shards, exact cells, and aggregate partitions.
+- [x] Reconcile source/duplicate/rejection counts and per-family denominators
+  independently against the full selected source and cache, and inspect final
+  exported cells.
+- [x] Bundle the validated manifest, immutable shards, and comparison UI for
+  v0.5.0. Require deployed-preview and production checks of hashes, exact filters,
+  and source states; the GitHub release records their final result.
 
 Primary UI surfaces: `Community.tsx`, `ArchiveCommunityBenchmark.tsx`,
 `CommunityArchiveAtlas.tsx`, `Views.tsx`, `Interactions.tsx`, `Insights.tsx`,
@@ -257,9 +281,13 @@ Primary UI surfaces: `Community.tsx`, `ArchiveCommunityBenchmark.tsx`,
 - [x] Prior Pro/Tournament release: benchmark filter, Atlas selection, interaction
   codec/receipt, archive export, and production build checks passed; deployed
   tables/charts and v11 source counts were verified.
-- [ ] Ranked release: pass the full integration checks and production build,
-  independently reconcile the entire selected export, and inspect the final
-  populated tables/charts before publication.
+- [x] Independently reconcile the entire selected ranked export, including source
+  receipts, actual-slot tiers, exclusions, distinct games, and every measured
+  counter and denominator.
+- [x] Ranked release: pass integration checks and the production build, and
+  inspect the final populated tables/charts. The full cohort and exact
+  Falco/Battlefield samples match the export in Execution and Community Atlas;
+  ranked data remains available when the tournament service is unavailable.
 
 The shared labels and source adapters are implemented. Ranked rank timing,
 season, dates, and unique-player counts remain explicitly unknown; publication
@@ -272,8 +300,6 @@ receipt checks passed for the Pro/Tournament release. Main archive v11 and its
 site changes are live through
 [PR 10](https://github.com/1973-pinball/SSBM_STATS/pull/10).
 
-Remaining order: finish the selected ranked bulk build already in progress;
-reconcile eligibility, duplicates, tiers, and measurement coverage across that
-population; verify the populated UI and production build; then publish and
-verify the ranked release. Final accepted counts remain pending. Platinum is
-future scope, and current-rank or player-balanced claims remain unsupported.
+Independently verified dataset counts are recorded above. Production deployment
+checks are recorded in the v0.5.0 GitHub release. Platinum is future scope, and
+current-rank or player-balanced claims remain unsupported.

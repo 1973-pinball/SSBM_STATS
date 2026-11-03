@@ -27,7 +27,7 @@ for (const [name, shard] of rankedShards(rows, { datasetId, statsVersion: 10, in
 const source = { repository: "fixture/source", revision: "pinned-fixture", selectionMethod: "Generated numerical fixture; no replay data.", files: [{ path: "fixture.tar.gz", bytes: 1, sha256: "a".repeat(64) }] };
 const totals = Object.fromEntries(rows.filter(row => row.characterId === null && row.opponentCharacterId === null && row.stageId === null)
   .map(row => [row.tier, { playerGames: row.playerGames, distinctGames: row.distinctGames, decidedPlayerGames: row.decidedPlayerGames, wins: row.wins }]));
-const manifest = { schemaVersion: 1, datasetId, statsVersion: 10, interactionStatsVersion: 9, generatedAt: "2026-11-03T00:00:00.000Z",
+const manifest = { schemaVersion: 1, exportQualityVersion: "ranked-export-quality-v1", datasetId, statsVersion: 10, interactionStatsVersion: 9, generatedAt: "2026-11-03T00:00:00.000Z",
   source: { repository: source.repository, revision: source.revision, url: "https://example.com/fixture", selectionMethod: source.selectionMethod, archives: source.files, sourceManifestSha256: sha(JSON.stringify(source)) },
   rankTiming: "unknown", rankSeason: null, rankDate: null, uniquePlayers: null, qualityGates: ["Generated numerical test fixture."],
   counts: { sourceArchives: 1, sourceBytes: 1, replayOccurrences: 3, uniqueReplays: 3, duplicateCopies: 0, wrapperDuplicateCopies: 0, acceptedGames: 3, rejectedGames: 0, rejections: {} }, tiers: totals, shards: shardIndex };
@@ -54,6 +54,8 @@ try {
   const report = await verifyRankedPublication(options); assert.equal(report.ok, true); assert.equal(report.stablePointerChecked, true); assert.equal(report.httpCacheChecks, shardIndex.length + 2);
   corrupt = true; await assert.rejects(verifyRankedPublication(options), /Expected values/);
   corrupt = false; badStableCache = true; await assert.rejects(verifyRankedPublication(options), /must revalidate/);
+  await writeFile(path.join(root, "manifest.json"), JSON.stringify({ ...manifest, exportQualityVersion: "unknown" }));
+  await assert.rejects(verifyRankedPublication({ dir: root, sourceManifest: sourceFile }), /export eligibility version/);
 } finally {
   await new Promise(resolve => server.close(resolve));
   const resolved = path.resolve(temporary); assert.equal(path.dirname(resolved), path.resolve(tmpdir())); assert.ok(path.basename(resolved).startsWith("ssbm-ranked-publication-checks-"));
