@@ -2,9 +2,9 @@ name: CI
 
 # Gates human pushes, which nothing gated before this existed.
 #
-# The refresh bot has always checked itself -- liquipedia-refresh.yml runs
-# `npm run build` before it stages anything, so a broken dataset cannot reach
-# main that way. Pushes from a workstation had no such gate, and CLAUDE.md said
+# The refresh bot checks its dataset before opening a PR, then this workflow
+# checks that PR alongside all other changes. Pushes from a workstation once
+# had no such gate, and CLAUDE.md said
 # so plainly ("nothing in CI gates it"). That is the path an invalid vercel.json
 # took to production on 2026-08-28: the file was valid JSON, so no linter
 # objected, and a local build never reads vercel.json, so two independent local
@@ -19,7 +19,7 @@ on:
   pull_request:
 
 # Read-only: this job builds and reports. It never commits, unlike the refresh
-# workflow, which needs contents:write to push a new snapshot.
+# workflow, which needs contents:write and pull-requests:write to propose a snapshot.
 permissions:
   contents: read
 
