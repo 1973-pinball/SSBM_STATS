@@ -3,9 +3,8 @@ name: Refresh Liquipedia snapshot
 # Weekly top-up of the bundled scene-history dataset: new majors since the
 # last snapshot, plus any newly published SSBMRank edition. Majors land more
 # often than monthly, and a run with nothing new costs one request and commits
-# nothing. The data ships in the bundle (the app has no backend and a
-# self+Supabase CSP), so "publishing" is a commit to main — Vercel redeploys
-# from there.
+# nothing. Changes are proposed on one reusable branch and published only
+# after its pull request passes the required checks and is merged into main.
 on:
   schedule:
     - cron: "0 9 * * 1" # 09:00 UTC every Monday
@@ -13,6 +12,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
   group: liquipedia-refresh
@@ -20,9 +20,14 @@ concurrency:
 
 jobs:
   refresh:
+    # Scheduled runs use main; ignore manual runs on unreviewed branches.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: main
 
       - uses: actions/setup-node@v5
         with:
@@ -34,7 +39,7 @@ jobs:
       # Fetches only what's missing (majors dated after the snapshot, editions
       # not yet present) and rate-limits itself. Exit 2 means Liquipedia was
       # blocking us: data.ts is untouched, so treat it as "nothing to do" and
-      # let next month's run pick it up rather than paging anyone with a red X.
+      # let next week's run pick it up rather than paging anyone with a red X.
       - name: Fetch new majors and rankings
         id: refresh
         run: |
@@ -59,22 +64,28 @@ jobs:
         if: steps.refresh.outputs.changed == 'true'
         run: npm run build
 
-      # SUMMARY is built from wiki-derived text (event and edition names), so it
-      # is passed through the environment rather than interpolated into the
-      # script — a ${{ }} expansion would let a wiki edit run commands in a job
-      # that holds contents:write.
-      - name: Commit the updated snapshot
+      # Keep wiki-derived summary text in action inputs, never shell source.
+      # Do not run on unchanged/rate-limited fetches: an existing update PR
+      # must survive an unavailable upstream. Only data.ts may be committed.
+      - name: Create or update snapshot pull request
         if: steps.refresh.outputs.changed == 'true'
-        env:
-          SUMMARY: ${{ steps.refresh.outputs.summary }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/lib/liquipedia/data.ts
-          # `git commit` fails the job on an empty commit rather than shrug.
-          if git diff --cached --quiet; then
-            echo "nothing changed on disk — nothing to commit"
-            exit 0
-          fi
-          git commit -m "Liquipedia snapshot: $SUMMARY"
-          git push
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          base: main
+          branch: automation/liquipedia-snapshot
+          add-paths: src/lib/liquipedia/data.ts
+          author: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+          committer: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+          commit-message: 'Liquipedia snapshot: ${{ steps.refresh.outputs.summary }}'
+          title: 'Update Liquipedia snapshot'
+          body: |
+            Updates the bundled Liquipedia snapshot with newly discovered majors, rankings, and player metadata.
+
+            ${{ steps.refresh.outputs.summary }}
+
+            Validation: the refresh workflow passed `npm run build` before proposing this update. Only `src/lib/liquipedia/data.ts` is included.
+
+            If GitHub shows **Approve workflows to run**, approve the normal PR checks. The required `build` and `Vercel` checks must pass before merging; this bot does not merge or bypass branch protections.
+
+            Source run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
