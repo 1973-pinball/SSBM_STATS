@@ -34,42 +34,41 @@ try {
     recoveries: { low: structuredClone(recovery) }, edgeguards: { holdLedge: structuredClone(edgeguard) }, beforeOpening: { grab: structuredClone(opening) },
   });
   const raw = {
-    schemaVersion: 1, statsVersion: INTERACTION_STATS_VERSION, generatedAt: "2026-11-02T12:00:00.000Z",
+    schemaVersion: 2, statsVersion: INTERACTION_STATS_VERSION, generatedAt: "2026-11-02T12:00:00.000Z",
     sourceDataset: "fixture replay sample", sourceUrl: "https://replays.nikki.sh/", method: "Explicit test sample.",
     sample: { bundles: 3, games: 40, availableGames: 100, proPlayers: 1 },
-    rows: [row("venue", 9, 2, 31), row("venue", 9, 15, 31, 20), row("venue", 9, 2, 32, 30),
-      row("venue", 2, 9, 31, 40), row("tournament", 9, 2, 31, 4), row("pro", 2, 9, 31, 2)],
+    rows: [row("tournament", 9, 2, 31), row("tournament", 9, 15, 31, 20), row("tournament", 9, 2, 32, 30),
+      row("tournament", 2, 9, 31, 40), row("pro", 2, 9, 31, 2)],
   };
   const data = parseInteractionBenchmarkData(raw);
   assert.ok(data);
   const exact = { characterId: 9, opponentCharacterId: 2, stageId: 31 };
   const selected = selectInteractionBenchmarks(data, exact);
-  assert.equal(selected.venue.games, 10, "other matchups, stages and characters cannot leak into exact selection");
-  assert.equal(selected.tournament.games, 4);
+  assert.equal(selected.tournament.games, 10, "other matchups, stages and characters cannot leak into exact selection");
   assert.equal(selected.pro, null, "missing pro matchup cannot fall back to all pros");
   const allOpponents = selectInteractionBenchmarks(data, { ...exact, opponentCharacterId: null });
-  assert.equal(allOpponents.venue.games, 30);
-  assert.equal(allOpponents.venue.ledge.roll.attempts, 20);
-  assert.equal(allOpponents.venue.oos.jump.cStickInputs, 6);
-  assert.equal(allOpponents.venue.oos.jump.cStickSamples, 14, "observed input samples remain a subset of attempts when pooled");
-  assert.equal(allOpponents.venue.shieldExits.jump.cStickInputs, 0, "observed neutral input stays a measured zero");
-  assert.equal(allOpponents.venue.shieldExits.jump.cStickSamples, 2);
-  assert.equal(allOpponents.venue.oos.grab.cStickInputs, undefined, "unobserved input counters stay unavailable");
+  assert.equal(allOpponents.tournament.games, 30);
+  assert.equal(allOpponents.tournament.ledge.roll.attempts, 20);
+  assert.equal(allOpponents.tournament.oos.jump.cStickInputs, 6);
+  assert.equal(allOpponents.tournament.oos.jump.cStickSamples, 14, "observed input samples remain a subset of attempts when pooled");
+  assert.equal(allOpponents.tournament.shieldExits.jump.cStickInputs, 0, "observed neutral input stays a measured zero");
+  assert.equal(allOpponents.tournament.shieldExits.jump.cStickSamples, 2);
+  assert.equal(allOpponents.tournament.oos.grab.cStickInputs, undefined, "unobserved input counters stay unavailable");
   const mixedCoverage = structuredClone(raw);
   delete mixedCoverage.rows[1].oos.jump.cStickInputs;
   delete mixedCoverage.rows[1].oos.jump.cStickSamples;
   const mixedInputs = selectInteractionBenchmarks(parseInteractionBenchmarkData(mixedCoverage),
-    { ...exact, opponentCharacterId: null }).venue.oos.jump;
+    { ...exact, opponentCharacterId: null }).tournament.oos.jump;
   assert.equal(mixedInputs.attempts, 20);
   assert.equal(mixedInputs.cStickInputs, 3);
   assert.equal(mixedInputs.cStickSamples, 7, "unobserved attempts do not become neutral input samples");
   const allStages = selectInteractionBenchmarks(data, { ...exact, stageId: null });
-  assert.equal(allStages.venue.games, 40);
+  assert.equal(allStages.tournament.games, 40);
   const missing = selectInteractionBenchmarks(data, { ...exact, characterId: 26 });
-  assert.deepEqual(missing, { venue: null, tournament: null, pro: null });
+  assert.deepEqual(missing, { tournament: null, pro: null });
   assert.equal(raw.rows[0].ledge.roll.attempts, 10, "rollups cannot mutate source rows");
 
-  const value = (family, key, measure) => interactionBenchmarkValue(selected.venue, family, key, measure);
+  const value = (family, key, measure) => interactionBenchmarkValue(selected.tournament, family, key, measure);
   assert.equal(value("ledge", "roll", "caughtRate").value, 3 / 8, "trades included, unresolved excluded");
   assert.equal(value("oos", "grab", "landedRate").value, 4 / 8);
   assert.equal(value("ledge", "roll", "noHitRate").value, 2 / 8);
@@ -79,12 +78,12 @@ try {
     value: 4 / 10, numerator: 4, denominator: 10, measuredGames: 10,
   }, "observed recovery hits use all attempts, including unresolved attempts");
   for (const hitDuringRecovery of [undefined, Number.NaN, -1, 11]) {
-    const legacyOrInvalid = { ...selected.venue, recoveries: { low: { ...recovery, hitDuringRecovery } } };
+    const legacyOrInvalid = { ...selected.tournament, recoveries: { low: { ...recovery, hitDuringRecovery } } };
     assert.deepEqual(interactionBenchmarkValue(legacyOrInvalid, "recoveries", "low", "hitDuringRecoveryRate"),
       { value: null, numerator: 0, denominator: 0, measuredGames: 10 },
       "missing or invalid recovery hits cannot become zero or NaN rates");
   }
-  const noRecoveryHits = { ...selected.venue, recoveries: { low: { ...recovery, hitDuringRecovery: 0 } } };
+  const noRecoveryHits = { ...selected.tournament, recoveries: { low: { ...recovery, hitDuringRecovery: 0 } } };
   assert.equal(interactionBenchmarkValue(noRecoveryHits, "recoveries", "low", "hitDuringRecoveryRate").value, 0,
     "an explicit measured zero remains distinguishable from an old missing field");
   assert.equal(value("recoveries", "high", "hitDuringRecoveryRate").value, null,
@@ -96,17 +95,19 @@ try {
   assert.equal(value("ledge", "getup", "caughtRate").value, null, "no uses cannot give a measured zero outcome rate");
   assert.equal(value("ledge", "roll", "damagePerOpening").value, null, "incompatible measures stay unavailable");
   assert.equal(interactionBenchmarkValue(null, "ledge", "roll", "usageShare").value, null);
-  const unavailable = { ...selected.venue, defenseGames: 0, ledge: {} };
+  const unavailable = { ...selected.tournament, defenseGames: 0, ledge: {} };
   assert.equal(interactionBenchmarkValue(unavailable, "ledge", "roll", "usageShare").value, null);
-  const noResolved = { ...selected.venue, ledge: { roll: { attempts: 1, punished: 0, hit: 0, traded: 0, noHit: 0, incomplete: 1 } } };
+  const noResolved = { ...selected.tournament, ledge: { roll: { attempts: 1, punished: 0, hit: 0, traded: 0, noHit: 0, incomplete: 1 } } };
   assert.equal(interactionBenchmarkValue(noResolved, "ledge", "roll", "caughtRate").value, null);
-  const local = { ...selected.venue, ledge: { getup: choice } };
+  const local = { ...selected.tournament, ledge: { getup: choice } };
   assert.deepEqual(interactionComparisonKeys(local, selected, "ledge"), ["getup", "roll"], "reference-only options stay visible");
 
   assert.equal(parseInteractionBenchmarkData({ ...raw, statsVersion: 7 }), null);
   assert.equal(parseInteractionBenchmarkData({ ...raw, statsVersion: 8 }), null,
     "v8 references cannot supply recovery-hit coverage");
-  assert.equal(parseInteractionBenchmarkData({ ...raw, schemaVersion: 2 }), null);
+  assert.equal(parseInteractionBenchmarkData({ ...raw, schemaVersion: 1 }), null);
+  assert.equal(parseInteractionBenchmarkData({ ...raw, rows: [{ ...raw.rows[0], cohort: "venue" }] }), null,
+    "the retired Venue cohort cannot masquerade as a consolidated reference");
   assert.equal(parseInteractionBenchmarkData({ ...raw, sourceUrl: "javascript:fixture" }), null);
   assert.equal(parseInteractionBenchmarkData({ ...raw, rows: [...raw.rows, raw.rows[0]] }), null, "duplicate exact cells are rejected");
   const corrupt = structuredClone(raw);
@@ -131,6 +132,8 @@ try {
 
   const html = renderToStaticMarkup(createElement(TestBenchmarkComparison, { local, family: "ledge", scope: exact, data }));
   assert.match(html, /Sampled · experimental/);
+  assert.match(html, /Pro Tournament/);
+  assert.doesNotMatch(html, /<th[^>]*>Venue/);
   assert.match(html, /No matching sample/);
   assert.match(html, /10 \/ 10 measured player-games/);
   assert.match(html, /Ledge roll/);
@@ -156,7 +159,7 @@ try {
     assert.deepEqual([...INTERACTION_CODEC_OPTIONS[family]].sort(), [...options].sort(), `${family}: codec allowlist follows detector labels`);
   }
   const packed = encodeInteractionBenchmarks(bundled);
-  assert.equal(packed.encodingVersion, 2, "the extra recovery counter changes the compact wire format");
+  assert.equal(packed.encodingVersion, 3, "the deduplicated cohort union changes the compact cohort indexes");
   const packedText = JSON.stringify(packed);
   const unpacked = decodeInteractionBenchmarks(JSON.parse(packedText));
   assert.deepEqual(unpacked, bundled, "compact transport preserves every exact cell, counter and provenance field");
@@ -208,8 +211,12 @@ try {
   }
   const damaged = mutate => { const input = structuredClone(packed); mutate(input); assert.throws(() => decodeInteractionBenchmarks(input), /Invalid interaction reference/); };
   damaged(input => { input.encodingVersion = 1; });
-  damaged(input => { input.encodingVersion = 3; });
+  damaged(input => { input.encodingVersion = 2; });
+  damaged(input => { input.encodingVersion = 4; });
+  damaged(input => { input.metadata.schemaVersion = 1; });
   damaged(input => { input.metadata.statsVersion = 8; });
+  damaged(input => { input.metadata.provenance.counts[0].sampledUnionGames++; });
+  damaged(input => { input.metadata.provenance.counts[0].sampledOverlapGames++; });
   damaged(input => { input.filePath = "private"; });
   damaged(input => { input.metadata.connectCode = "PRIVATE#123"; });
   damaged(input => { input.metadata.provenance.filePath = "C:/private/replay.slp"; });
@@ -217,7 +224,7 @@ try {
   damaged(input => { input.options.ledge.push(input.options.ledge[0]); });
   damaged(input => { input.rows.push(input.rows[0]); });
   damaged(input => { input.rows[0].push("private"); });
-  damaged(input => { input.rows[0][0] = 3; });
+  damaged(input => { input.rows[0][0] = 2; });
   damaged(input => { input.rows[0][3] = 999; });
   damaged(input => { input.rows[0][8][0][0] = input.options.ledge.length; });
   damaged(input => { input.rows[0][8].push(input.rows[0][8][0]); });

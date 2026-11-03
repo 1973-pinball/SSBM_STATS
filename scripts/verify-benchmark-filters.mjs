@@ -98,6 +98,27 @@ try {
   for (const item of rows) if (item.opponent_character_id === PUFF) item.metrics.moves = null;
   assert.equal((await field("test", null, "singles", PUFF)).broad.metrics.moves, null);
   assert.equal((await pros("test", null, "singles", PUFF))[0].metrics.moves, null, "old archive rows cannot invent move data");
+  // Pooled rows retain small individual-player contributions and exact distinct
+  // counts. A missing pooled slice must never fall back to a different cohort.
+  const pooled = { scope: "pro", dataset_id: "pooled", identified_player_count: 2 };
+  row("conservative", null, null, 140, 400, pooled);
+  row("conservative", null, PUFF, 19, 104, pooled);
+  row("conservative", MARTH, null, 120, 340, pooled);
+  row("conservative", MARTH, PUFF, 14, 74, pooled);
+  row("conservative", MARTH, PUFF, 5, 15, { ...pooled, stage_id: 31 });
+  row("conservative", MARTH, 99, 99, 999, { dataset_id: "pooled", scope: "player", player_id: "legacy" });
+  row("conservative", MARTH, PUFF, 999, 999, { ...pooled, published: false });
+  row("conservative", MARTH, PUFF, 999, 999, { ...pooled, format: "doubles" });
+  assert.equal((await pros("pooled", MARTH, "singles", PUFF))[0].game_count, 14);
+  assert.equal((await pros("pooled", MARTH, "singles", PUFF))[0].metrics.moves[13].attempts, 74);
+  const [pooledAll] = await pros("pooled", null);
+  assert.equal(pooledAll.game_count, 140);
+  assert.equal(pooledAll.metrics.moves[13].attempts, 400, "whole Pro row retains move metrics");
+  assert.equal(pooledAll.identified_player_count, 2, "distinct players are not added across characters");
+  assert.equal((await pros("pooled", null, "singles", PUFF))[0].game_count, 19);
+  assert.equal((await pros("pooled", MARTH)).find(r => r.stage_id === 31).game_count, 5);
+  assert.deepEqual(await pros("pooled", MARTH, "singles", 99), [], "missing pooled cells cannot revive legacy rows");
+  assert.deepEqual(await pros("pooled", 99), [], "missing character cannot fall back to overall Pro");
   const demo = await server.ssrLoadModule("/src/lib/demo.ts");
   const stats = await server.ssrLoadModule("/src/lib/stats.ts");
   const { demoCommunitySnapshot } = await server.ssrLoadModule("/src/lib/community.ts");
@@ -111,7 +132,7 @@ try {
       .reduce((count, g) => count + Number(g.me.characterId === stage.characterId) + Number(g.opp.characterId === stage.characterId), 0);
     assert.equal(stage.games, expected, "demo stage totals include both sides and every opponent before suppression");
   }
-  console.log("Archive filters passed: exact matchup, all characters, reset, missing data, weighted pros, and atlas compatibility.");
+  console.log("Archive filters passed: exact slices, pooled Pro contributions/counts, missing data, legacy compatibility, and community sides.");
 } finally {
   await server.close();
   delete globalThis.__ssbmArchiveTestClient;

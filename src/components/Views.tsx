@@ -1,3 +1,4 @@
+import { BENCHMARK_LABELS } from "../lib/benchmarkCohorts";
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from "recharts";
 import type { Account, ActionCounts, GameRecord, PlayerSide, ResolvedGame } from "../lib/types";
@@ -610,13 +611,12 @@ export function Opponents({
 
 // ---------------- Execution ----------------
 
-type BenchmarkKind = "community" | "venue" | "tournament" | "pro";
+type BenchmarkKind = "community" | "tournament" | "pro";
 
 const EXECUTION_BENCHMARK_STYLES: { key: BenchmarkKind; label: string; color: string; dash: string }[] = [
-  { key: "community", label: "SSBM Stats", color: "#4fc9c4", dash: "2 5" },
-  { key: "venue", label: "Venue", color: "#6db3f2", dash: "6 4" },
-  { key: "tournament", label: "Tournament", color: "#e8b54d", dash: "2 3" },
-  { key: "pro", label: "Pro", color: "#e87fd0", dash: "8 3 2 3" },
+  { key: "community", label: BENCHMARK_LABELS.community, color: "#4fc9c4", dash: "2 5" },
+  { key: "tournament", label: BENCHMARK_LABELS.tournament, color: "#e8b54d", dash: "2 3" },
+  { key: "pro", label: BENCHMARK_LABELS.pro, color: "#e87fd0", dash: "8 3 2 3" },
 ];
 
 interface ExecutionBenchmarks {
@@ -625,7 +625,6 @@ interface ExecutionBenchmarks {
   communityBenchmark: CommunityBenchmarkRow | null;
   communityExecution: CommunityExecutionRow | null;
   communityMoves: CommunityMoveRow[];
-  venue: ArchiveRollup | null;
   tournament: ArchiveRollup | null;
   pro: ArchiveRollup | null;
 }
@@ -636,7 +635,6 @@ const emptyExecutionBenchmarks = (characterId: number | null, opponentCharacterI
   communityBenchmark: null,
   communityExecution: null,
   communityMoves: [],
-  venue: null,
   tournament: null,
   pro: null,
 });
@@ -656,7 +654,7 @@ function useExecutionBenchmarks(
     if (games.length === 0) return;
     let alive = true;
     // Each source can publish independently: an archive outage must not hide
-    // healthy community rows, nor a failed pro query hide the venue sample.
+    // healthy community rows, nor a failed pro query hide the Tournament sample.
     void (isDemo ? Promise.resolve(demoCommunitySnapshot(games)) : fetchCommunitySnapshot())
       .then((community) => {
         if (!alive) return;
@@ -677,7 +675,7 @@ function useExecutionBenchmarks(
         void fetchArchiveCommunityBenchmarks(dataset.id, selectedCharacterId, "singles", selectedOpponentCharacterId)
           .then((archive) => {
             if (!alive) return;
-            setBenchmarks((previous) => ({ ...previous, venue: archive.broad, tournament: archive.conservative }));
+            setBenchmarks((previous) => ({ ...previous, tournament: archive.broad }));
           })
           .catch(() => { /* Other sources remain visible without field archive data. */ });
         void fetchArchiveProAggregateAtlasRows(dataset.id, selectedCharacterId, "singles", selectedOpponentCharacterId)
@@ -710,8 +708,8 @@ function archiveBenchmarkLabel(benchmarks: ExecutionBenchmarks): string {
 function BenchmarkFootnote({ benchmarks }: { benchmarks: ExecutionBenchmarks }) {
   return (
     <div className="hint execution-benchmark-footnote">
-      Venue, Tournament, and Pro use {archiveBenchmarkLabel(benchmarks)}, matching the Me and Vs filters, across all stages and dates.
-      {" "}SSBM Stats follows Me and includes all opponents. Dotted lines show full-sample averages. A missing line
+      Tournament and Pro Tournament use {archiveBenchmarkLabel(benchmarks)}, matching the Me and Vs filters, across all stages and dates.
+      {" "}SSBMStats Community follows Me and includes all opponents. Tournament includes eligible event-venue games, counted once; Pro Tournament uses identified players in conservative tournament games. Dotted lines show fixed aggregates; Community headline medians retain their player-balanced weighting. A missing line
       means that source has no qualifying published sample for that metric.
     </div>
   );
@@ -758,10 +756,6 @@ function archiveGroundTechBreakdown(row: ArchiveRollup | null): [number | null, 
 
 function executionBenchmarkValue(benchmarks: ExecutionBenchmarks, kind: BenchmarkKind, metric: ExecMetricKey): number | null {
   if (kind !== "community") {
-    if (kind === "tournament" && metric === "lCancel") {
-      const balanced = benchmarks.tournament?.metrics.playerBalanced?.lCancel.equalWeightMean;
-      if (balanced !== null && balanced !== undefined) return balanced * 100;
-    }
     return archiveExecutionBenchmark(benchmarks[kind], metric);
   }
   if (metric === "lCancel") return benchmarks.communityBenchmark?.lCancel?.p50 ?? benchmarks.communityExecution?.lCancelSuccess ?? null;
@@ -1471,7 +1465,7 @@ function MoveMetricChart({ games, moves, benchmarks, metric, setMetric }: {
             {games.length.toLocaleString()} games in this filter
             {games.length > MAX_SERIES_POINTS ? `, sampled down to ${MAX_SERIES_POINTS.toLocaleString()} points` : ""}.
             Attempted/game correctly reaches zero when you did not initiate the move; gaps mean the selected metric is
-            unavailable, such as initiation counts for throws or outcomes for utility specials. SSBM Stats move rates are approximate because
+            unavailable, such as initiation counts for throws or outcomes for utility specials. SSBMStats Community move rates are approximate because
             public game counts are privacy-rounded; damage and kill shares cover published move rows.
           </div>
           <BenchmarkFootnote benchmarks={benchmarks} />
@@ -1538,7 +1532,7 @@ export function Execution({
   const career = useMemo(() => moveTable(games), [games]);
   const recentMoves = useMemo(() => moveTable(recentGames), [recentGames]);
   const benchmarks = useExecutionBenchmarks(games, isDemo, selectedCharacterId, selectedOpponentCharacterId);
-  const venueGroundTechBreakdown = archiveGroundTechBreakdown(benchmarks.venue);
+  const tournamentGroundTechBreakdown = archiveGroundTechBreakdown(benchmarks.tournament);
   const interactionPanel = <Interactions games={recentGames} isDemo={isDemo} onAnalyze={onAnalyzeInteractions}
     onSelectReplayFiles={onSelectAnalysisFiles} analyzing={analyzingInteractions}
     benchmarkScope={{ characterId: selectedCharacterId, opponentCharacterId: selectedOpponentCharacterId, stageId: selectedStageId }} />;
@@ -1606,10 +1600,10 @@ export function Execution({
                   <th className="data">Opp %<br />breakdown</th>
                   <th
                     className="data metric-header-wrap"
-                    title={`${archiveBenchmarkLabel(benchmarks)} Venue benchmark`}
+                    title={`${archiveBenchmarkLabel(benchmarks)} Tournament benchmark`}
                   >
-                    Venue %<br />breakdown
-                    <span className="sample-note">{archiveBenchmarkSample(benchmarks.venue)}</span>
+                    Tournament %<br />breakdown
+                    <span className="sample-note">{archiveBenchmarkSample(benchmarks.tournament)}</span>
                   </th>
                 </tr>
               </thead>
@@ -1623,7 +1617,7 @@ export function Execution({
                     <td className="data">{r.theirs.toLocaleString()}</td>
                     <td className="data">{num(r.oppPerGame ?? 0, 1)}</td>
                     <td className="data">{pct(r.theirsPct ?? null, 0)}</td>
-                    <td className="data">{pct(venueGroundTechBreakdown[index] ?? null, 0)}</td>
+                    <td className="data">{pct(tournamentGroundTechBreakdown[index] ?? null, 0)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1632,7 +1626,7 @@ export function Execution({
               Your most recent {neutral.covered.toLocaleString()} games in this filter — current form, not career
               totals. Share is your count ÷ the game total, so over 50% means you're winning that kind of exchange
               more often than your opponents. The % breakdown columns show the in-place / in / away composition of your ground techs and
-              your opponents' ground techs. Venue % is the fixed successful-ground-tech mix for {archiveBenchmarkLabel(benchmarks)},
+              your opponents' ground techs. Tournament % is the fixed successful-ground-tech mix for {archiveBenchmarkLabel(benchmarks)},
               following the Me and Vs character filters.
             </div>
           </>
@@ -1652,20 +1646,16 @@ export function Execution({
                   <th className="data">Per game</th>
                   <th className="data">Per minute</th>
                   <th className="data">Opp per game</th>
-                  <th className="data metric-header-wrap">Venue / game<span className="sample-note">{archiveBenchmarkSample(benchmarks.venue)}</span></th>
                   <th className="data metric-header-wrap">Tournament / game<span className="sample-note">{archiveBenchmarkSample(benchmarks.tournament)}</span></th>
-                  <th className="data metric-header-wrap">Pro / game<span className="sample-note">{archiveBenchmarkSample(benchmarks.pro, true)}</span></th>
+                  <th className="data metric-header-wrap">{BENCHMARK_LABELS.pro} / game<span className="sample-note">{archiveBenchmarkSample(benchmarks.pro, true)}</span></th>
                 </tr>
               </thead>
               <tbody>
                 {actions.rows.map((a) => {
-                  const venueRate = archiveActionBenchmark(benchmarks.venue, a.key);
                   const tournamentRate = archiveActionBenchmark(benchmarks.tournament, a.key);
-                  const comparisonRate = tournamentRate ?? venueRate;
-                  const comparisonGames = tournamentRate !== null
-                    ? benchmarks.tournament?.game_count ?? 0
-                    : benchmarks.venue?.game_count ?? 0;
-                  const comparisonLabel = tournamentRate !== null ? "tournament" : "venue";
+                  const comparisonRate = tournamentRate;
+                  const comparisonGames = benchmarks.tournament?.game_count ?? 0;
+                  const comparisonLabel = "Tournament";
                   const difference = actionRateDifference(a.perGame, comparisonRate, actions.covered, comparisonGames);
                   const localValue = num(a.perGame, 1);
                   return (
@@ -1682,7 +1672,6 @@ export function Execution({
                       </td>
                       <td className="data">{num(a.perMinute, 1)}</td>
                       <td className="data">{num(a.oppPerGame, 1)}</td>
-                      <td className="data">{num(venueRate, 1)}</td>
                       <td className="data">{num(tournamentRate, 1)}</td>
                       <td className="data">{num(archiveActionBenchmark(benchmarks.pro, a.key), 1)}</td>
                     </tr>
@@ -1691,11 +1680,11 @@ export function Execution({
               </tbody>
             </table>
             <div className="hint">
-              Your most recent {actions.covered.toLocaleString()} games in this filter, compared with fixed Venue,
-              Tournament, and aggregate Pro per-game benchmarks for {archiveBenchmarkLabel(benchmarks)}.
+              Your most recent {actions.covered.toLocaleString()} games in this filter, compared with fixed Tournament
+              and Pro Tournament per-game benchmarks for {archiveBenchmarkLabel(benchmarks)}.
               Per-minute normalizes your rate for game length; a dash means
               that archive has no qualifying published sample. Your per-game cell is highlighted when it differs
-              materially from Tournament, or Venue when Tournament is unavailable; brighter shading means a larger
+              materially from Tournament; brighter shading means a larger
               difference.
             </div>
           </>
@@ -1732,7 +1721,7 @@ function MovesSection({
   setMetric: (metric: MoveMetricKey) => void;
   interactionPanel: ReactNode;
 }) {
-  type OpeningSortKey = "openings" | "venue" | "tournament" | "pro" | "share" | "venueShare" | "damage";
+  type OpeningSortKey = "openings" | "tournament" | "pro" | "share" | "tournamentShare" | "damage";
   const [minMoveUsageInput, setMinMoveUsageInput] = useState("3");
   const [minOpeningShareInput, setMinOpeningShareInput] = useState("3");
   const [minDamageShareInput, setMinDamageShareInput] = useState("2");
@@ -1757,11 +1746,10 @@ function MovesSection({
       if (openingSortKey === null) return rows.sort(originalOrder);
       const value = (row: MoveRow): number | null => {
         if (openingSortKey === "openings") return recent.covered > 0 ? row.openings / recent.covered : null;
-        if (openingSortKey === "venue") return archiveMoveOpeningsPerGame(benchmarks.venue, row.key);
         if (openingSortKey === "tournament") return archiveMoveOpeningsPerGame(benchmarks.tournament, row.key);
         if (openingSortKey === "pro") return archiveMoveOpeningsPerGame(benchmarks.pro, row.key);
         if (openingSortKey === "share") return row.openingShare;
-        if (openingSortKey === "venueShare") return archiveMoveOpeningShare(benchmarks.venue, row.key);
+        if (openingSortKey === "tournamentShare") return archiveMoveOpeningShare(benchmarks.tournament, row.key);
         return row.dmgPerOpening;
       };
       return rows.sort((a, b) => {
@@ -1772,7 +1760,7 @@ function MovesSection({
         return bValue - aValue || originalOrder(a, b);
       });
     },
-    [benchmarks.pro, benchmarks.tournament, benchmarks.venue, minOpeningShare, openingSortKey, recent.covered, recent.rows],
+    [benchmarks.pro, benchmarks.tournament, minOpeningShare, openingSortKey, recent.covered, recent.rows],
   );
   const damageShareValue = Number(minDamageShareInput);
   const minDamageShare = minDamageShareInput.trim() !== "" && Number.isFinite(damageShareValue)
@@ -1876,10 +1864,9 @@ function MovesSection({
             <tr>
               <th>Move</th>
               <th className="data metric-header-wrap">You<span className="sample-note">{metricDef.label}</span></th>
-              <th className="data metric-header-wrap">SSBM Stats<span className="sample-note">{metricDef.label}</span></th>
-              <th className="data metric-header-wrap">Venue<span className="sample-note">{metricDef.label}</span><span className="sample-note">{archiveBenchmarkSample(benchmarks.venue)}</span></th>
-              <th className="data metric-header-wrap">Tournament<span className="sample-note">{metricDef.label}</span><span className="sample-note">{archiveBenchmarkSample(benchmarks.tournament)}</span></th>
-              <th className="data metric-header-wrap">Pro<span className="sample-note">{metricDef.label}</span><span className="sample-note">{archiveBenchmarkSample(benchmarks.pro, true)}</span></th>
+              <th className="data metric-header-wrap">{BENCHMARK_LABELS.community}<span className="sample-note">{metricDef.label}</span></th>
+              <th className="data metric-header-wrap">{BENCHMARK_LABELS.tournament}<span className="sample-note">{metricDef.label}</span><span className="sample-note">{archiveBenchmarkSample(benchmarks.tournament)}</span></th>
+              <th className="data metric-header-wrap">{BENCHMARK_LABELS.pro}<span className="sample-note">{metricDef.label}</span><span className="sample-note">{archiveBenchmarkSample(benchmarks.pro, true)}</span></th>
               <th className="data">My dmg share</th>
               <th className="data">My kill share</th>
               <th className="data">My L-cancel</th>
@@ -1888,11 +1875,10 @@ function MovesSection({
           <tbody>
             {visibleEffectivenessRows.map((r) => {
               const mine = localMoveMetric(r, metric, recent.covered);
-              const venueValue = archiveMoveBenchmark(benchmarks.venue, r.key, metric);
               const tournamentValue = archiveMoveBenchmark(benchmarks.tournament, r.key, metric);
-              const comparisonValue = tournamentValue ?? venueValue;
-              const comparisonGames = archiveMoveComparisonGames(tournamentValue !== null ? benchmarks.tournament : benchmarks.venue, r.key, metric);
-              const comparisonLabel = tournamentValue !== null ? "tournament" : "venue";
+              const comparisonValue = tournamentValue;
+              const comparisonGames = archiveMoveComparisonGames(benchmarks.tournament, r.key, metric);
+              const comparisonLabel = "Tournament";
               const difference = mine === null
                 ? null
                 : actionRateDifference(mine, comparisonValue, localMoveComparisonGames(r, metric, recent.covered), comparisonGames);
@@ -1914,7 +1900,6 @@ function MovesSection({
                     {difference && <span className="community-diff-cue" aria-hidden="true">{difference.direction === "above" ? "▲" : "▼"}</span>}
                   </td>
                   <td className="data">{formatMoveMetric(communityMoveBenchmark(benchmarks.communityMoves, r.key, metric))}</td>
-                  <td className="data">{formatMoveMetric(venueValue)}{archiveMoveSample(benchmarks.venue, r.key, metric) && <span className="sample-note">{archiveMoveSample(benchmarks.venue, r.key, metric)}</span>}</td>
                   <td className="data">{formatMoveMetric(tournamentValue)}{archiveMoveSample(benchmarks.tournament, r.key, metric) && <span className="sample-note">{archiveMoveSample(benchmarks.tournament, r.key, metric)}</span>}</td>
                   <td className="data">{formatMoveMetric(archiveMoveBenchmark(benchmarks.pro, r.key, metric))}{archiveMoveSample(benchmarks.pro, r.key, metric) && <span className="sample-note">{archiveMoveSample(benchmarks.pro, r.key, metric)}</span>}</td>
                   <td className="data">{pct(r.dmgShare, 0)}</td>
@@ -1927,21 +1912,21 @@ function MovesSection({
               );
             })}
             {visibleEffectivenessRows.length === 0 && (
-              <tr><td colSpan={9} className="empty-note">
+              <tr><td colSpan={8} className="empty-note">
                 {moveFocus === "all" ? "No moves meet this damage-share minimum. Lower the minimum to show more moves." : "No special-move data in your recent window for this selection."}
               </td></tr>
             )}
           </tbody>
         </table></MatrixScroll>
-        {metric === "attemptsPerGame" && <div className="hint">Activation counts use measured games across normals, aerials, and all four special directions. Unsupported copied moves, form changes, or missing frames remain unavailable. SSBM Stats does not publish special attempts.</div>}
-        {(metric === "noHitPerGame" || metric === "noHitRate") && <div className="hint">No-hit counts completed special uses with no opponent damage, including shields and defensive uses; it is not a verified whiff rate. Incomplete uses are excluded. Utility and delayed attacks have attempts only. SSBM Stats does not publish outcomes.</div>}
+        {metric === "attemptsPerGame" && <div className="hint">Activation counts use measured games across normals, aerials, and all four special directions. Unsupported copied moves, form changes, or missing frames remain unavailable. SSBMStats Community does not publish special attempts.</div>}
+        {(metric === "noHitPerGame" || metric === "noHitRate") && <div className="hint">No-hit counts completed special uses with no opponent damage, including shields and defensive uses; it is not a verified whiff rate. Incomplete uses are excluded. Utility and delayed attacks have attempts only. SSBMStats Community does not publish outcomes.</div>}
         {hasStaleStats && <div className="hint">Some cached replays use older statistics. Refresh replays to update their measurements.</div>}
         {(metric === "noHitPerGame" || metric === "noHitRate") && specialOutcomeReason && <div className="hint">{charName(benchmarks.characterId!)}: {specialOutcomeReason}</div>}
         <div className="hint">
           Your most recent {recent.covered.toLocaleString()} games; the selected measure also updates the trend above.
-          Venue, Tournament, and Pro are fixed references for {archiveBenchmarkLabel(benchmarks)}.
-          Highlighting compares with Tournament, then Venue; stronger color means a larger difference, not better play.
-          SSBM Stats uses privacy-rounded game counts and published move rows.
+          Tournament and Pro Tournament are fixed references for {archiveBenchmarkLabel(benchmarks)}.
+          Highlighting compares with Tournament; stronger color means a larger difference, not better play.
+          SSBMStats Community uses privacy-rounded game counts and published move rows.
           {metric === "lCancelPct" && " L-cancel includes whiffed landings; the headline also corrects for edge-cancels."}
           {moveFocus === "all" && metric !== "noHitPerGame" && metric !== "noHitRate" ? ` Moves below ${minDamageShare}% of your damage are hidden, except tracked attempts.` : " Special-move selections ignore the damage-share minimum."}
         </div>
@@ -1974,24 +1959,20 @@ function MovesSection({
             <tr>
               <th>Move</th>
               {openingSortableHeader("openings", "Openings / game")}
-              {openingSortableHeader("venue", "Venue / game", archiveBenchmarkSample(benchmarks.venue))}
               {openingSortableHeader("tournament", "Tournament / game", archiveBenchmarkSample(benchmarks.tournament))}
-              {openingSortableHeader("pro", "Pro / game", archiveBenchmarkSample(benchmarks.pro, true))}
+              {openingSortableHeader("pro", BENCHMARK_LABELS.pro + " / game", archiveBenchmarkSample(benchmarks.pro, true))}
               {openingSortableHeader("share", "My share % of openings")}
-              {openingSortableHeader("venueShare", "Venue share % of openings", archiveBenchmarkSample(benchmarks.venue))}
+              {openingSortableHeader("tournamentShare", "Tournament share % of openings", archiveBenchmarkSample(benchmarks.tournament))}
               {openingSortableHeader("damage", "My damage per opening")}
             </tr>
           </thead>
           <tbody>
             {visibleOpeningRows.map((r) => {
               const mine = recent.covered ? r.openings / recent.covered : 0;
-              const venueRate = archiveMoveOpeningsPerGame(benchmarks.venue, r.key);
               const tournamentRate = archiveMoveOpeningsPerGame(benchmarks.tournament, r.key);
-              const comparisonRate = tournamentRate ?? venueRate;
-              const comparisonGames = tournamentRate !== null
-                ? benchmarks.tournament?.game_count ?? 0
-                : benchmarks.venue?.game_count ?? 0;
-              const comparisonLabel = tournamentRate !== null ? "tournament" : "venue";
+              const comparisonRate = tournamentRate;
+              const comparisonGames = benchmarks.tournament?.game_count ?? 0;
+              const comparisonLabel = "Tournament";
               const difference = actionRateDifference(mine, comparisonRate, recent.covered, comparisonGames);
               const localValue = num(mine, 1);
               return (
@@ -2006,11 +1987,10 @@ function MovesSection({
                     {localValue}
                     {difference && <span className="community-diff-cue" aria-hidden="true">{difference.direction === "above" ? "▲" : "▼"}</span>}
                   </td>
-                  <td className="data">{num(venueRate, 1)}</td>
                   <td className="data">{num(tournamentRate, 1)}</td>
                   <td className="data">{num(archiveMoveOpeningsPerGame(benchmarks.pro, r.key), 1)}</td>
                   <td className="data">{pct(r.openingShare, 0)}</td>
-                  <td className="data">{pct(archiveMoveOpeningShare(benchmarks.venue, r.key), 0)}</td>
+                  <td className="data">{pct(archiveMoveOpeningShare(benchmarks.tournament, r.key), 0)}</td>
                   <td className="data">{num(r.dmgPerOpening, 1)}</td>
                 </tr>
               );
@@ -2019,7 +1999,7 @@ function MovesSection({
         </table>
         <div className="hint">
           The first move of each conversion, over your most recent {recent.covered.toLocaleString()} games in this
-          filter. Venue, Tournament, and Pro are fixed openings-per-game benchmarks for {archiveBenchmarkLabel(benchmarks)};
+          filter. Tournament and Pro Tournament are fixed openings-per-game benchmarks for {archiveBenchmarkLabel(benchmarks)};
           a dash means that archive has no qualifying published sample. High
           damage-per-opening moves are the neutral wins worth hunting; pair with openings/kill above to see whether
           you're converting them. A short window makes rare openings noisy. Moves below {minOpeningShare}% of your

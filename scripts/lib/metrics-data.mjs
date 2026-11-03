@@ -75,11 +75,11 @@ export const SECTIONS = [
       },
       {
         term: "Special attempts and no-hit rates",
-        def: "Attempts/game divides move activations by games with measured attempts, including measured zero-use games. Specials with reliable damage attribution also track completed uses with and without opponent damage. No-hit uses/game divides no-hit uses by outcome-tracked games. No-hit rate divides no-hit uses by completed uses and excludes incomplete uses. Shield contact and defensive uses are included, so this is not a verified whiff rate or attempts minus landed hits. Utility, counter, and independently persisting projectile/item moves have attempts only. Venue, Tournament, aggregate Pro, and named-player comparisons use the same per-move denominators. Older local statistics need refreshing; missing or incomplete source observations remain unavailable. Archive comparisons require measured samples for each move.",
+        def: "Attempts/game divides move activations by games with measured attempts, including measured zero-use games. Specials with reliable damage attribution also track completed uses with and without opponent damage. No-hit uses/game divides no-hit uses by outcome-tracked games. No-hit rate divides no-hit uses by completed uses and excludes incomplete uses. Shield contact and defensive uses are included, so this is not a verified whiff rate or attempts minus landed hits. Utility, counter, and independently persisting projectile/item moves have attempts only. Tournament, Pro Tournament, and named-player comparisons use the same per-move denominators. Older local statistics need refreshing; missing or incomplete source observations remain unavailable. Archive comparisons require measured samples for each move.",
       },
       {
         term: "Move comparisons",
-        def: "Choose a measure to compare your move effectiveness with SSBM Stats, Venue, Tournament, and Pro samples. Landed per game is the default; damage, kill, and other available measures use the same selection in the Move trend chart. Your Execution values cover the most recent rolling window after filters; reference values are fixed aggregates over their published samples. Missing measurements stay blank rather than counting as zero.",
+        def: "Choose a measure to compare your move effectiveness with SSBMStats Community, Tournament, and Pro Tournament samples. Landed per game is the default; damage, kill, and other available measures use the same selection in the Move trend chart. Your Execution values cover the most recent rolling window after filters; reference values are fixed aggregates over their published samples. Missing measurements stay blank rather than counting as zero.",
       },
       {
         term: "L-cancel %",
@@ -136,7 +136,7 @@ export const SECTIONS = [
       },
       {
         term: "Hit during recovery",
-        def: "Recovery attempts with at least one observed opponent hit after the initial offstage launch, divided by all recorded attempts including unfinished ones. Multiple hits count once. Tracking continues through ledge and the stable-return check; the initial launch, non-damaging grabs, and self/environmental damage are excluded. An unhit recovery can still be contested by an opponent's positioning or ledge hold. This measure is also available in the experimental Venue, Tournament and Pro comparisons.",
+        def: "Recovery attempts with at least one observed opponent hit after the initial offstage launch, divided by all recorded attempts including unfinished ones. Multiple hits count once. Tracking continues through ledge and the stable-return check; the initial launch, non-damaging grabs, and self/environmental damage are excluded. An unhit recovery can still be contested by an opponent's positioning or ledge hold. This measure is also available in the experimental Tournament and Pro Tournament comparisons.",
       },
       {
         term: "Ledge and OOS outcomes",
@@ -156,7 +156,7 @@ export const SECTIONS = [
       },
       {
         term: "Sampled archive estimates",
-        def: "Venue, Tournament, and Pro compare the same selected measure and denominator with your local observations. The source covers every eligible bundle in the already-audited public archive: up to 100 singles games per bundle are hash-selected independently for Venue and Tournament, and Pro includes every vetted named-player side in conservative games across those bundles. Cohorts overlap. Exact Me / Vs / Stage filters apply, with no broader fallback when a matchup is missing. Benchmarks pool opportunities rather than balancing players, characters, or events; archive coverage and per-bundle caps can bias them. They are not population statistics or skill rankings. Cells show numerators and denominators, headings show measured player-games, and the panel identifies the source and sample counts. SSBM Stats community estimates are not available for these metrics.",
+        def: "Tournament and Pro Tournament compare the same selected measure and denominator with your local observations. The source covers every eligible bundle in the already-audited public archive: Tournament is the deduplicated union of up to 100 hash-selected venue games and up to 100 hash-selected conservative tournament games per bundle; Pro Tournament includes every vetted named-player side in conservative games across those bundles. Cohorts overlap. Exact Me / Vs / Stage filters apply, with no broader fallback when a matchup is missing. Benchmarks pool opportunities rather than balancing players, characters, or events; archive coverage and per-bundle caps can bias them. They are not population statistics or skill rankings. Cells show numerators and denominators, headings show measured player-games, and the panel identifies the source and sample counts. SSBMStats Community estimates are not available for these metrics.",
       },
       {
         term: "Analyzing older replays",

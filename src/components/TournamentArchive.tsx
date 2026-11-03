@@ -312,7 +312,7 @@ export function TournamentArchive() {
             ) : (
               <label>Event<select value={eventId} disabled={playerId !== null && playerAvailability?.playerId !== playerId} onChange={(event) => { const nextEvent = event.target.value; setEventId(nextEvent); if (playerId) setCharacterId(primaryCharacterForEvent(nextEvent)); setOpponentCharacterId(null); setStageId(null); }}>{availableEvents.map((tournament) => <option key={tournament.id} value={tournament.id}>{tournamentLabel(tournament)}</option>)}</select></label>
             )}
-            <label>Sample<select value={population} disabled={playerId !== null} onChange={(event) => setPopulation(event.target.value as ArchivePopulation)}><option value="conservative">Tournament benchmark</option><option value="broad">Venue benchmark</option></select></label>
+            <label>Sample<select value={population} disabled={playerId !== null} onChange={(event) => setPopulation(event.target.value as ArchivePopulation)}><option value="conservative">Conservative sets</option><option value="broad">Tournament (all eligible recordings)</option></select></label>
             <label>Format<select value={format} onChange={(event) => { setFormat(event.target.value as ArchiveFormat); setPlayerId(null); }}><option value="singles">Singles</option><option value="doubles">Doubles</option></select></label>
             <label>Character<select value={characterId ?? "all"} onChange={(event) => { const value = event.target.value; setCharacterId(value === "all" ? null : Number(value)); setOpponentCharacterId(null); setStageId(null); }}><option value="all">All characters</option>{availableCharacters.map((id) => <option key={id} value={id}>{charName(id)}</option>)}</select></label>
             <label>Opponent<select value={opponentCharacterId ?? "all"} disabled={characterId === null || format === "doubles"} onChange={(event) => { setOpponentCharacterId(event.target.value === "all" ? null : Number(event.target.value)); setStageId(null); }}><option value="all">All opponents</option>{availableOpponents.map((id) => <option key={id} value={id}>{charName(id)}</option>)}</select></label>
@@ -322,8 +322,8 @@ export function TournamentArchive() {
               {playerId
                 ? "Named-player views use conservatively curated games. Event lists show only events with published evidence-backed mappings for that pro; choosing an event selects their most-played character there."
                 : population === "broad"
-                  ? "Venue benchmark includes technically usable event-associated games, including games not tied to a bracket set."
-                  : "Tournament benchmark includes only verified or probable tournament-set games. Choose a named pro to narrow Events and Character automatically."}
+                  ? "Tournament includes all eligible event-associated recordings, including conservative sets and games not tied to a bracket set, counted once."
+                  : "Conservative sets include only verified or probable tournament-set games. Choose a named pro to narrow Events and Character automatically."}
             </div>
           </div>
         </section>
@@ -527,7 +527,7 @@ function SourcesPanel({ catalog, selectedEvent, selectedSeries, seriesEditions, 
       </ul>
       <div className="hint">
         Derived statistics from {int(dataset.parsed_replay_count)} parsed replay files, snapshot {shortDate(dataset.data_as_of)}.
-        The {population === "broad" ? "venue" : "tournament"} benchmark is selected. Raw .slp files, local paths,
+        The {population === "broad" ? "Tournament sample (all eligible recordings)" : "conservative-set sample"} is selected. Raw .slp files, local paths,
         unresolved identities, and private connect codes are not included in this public dataset. Event years come from
         the cited event references rather than replay-system clocks.
         {dataset.notes && <div>{dataset.notes}</div>}

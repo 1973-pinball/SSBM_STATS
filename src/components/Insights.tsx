@@ -156,7 +156,7 @@ function useTournamentMoveBenchmarks(games: ResolvedGame[]): CoachMoveBenchmark[
         if (!dataset) return [];
         const rows = await Promise.all(characterIds.map(async (characterId) => {
           const result = await fetchArchiveCommunityBenchmarks(dataset.id, characterId);
-          return result.conservative;
+          return result.broad;
         }));
         return rows.filter((row): row is ArchiveRollup => row !== null).map(coachMoveBenchmark);
       })

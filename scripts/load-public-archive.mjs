@@ -10,6 +10,7 @@ import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import WebSocket from "ws";
 import { computeArchiveContentSha256 } from "./lib/archive-content-hash.mjs";
+import { inspectArchiveExportRows, requirePooledProArchiveSupport } from "./lib/archive-load-preflight.mjs";
 
 const CACHE_ROOT = process.env.NIKKI_ARCHIVE_CACHE_ROOT ?? path.join(
   homedir(),
@@ -137,17 +138,13 @@ if (forecastPlan) {
   }
 }
 
-const countRows = async (file) => {
-  let count = 0;
-  const lines = createInterface({ input: createReadStream(file), crlfDelay: Infinity });
-  for await (const line of lines) if (line.trim()) count++;
-  return count;
-};
-
+let requiresPooledPro = false;
 for (const plan of plans) {
   console.log(`Validating ${plan.kind} export for ${plan.manifest.datasetId}…`);
   for (const table of plan.manifest.loadOrder) {
-    const count = await countRows(path.join(plan.dir, `${table}.ndjson`));
+    const { count, hasPooledPro } = await inspectArchiveExportRows(path.join(plan.dir, `${table}.ndjson`),
+      plan.kind === "archive" && table === "archive_rollups");
+    requiresPooledPro ||= hasPooledPro;
     if (count !== plan.manifest.tableCounts[table]) {
       throw new Error(`${table}: manifest says ${plan.manifest.tableCounts[table]}, file has ${count}`);
     }
@@ -170,6 +167,7 @@ const supabase = createClient(url, serviceKey, {
   auth: { autoRefreshToken: false, persistSession: false },
   realtime: { transport: WebSocket },
 });
+await requirePooledProArchiveSupport(supabase, requiresPooledPro);
 const { error: schemaError } = await supabase.from("archive_datasets").select("id").limit(1);
 if (schemaError) {
   throw new Error(

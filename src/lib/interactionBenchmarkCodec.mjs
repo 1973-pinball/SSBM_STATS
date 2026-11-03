@@ -6,7 +6,7 @@
  * in the counter order below. Empty maps and explicit zero rows stay distinct.
  * This module has no Node/browser dependencies; builds and readers share it.
  */
-const COHORTS = ["venue", "tournament", "pro"];
+const COHORTS = ["tournament", "pro"];
 const C_STICK_FIELDS = ["cStickInputs", "cStickSamples"];
 const FIELDS = {
   ledge: ["attempts", "punished", "hit", "traded", "noHit", "incomplete"],
@@ -46,8 +46,9 @@ function array(value, length, label) {
 }
 function metadata(value) {
   keys(value, META_FIELDS, "metadata");
-  // v9 adds recovery-hit observations; v8 cannot supply a measured zero.
-  check(value.schemaVersion === 1 && value.statsVersion === 9, "analysis schema");
+  // Schema 2 unifies the frozen Venue/Tournament draws before aggregation.
+  // Old Tournament rows cannot be reinterpreted as the deduplicated union.
+  check(value.schemaVersion === 2 && value.statsVersion === 9, "analysis schema");
   check(typeof value.generatedAt === "string" && Number.isFinite(Date.parse(value.generatedAt)), "generation time");
   check(typeof value.sourceDataset === "string" && /^[a-zA-Z0-9_.-]+$/.test(value.sourceDataset), "source dataset");
   check(value.sourceUrl === "https://replays.nikki.sh/", "source URL");
@@ -70,13 +71,17 @@ function metadata(value) {
   array(provenance.counts, value.sample.bundles, "bundle counts");
   const counted = new Set();
   for (const item of provenance.counts) {
-    keys(item, ["bundle", "availableVenueGames", "availableTournamentGames", "sampledVenueGames", "sampledTournamentGames"], "bundle sample");
+    keys(item, ["bundle", "availableVenueGames", "availableTournamentGames", "sampledVenueGames", "sampledTournamentGames", "sampledOverlapGames", "sampledUnionGames"], "bundle sample");
     check(archives.has(item.bundle) && !counted.has(item.bundle), "bundle membership"); counted.add(item.bundle);
     check(Object.entries(item).every(([key, val]) => key === "bundle" || count(val)), "bundle sample counts");
     check(item.availableTournamentGames <= item.availableVenueGames
       && item.sampledVenueGames === Math.min(provenance.perBundle, item.availableVenueGames)
-      && item.sampledTournamentGames === Math.min(provenance.perBundle, item.availableTournamentGames), "bundle sample cap");
+      && item.sampledTournamentGames === Math.min(provenance.perBundle, item.availableTournamentGames)
+      && item.sampledOverlapGames <= Math.min(item.sampledVenueGames, item.sampledTournamentGames)
+      && item.sampledUnionGames === item.sampledVenueGames + item.sampledTournamentGames - item.sampledOverlapGames
+      && item.sampledUnionGames <= item.availableVenueGames, "bundle sample cap and union");
   }
+  check(provenance.cohortPlayerGames.tournament === provenance.counts.reduce((sum, item) => sum + item.sampledUnionGames * 2, 0), "tournament union total");
 }
 function counter(value, family) {
   const hasInputSamples = object(value) && C_STICK_FIELDS.some(field => Object.hasOwn(value, field));
@@ -129,7 +134,7 @@ export function encodeInteractionBenchmarks(value) {
   rawData(value);
   const { rows, ...metadata } = value;
   const options = Object.fromEntries(FAMILIES.map(family => [family, [...new Set(rows.flatMap(row => Object.keys(row[family])))].sort()]));
-  return { encoding: "ssbm-interactions", encodingVersion: 2, metadata, options,
+  return { encoding: "ssbm-interactions", encodingVersion: 3, metadata, options,
     rows: rows.map(row => [COHORTS.indexOf(row.cohort), ...DIMENSIONS.slice(1).map(field => row[field]),
       ...FAMILIES.map(family => Object.entries(row[family]).map(([option, counts]) =>
         [options[family].indexOf(option), ...FIELDS[family].map(field =>
@@ -140,7 +145,7 @@ export function encodeInteractionBenchmarks(value) {
 export function decodeInteractionBenchmarks(value) {
   if (!object(value) || !Object.hasOwn(value, "encoding")) return rawData(value);
   keys(value, ["encoding", "encodingVersion", "metadata", "options", "rows"], "compact envelope");
-  check(value.encoding === "ssbm-interactions" && value.encodingVersion === 2, "encoding version");
+  check(value.encoding === "ssbm-interactions" && value.encodingVersion === 3, "encoding version");
   metadata(value.metadata); keys(value.options, FAMILIES, "option dictionaries");
   for (const family of FAMILIES) {
     const options = value.options[family]; array(options, null, `${family} dictionary`);
