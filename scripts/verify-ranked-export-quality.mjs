@@ -1,10 +1,13 @@
 /** Cached numerical fixtures exercise the actual build/export boundary without
  * raw replay data, network access, or modifying a production cache. */
 import assert from "node:assert/strict";
+import { promises as filesystem } from "node:fs";
 import { mkdtemp, mkdir, writeFile, readFile, rm, stat } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
+import { syncBuiltinESMExports } from "node:module";
 import path from "node:path";
 import { tmpdir } from "node:os";
+import { mock } from "node:test";
 import { gzipSync, gunzipSync } from "node:zlib";
 import { buildRankedBaselines, rankedBuildIdentity } from "./build-ranked-baselines.mjs";
 import { ACTIONS, createRankedAggregator, rankedExportRejectionReasons } from "./lib/ranked-aggregation.mjs";
@@ -39,7 +42,18 @@ const sourceManifest = path.join(cache, "source-manifest.json");
 await writeJson(sourceManifest, { repository: REPOSITORY, revision: REVISION, selectionMethod: "Generated export eligibility fixture only.",
   files: [{ path: "FOX/FOX_diamond-master_a1.tar.gz", bytes: archive.length, sha256: archiveHash }] });
 const options = { sourceManifest, cache, datasetId: "ranked-export-quality-fixture", output: path.join(cache, "staged"), workers: 1, download: false, waitDownloads: false };
+// Only this synthetic test process controls the filesystem observation. Keep
+// the real builder's 8GiB guard intact and independent of CI runner free space.
+let availableBytes = 8 * 1024 ** 3;
+const storageStats = mock.method(filesystem, "statfs", async directory => {
+  assert.equal(directory, cache); return { bavail: availableBytes, bsize: 1 };
+});
+syncBuiltinESMExports();
 try {
+  const lowSpaceOutput = path.join(cache, "low-space-output");
+  await assert.rejects(buildRankedBaselines({ ...options, output: lowSpaceOutput }), /fewer than 8GiB free/);
+  assert.equal(Boolean(await stat(lowSpaceOutput).catch(() => null)), false, "the production storage guard stops before public output is created");
+  availableBytes = 16 * 1024 ** 3;
   assert.deepEqual(rankedExportRejectionReasons({ record: good }), []);
   assert.deepEqual(rankedExportRejectionReasons({ record: bad }), ["invalid-air-dodge-count"]);
   const secondSlotInvalid = record(); secondSlotInvalid.players[1].actions.airDodges = -13;
@@ -76,7 +90,8 @@ try {
   assert.equal(Boolean(await stat(invalidOutput).catch(() => null)), false, "unrelated invalid data cannot produce a partial public export");
   assert.equal((await rankedBuildIdentity()).parserFingerprint, parserFingerprint);
 } finally {
+  storageStats.mock.restore(); syncBuiltinESMExports();
   const resolved = path.resolve(cache); assert.equal(path.dirname(resolved), path.resolve(tmpdir())); assert.ok(path.basename(resolved).startsWith("ssbm-ranked-export-quality-"));
   await rm(resolved, { recursive: true });
 }
-console.log("Ranked export eligibility passed: whole-game exclusion, true-zero retention, byte/wrapper accounting, immutable cache, independent reconciliation, and unrelated hard failures.");
+console.log("Ranked export eligibility passed: storage guard, whole-game exclusion, true-zero retention, byte/wrapper accounting, immutable cache, independent reconciliation, and unrelated hard failures.");
