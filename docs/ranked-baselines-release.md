@@ -85,10 +85,14 @@ makes special attempts and interaction measurements unavailable. Ordinary
 rollback continues through the bounded parser. The interaction detector version
 remains 9, so the existing Tournament and Pro reference artifacts stay compatible.
 
-Existing compatible local stats are preserved until replacement. Explicit
-Refresh/Reconnect reparses older parser versions, and the recent automatic
-analysis window also upgrades them. There is no destructive cache reset or
-database migration for the ranked release.
+Existing saved stats are preserved until replacement. Automatic background
+updates cover the whole saved library when replay files are accessible,
+independently of the active dashboard filters. Small batches use at most two
+workers, retain progress through saved replacement versions, and avoid repeated
+attempts on unavailable or failed files during the same visit. Background work
+queries existing permission; reconnecting a folder grants access when needed.
+The separate recent-interaction queue remains limited to its current window.
+There is no destructive cache reset or database migration for the ranked release.
 
 Publication requires supported human singles, legal stages, 30 seconds to
 8 minutes plus 10 seconds,

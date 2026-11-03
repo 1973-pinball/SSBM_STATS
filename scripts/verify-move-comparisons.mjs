@@ -404,16 +404,16 @@ try {
   assert.match(zeroBeforeUsedChart("noHitRate"), /aria-label="Moves: Up B"/, "a measured zero-use special cannot hide a different special's completed-use rate");
   assert.doesNotMatch(zeroBeforeUsedChart("noHitRate"), /Nothing to plot/);
   assert.match(zeroBeforeUsedChart("noHitPerGame"), /aria-label="Moves: Side B"/, "zero no-hit uses per measured game remains chartable");
-  assert.doesNotMatch(zeroBeforeUsedChart("noHitRate"), /Refresh replays/, "current statistics do not trigger a stale-cache instruction");
-  assert.match(noHitChart, /Some cached replays use older statistics\. Refresh replays/, "stale local versions receive a separate refresh instruction");
+  assert.doesNotMatch(zeroBeforeUsedChart("noHitRate"), /Some cached replays use older statistics/, "current statistics do not trigger a stale-cache instruction");
+  assert.match(noHitChart, /Some cached replays use older statistics\. They update automatically when their replay files are accessible/, "stale local versions explain automatic updates and replay access");
   const currentUnavailableGames = stats.resolveGames([record(32, { 21: move({ landed: 1 }) })], new Set(["LOCAL#1"]));
   const currentUnavailableRow = stats.moveTable(currentUnavailableGames).rows[0];
   assert.equal(localMoveSample(currentUnavailableRow, "noHitRate"), "No tracked games");
   const currentUnavailableAtlas = renderToStaticMarkup(createElement(ArchiveMoveAtlasComparison, {
     games: currentUnavailableGames, characterId: 20, lookbackGames: 150, communityRows: [],
   }));
-  assert.doesNotMatch(currentUnavailableAtlas, /Refresh replays/, "a current archive/local sample without coverage is unavailable, not stale");
-  assert.match(allSpecialMarkup, /Some cached replays use older statistics\. Refresh replays/);
+  assert.doesNotMatch(currentUnavailableAtlas, /Some cached replays use older statistics/, "a current archive/local sample without coverage is unavailable, not stale");
+  assert.match(allSpecialMarkup, /Some cached replays use older statistics\. They update automatically when their replay files are accessible/);
   close(testLocalMoveMetric(attemptedDownB, "noHitRate", attemptTable.covered), 5 / 8, "Atlas local rate uses matched outcome sample");
   close(testArchiveMoveMetric({ key: "down-b", ...trackedArchive.metrics.moves[21] }, "noHitRate", trackedArchive), 5 / 8, "Atlas archive rate agrees with execution benchmark");
   const { testLegacyArchiveMoveMetric, testLegacyCommunityMove } = await server.ssrLoadModule("/src/components/ArchiveCommunityBenchmark.tsx");

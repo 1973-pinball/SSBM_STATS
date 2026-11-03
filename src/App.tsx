@@ -1,6 +1,6 @@
 import { Component, Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Account, Filters, GameRecord, ParseProgress } from "./lib/types";
-import { DEFAULT_FILTERS, failedReplayIds, hasFullStats, hasKnownCpu, needsStatsRepair, needsParserRepair, needsInteractionAnalysis } from "./lib/types";
+import { DEFAULT_FILTERS, failedReplayIds, hasFullStats, hasKnownCpu, needsParserRepair, needsInteractionAnalysis } from "./lib/types";
 import {
   discoverFromHandle,
   discoverFromFolders,
@@ -9,7 +9,7 @@ import {
   RecordSaveError,
   type DiscoveredFile,
 } from "./lib/pool";
-import { allRecords, clearAll, forgetCachedRecordIds, getMyAccounts, setMyAccounts, getReplayFolders, setReplayFolders, pruneDuplicates } from "./lib/db";
+import { allRecords, clearAll, getMyAccounts, setMyAccounts, getReplayFolders, setReplayFolders, pruneDuplicates } from "./lib/db";
 import { accessibleReplayFolders, addReplayFolder, type ReplayFolder } from "./lib/folders";
 import { codeGameCounts, resolveGames, resolveTeamGames, applyFilters, applyTeamFilters, ROLLING_WINDOW } from "./lib/stats";
 import { dedupeRecords, gameKey, mergeGameRecords } from "./lib/dedupe";
@@ -17,6 +17,7 @@ import { generateDemoRecords, DEMO_ACCOUNTS } from "./lib/demo";
 import { createImportReport, type ReplayImportReport } from "./lib/importReport";
 import { interactionAnalysisFeedback } from "./lib/interactionAnalysisReport";
 import { automaticInteractionTargets, interactionAnalysisAttemptKey, matchInteractionAnalysisFiles } from "./lib/automaticInteractionAnalysis";
+import { automaticStatsUpgradeRecords, createStatsUpgradeInventory, needsAutomaticStatsUpgrade, planAutomaticStatsUpgrade, statsUpgradeAttemptKey, type StatsUpgradeInventory } from "./lib/automaticStatsUpgrade";
 import { ReplayImportNotice } from "./components/ReplayImportNotice";
 import { Landing } from "./components/Landing";
 import { ProgressBar, IdentityPicker } from "./components/ProgressAndIdentity";
@@ -212,6 +213,15 @@ export default function App() {
   // One automatic attempt per game/version per visit. Explicit reconnect/retry
   // releases the guard; ordinary rerenders must not repeatedly read a bad file.
   const autoInteractionAttempts = useRef(new Set<string>());
+  const automaticStatsAttempts = useRef(new Set<string>());
+  const unavailableStatsFiles = useRef(new Set<string>());
+  const statsUpgradeInventory = useRef<StatsUpgradeInventory | null>(null);
+  const [statsInventory, setStatsInventory] = useState<StatsUpgradeInventory | null>(null);
+  const [upgradingStats, setUpgradingStats] = useState(false);
+  const [statsUpgradeBlocked, setStatsUpgradeBlocked] = useState(false);
+  const [pageVisible, setPageVisible] = useState(() => document.visibilityState === "visible");
+  const recordsRef = useRef(records);
+  recordsRef.current = records;
   // File-input browsers cannot remember directory handles. Retain this visit's
   // File references so cached older games can still be upgraded automatically.
   const pickedReplayFiles = useRef(new Map<string, DiscoveredFile>());
@@ -230,6 +240,33 @@ export default function App() {
   // can't write stale records into a wiped session.
   const generation = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    const visibility = () => setPageVisible(document.visibilityState === "visible");
+    const stopActiveWork = () => {
+      // Deliberately read the latest controller, not the mount-time value.
+      generation.current++;
+      abortRef.current?.abort();
+      scanBusy.current = false;
+    };
+    document.addEventListener("visibilitychange", visibility);
+    return () => {
+      document.removeEventListener("visibilitychange", visibility);
+      stopActiveWork();
+    };
+  }, []);
+
+  const rememberStatsInventory = useCallback((files: DiscoveredFile[], cached: GameRecord[]) => {
+    statsUpgradeInventory.current = createStatsUpgradeInventory(files, cached);
+    unavailableStatsFiles.current.clear();
+    setStatsInventory(statsUpgradeInventory.current);
+  }, []);
+
+  const retryAutomaticStats = useCallback(() => {
+    automaticStatsAttempts.current.clear();
+    unavailableStatsFiles.current.clear();
+    setStatsUpgradeBlocked(false);
+  }, []);
 
   const supportsFsAccess = typeof window !== "undefined" && "showDirectoryPicker" in window;
 
@@ -562,6 +599,7 @@ export default function App() {
         markScanned();
         const all = await allRecords();
         if (generation.current !== gen) return;
+        rememberStatsInventory(files, all);
         setRecords(all);
         // What the progress panel used to report on its last frame. After the
         // hand-off nobody is looking at it, so the tally moves to the topbar
@@ -611,7 +649,7 @@ export default function App() {
         }
       }
     },
-    [appendRecords, markScanned, accountsForSession],
+    [appendRecords, markScanned, accountsForSession, rememberStatsInventory],
   );
 
   /**
@@ -636,6 +674,15 @@ export default function App() {
       // final tally through the callback, and we need it after the await.
       const tally: { last: ParseProgress | null } = { last: null };
       try {
+        const retainPickedInventory = async () => {
+          if (pickedReplayFiles.current.size) {
+            const cached = await allRecords();
+            if (generation.current === gen && !controller.signal.aborted) rememberStatsInventory([...pickedReplayFiles.current.values()], cached);
+          } else {
+            statsUpgradeInventory.current = null;
+            setStatsInventory(null);
+          }
+        };
         // Long-lived tabs can hold directory handles for days. Re-read matching
         // stored handles so Refresh behaves like a fresh page load.
         let scanFolders = selected;
@@ -664,6 +711,7 @@ export default function App() {
         setFolderPermission(access.unavailable.length === 0 ? "granted" : "prompt");
         setFolderIssues(access.unavailable.map((folder) => folder.handle.name));
         if (access.granted.length === 0 && !(interactionAnalysis && pickedReplayFiles.current.size)) {
+          await retainPickedInventory();
           if (interactionAnalysis) setPipelineError("Reconnect a replay folder, or use Select replay files in Interactions to analyze these games. Your saved stats are still available.");
           return;
         }
@@ -673,6 +721,7 @@ export default function App() {
         setFolderIssues(unavailable.map((folder) => folder.handle.name));
         if (unavailable.length > 0) setFolderPermission("prompt");
         if (discovered.unavailable.length === access.granted.length && !(interactionAnalysis && pickedReplayFiles.current.size)) {
+          await retainPickedInventory();
           if (interactionAnalysis) setPipelineError("The connected replay folders could not be read. Reconnect them, or use Select replay files in Interactions to choose another copy. Your saved stats are still available.");
           return;
         }
@@ -687,15 +736,6 @@ export default function App() {
           foundAnalysisIds = [...matched.matchedRequestedIds];
         }
         const completedAnalysis = new Set<string>();
-        // "Refresh execution stats" is a forced schema repair, not an ordinary
-        // new-file scan. A stale row can still have an id in `seen` (for
-        // example when a cloud restore raced an earlier migration); forgetting
-        // that marker first prevents the scanner from instantly skipping the
-        // very replay the button promised to update.
-        if (!interactionAnalysis && repairIds.length > 0) {
-          const foundIds = new Set(files.map((file) => file.id));
-          await forgetCachedRecordIds(repairIds.filter((id) => foundIds.has(id)));
-        }
         await runParsePipeline(
           files,
           (p, newRecords) => {
@@ -723,15 +763,14 @@ export default function App() {
               ? { failed: done.failed, unreadable: done.unreadable, deferred: done.deferred }
               : null,
           );
-          // Unlike startPipeline, a refresh builds its record state from
-          // streamed callbacks. A schema repair can also leave stale cloud/cache
-          // copies in memory under a different file id, so replace state from
-          // the pruned cache once the repair lands. A page refresh already did
-          // this on startup; doing it here keeps the warning from sticking
-          // around until the user reloads.
+          // Keep aliases for matching before the cache is pruned. Preserve
+          // cloud-only historical rows when merging durable local results.
+          const rawCached = await allRecords();
+          if (generation.current !== gen || controller.signal.aborted) return;
+          rememberStatsInventory([...pickedReplayFiles.current.values(), ...discovered.files], rawCached);
           if (done && done.done > 0) {
-            const cached = await pruneDuplicates(await allRecords());
-            if (generation.current === gen) setRecords(cached);
+            const cached = await pruneDuplicates(rawCached);
+            if (generation.current === gen && !controller.signal.aborted) setRecords(previous => dedupeRecords([...previous, ...cached]));
           }
           if (interactionAnalysis && generation.current === gen) {
             setPipelineError(interactionAnalysisFeedback(repairIds, foundAnalysisIds, completedAnalysis));
@@ -757,7 +796,7 @@ export default function App() {
         }
       }
     },
-    [appendRecords, markScanned],
+    [appendRecords, markScanned, rememberStatsInventory],
   );
 
   /** Add an explicit file selection without replacing or disconnecting the folder. */
@@ -774,6 +813,10 @@ export default function App() {
         return;
       }
       scanBusy.current = true;
+      if (!automatic) {
+        for (const file of files) pickedReplayFiles.current.set(file.id, file);
+        retryAutomaticStats();
+      }
       setImportReport(null);
       // Report this selection even when an older library already displays
       // normally. A whole-library empty check misses missing recent games.
@@ -815,6 +858,7 @@ export default function App() {
           if (done) {
             const cached = await allRecords();
             if (generation.current !== gen) return;
+            rememberStatsInventory([...statsUpgradeInventory.current?.filesById.values() ?? [], ...pickedReplayFiles.current.values(), ...files], cached);
             // Inspect an already-scanned selection when its exact stored file
             // version survives. A pruned copy may have only a seen marker; do
             // not guess which cached game that missing record represented.
@@ -824,7 +868,7 @@ export default function App() {
             }
             if (done.done > 0) {
               const pruned = await pruneDuplicates(cached);
-              if (generation.current === gen) setRecords(pruned);
+              if (generation.current === gen) setRecords(previous => dedupeRecords([...previous, ...pruned]));
             }
             // Successful parsing alone does not establish that the cache saved.
             if (!automatic && generation.current === gen) setImportReport(report.finish(done));
@@ -852,8 +896,69 @@ export default function App() {
         }
       }
     },
-    [accounts, appendRecords, filters, records],
+    [accounts, appendRecords, filters, records, rememberStatsInventory, retryAutomaticStats],
   );
+
+  /** Background repairs reuse the last inventory. Only a small matched batch
+   * enters the parser, and provisional outcomes never replace visible stats. */
+  const upgradeSavedStats = useCallback(async (plan: ReturnType<typeof planAutomaticStatsUpgrade>, inventory: StatsUpgradeInventory) => {
+    if (scanBusy.current || pickerBusy.current || document.visibilityState !== "visible") return;
+    scanBusy.current = true;
+    const gen = generation.current, controller = new AbortController();
+    abortRef.current = controller;
+    for (const record of plan.targets) {
+      automaticStatsAttempts.current.add(statsUpgradeAttemptKey(record));
+      autoInteractionAttempts.current.add(interactionAnalysisAttemptKey(record));
+    }
+    setUpgradingStats(true);
+    setSyncing({ pass: "full", total: plan.files.length, done: 0, skippedCached: 0, failed: 0, unreadable: 0, deferred: 0 });
+    const outcomes: GameRecord[] = [];
+    const tally: { last: ParseProgress | null } = { last: null };
+    const active = () => generation.current === gen && !controller.signal.aborted;
+    try {
+      await runParsePipeline(plan.files, progress => {
+        if (!active()) return;
+        tally.last = progress;
+        setSyncing(progress);
+      }, controller.signal, {
+        forceIds: new Set(plan.files.map(file => file.id)), maxWorkers: 2,
+        knownSuccessfulIds: inventory.successfulFileIds,
+        onParsedRecord: record => { if (active()) outcomes.push(record); },
+      });
+      if (!active()) return;
+      // Pipeline success means all buffered writes committed. Merge rather than
+      // replacing state: older cloud-only rows may not exist in IndexedDB yet.
+      appendRecords(outcomes);
+      const done = tally.last;
+      setSyncSkipped(done && done.failed + done.unreadable + done.deferred > 0
+        ? { failed: done.failed, unreadable: done.unreadable, deferred: done.deferred } : null);
+      const remaining = [...recordsRef.current, ...outcomes];
+      if (outcomes.length && !planAutomaticStatsUpgrade(remaining, inventory, automaticStatsAttempts.current, unavailableStatsFiles.current).files.length) {
+        // Repack once after the queue drains, rather than rereading and rewriting
+        // the entire library after every 50-game batch.
+        const cached = await allRecords();
+        if (!active()) return;
+        const pruned = await pruneDuplicates(cached);
+        if (active()) setRecords(previous => dedupeRecords([...previous, ...pruned]));
+      }
+    } catch (error) {
+      if (!active()) return;
+      console.error(error);
+      setStatsUpgradeBlocked(true);
+      setPipelineError(error instanceof RecordSaveError ? error.message
+        : "Automatic replay analysis stopped. Your saved stats remain available. Reconnect or reselect the replay files, or use Refresh to retry when they are accessible.");
+      // A failed run can have committed earlier batches. Reconcile only durable
+      // rows, without claiming a complete rollback or discarding cloud history.
+      try { const cached = await allRecords(); if (active()) appendRecords(cached); } catch { /* Keep the original failure visible. */ }
+    } finally {
+      if (generation.current === gen) {
+        scanBusy.current = false;
+        lastFolderSyncAt.current = Date.now();
+        setUpgradingStats(false);
+        setSyncing(null);
+      }
+    }
+  }, [appendRecords]);
 
   // Warm the lazy view chunks once the dashboard is idle so the first click
   // on each tab renders instantly instead of showing the Suspense fallback.
@@ -883,15 +988,15 @@ export default function App() {
 
   // A background scan queries permissions only; reconnect prompts need a click.
   useEffect(() => {
-    if (phase !== "dashboard" || isDemo || folders.length === 0 || autoSyncDone.current) return;
+    if (phase !== "dashboard" || isDemo || cloudRestoring !== null || folders.length === 0 || autoSyncDone.current) return;
     if (pickerBusy.current || scanBusy.current) return;
     autoSyncDone.current = true;
     void syncFolders(folders);
-  }, [phase, isDemo, folders, syncFolders]);
+  }, [phase, isDemo, cloudRestoring, folders, syncFolders]);
 
   // Both events matter: switching from Dolphin may focus a tab without hiding it.
   useEffect(() => {
-    if (phase !== "dashboard" || isDemo || folders.length === 0) return;
+    if (phase !== "dashboard" || isDemo || cloudRestoring !== null || folders.length === 0) return;
     const maybeSync = () => {
       if (document.visibilityState !== "visible" || pickerBusy.current || scanBusy.current) return;
       if (Date.now() - lastFolderSyncAt.current < 60_000) return;
@@ -903,13 +1008,13 @@ export default function App() {
       document.removeEventListener("visibilitychange", maybeSync);
       window.removeEventListener("focus", maybeSync);
     };
-  }, [phase, isDemo, folders, syncFolders]);
+  }, [phase, isDemo, cloudRestoring, folders, syncFolders]);
 
   const onRefresh = useCallback(() => {
     autoInteractionAttempts.current.clear();
-    const repairIds = records.filter(rec => needsStatsRepair(rec) || needsParserRepair(rec)).map((rec) => rec.id);
-    void syncFolders(folders, repairIds, { requestAccess: true, retryFailed: true });
-  }, [folders, records, syncFolders]);
+    retryAutomaticStats();
+    void syncFolders(folders, [], { requestAccess: true, retryFailed: true });
+  }, [folders, syncFolders, retryAutomaticStats]);
 
   const onPickDirectory = useCallback(() => {
     void navigator.storage?.persist?.().catch(() => false);
@@ -947,10 +1052,11 @@ export default function App() {
       }
       for (const file of files) pickedReplayFiles.current.set(file.id, file);
       autoInteractionAttempts.current.clear();
+      retryAutomaticStats();
       if (phase === "dashboard") void syncPickedFiles(files);
       else void startPipeline(async () => files);
     },
-    [phase, startPipeline, syncPickedFiles],
+    [phase, startPipeline, syncPickedFiles, retryAutomaticStats],
   );
 
   const onAddReplayFiles = useCallback(() => {
@@ -979,13 +1085,13 @@ export default function App() {
         if (generation.current !== gen) return;
         setFolders(added.folders);
         autoInteractionAttempts.current.clear();
+        retryAutomaticStats();
         const saved = await setReplayFolders(added.folders);
         if (generation.current !== gen) return;
         autoSyncDone.current = true;
         pickerBusy.current = false;
         setPickingFolder(false);
-        const repairIds = records.filter(rec => needsStatsRepair(rec) || needsParserRepair(rec)).map((rec) => rec.id);
-        await syncFolders(added.folders, repairIds, { retryFailed: true });
+        await syncFolders(added.folders, [], { retryFailed: true });
         if (!saved && generation.current === gen) {
           setPipelineError("These folders work for this visit, but couldn't be remembered. Add them again next time.");
         }
@@ -1001,7 +1107,7 @@ export default function App() {
         }
       }
     })();
-  }, [supportsFsAccess, folders, records, syncFolders]);
+  }, [supportsFsAccess, folders, syncFolders, retryAutomaticStats]);
 
   const onDemo = useCallback(() => {
     setIsDemo(true);
@@ -1068,11 +1174,15 @@ export default function App() {
     setImportReport(null);
     autoSyncDone.current = false;
     autoInteractionAttempts.current.clear();
+    retryAutomaticStats();
+    statsUpgradeInventory.current = null;
+    setStatsInventory(null);
+    setUpgradingStats(false);
     pickedReplayFiles.current.clear();
     pendingFileSelections.current = [];
     setPhase("landing");
     selectTab("overview", true);
-  }, [isDemo, selectTab]);
+  }, [isDemo, selectTab, retryAutomaticStats]);
 
   const onCloudSignIn = useCallback(() => {
     void signInWithGoogle().catch((err) => {
@@ -1129,7 +1239,8 @@ export default function App() {
   // running" flag to keep in step. An incremental refresh never sets it: below
   // HEADER_PASS_MIN the pipeline skips the preview pass entirely.
   const hasPreviews = useMemo(() => shouldResolveDashboard && deduped.some((r) => !hasFullStats(r)), [deduped, shouldResolveDashboard]);
-  const needsStatsRefresh = useMemo(() => shouldResolveDashboard && deduped.some(rec => needsStatsRepair(rec) || needsParserRepair(rec)), [deduped, shouldResolveDashboard]);
+  const statsUpgradeRemaining = useMemo(() => shouldResolveDashboard ? automaticStatsUpgradeRecords(records).length : 0, [records, shouldResolveDashboard]);
+  const needsStatsRefresh = statsUpgradeRemaining > 0;
   const isTabPending = (id: Tab) => hasPreviews && NEEDS_FULL_STATS.has(id);
 
   // Never strand the user in a teams view they have no games for.
@@ -1137,16 +1248,36 @@ export default function App() {
   const showTeams = hasTeamGames && filters.format === "teams";
   const activePending = isTabPending(tab);
   const busy = phase === "parsing" || syncing !== null;
+  const statsUpgradePlan = useMemo(() => !busy && !statsUpgradeBlocked && statsInventory
+    ? planAutomaticStatsUpgrade(records, statsInventory, automaticStatsAttempts.current, unavailableStatsFiles.current)
+    : null, [records, statsInventory, busy, statsUpgradeBlocked]);
   useEffect(() => {
     if (phase !== "dashboard" || busy || pickingFolder || scanBusy.current) return;
     const selection = pendingFileSelections.current.shift();
     if (selection) void syncPickedFiles(selection.files, selection.analyze);
   }, [phase, busy, pickingFolder, fileSelectionRevision, syncPickedFiles]);
   useEffect(() => {
-    if (phase !== "dashboard" || isDemo || filters.format === "teams" || busy || pickingFolder
+    if (phase !== "dashboard" || isDemo || busy || pickingFolder || !pageVisible || scanBusy.current
+      || cloudRestoring !== null || hasPreviews || pendingFileSelections.current.length || !statsUpgradePlan) return;
+    for (const key of statsUpgradePlan.missingKeys) unavailableStatsFiles.current.add(key);
+    if (!statsUpgradePlan.files.length) return;
+    const inventory = statsUpgradeInventory.current;
+    if (!inventory) return;
+    // Yield to input and explicit imports between bounded batches. Filters do
+    // not participate: every saved game can upgrade, including teams and games
+    // outside the current character/date/opponent window.
+    const timer = window.setTimeout(() => {
+      if (statsUpgradeInventory.current !== inventory || pendingFileSelections.current.length) return;
+      void upgradeSavedStats(statsUpgradePlan, inventory);
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [phase, isDemo, busy, pickingFolder, pageVisible, cloudRestoring, hasPreviews, statsUpgradePlan, upgradeSavedStats]);
+  useEffect(() => {
+    if (phase !== "dashboard" || isDemo || filters.format === "teams" || busy || pickingFolder || statsUpgradeBlocked || !pageVisible
       || cloudRestoring !== null || hasPreviews || pendingFileSelections.current.length
       || (!folders.length && !pickedReplayFiles.current.size)) return;
-    const targets = automaticInteractionTargets(filtered.map(game => game.rec), autoInteractionAttempts.current, ROLLING_WINDOW);
+    const targets = automaticInteractionTargets(filtered.map(game => game.rec), autoInteractionAttempts.current, ROLLING_WINDOW)
+      .filter(record => !needsAutomaticStatsUpgrade(record));
     if (!targets.length) return;
     // Let the dashboard paint, and debounce filter changes before reading files.
     const timer = window.setTimeout(() => {
@@ -1160,7 +1291,7 @@ export default function App() {
       }
     }, 600);
     return () => window.clearTimeout(timer);
-  }, [phase, isDemo, filters.format, busy, pickingFolder, cloudRestoring, hasPreviews, filtered, folders, records, syncFolders, syncPickedFiles]);
+  }, [phase, isDemo, filters.format, busy, pickingFolder, cloudRestoring, hasPreviews, filtered, folders, records, syncFolders, syncPickedFiles, statsUpgradeBlocked, pageVisible]);
   const reloadForUpdate = useCallback(() => {
     const last = Number(sessionStorage.getItem("ssbm-update-reload-at") ?? 0);
     if (Date.now() - last < 30_000) {
@@ -1217,7 +1348,9 @@ export default function App() {
                   !online
                     ? "Offline — local stats still work"
                     : needsStatsRefresh
-                      ? "Some saved records need updated replay analysis. Refresh available replay files to update them in place; saved stats remain available until replaced."
+                      ? statsUpgradeBlocked
+                        ? "Automatic analysis stopped after an error. Saved statistics remain available; reconnect or reselect replay files, or use Refresh to retry when the problem is resolved."
+                        : `${statsUpgradeRemaining.toLocaleString()} saved games need updated analysis. Accessible replay files update automatically in small batches. Reconnect if folder permission expired; reselect missing files or use Refresh to retry unreadable files.`
                     : needsFolder
                       ? "These stats came from the cache or the cloud. Connect your replay folder to pick up games played from now on."
                     : folderIssues.length > 0
@@ -1228,7 +1361,11 @@ export default function App() {
                 {!online
                   ? "Offline · local stats available"
                   : needsStatsRefresh
-                    ? "Execution stats need refresh"
+                    ? upgradingStats ? `Updating saved stats · ${statsUpgradeRemaining.toLocaleString()} remaining`
+                      : statsUpgradeBlocked ? "Saved-stat update paused"
+                        : statsUpgradePlan?.files.length ? "Saved-stat update queued"
+                          : !statsUpgradeInventory.current || folderIssues.length > 0 ? "Replay access needed"
+                            : "Some replays need attention"
                   : needsFolder
                     ? "No folder connected"
                   : folderIssues.length > 0
@@ -1246,14 +1383,14 @@ export default function App() {
                   {syncing
                     ? syncing.total === 0
                       ? "Scanning…"
-                      : `${syncing.pass === "header" ? "Reading" : "Parsing"} ${syncing.done.toLocaleString()}/${syncing.total.toLocaleString()}`
+                      : `${upgradingStats ? "Updating batch" : syncing.pass === "header" ? "Reading" : "Parsing"} ${syncing.done.toLocaleString()}/${syncing.total.toLocaleString()}`
                     : pickingFolder
                       ? "Choosing folder…"
                     : folders.length === 0
                       ? "Connect replay folder"
                       : folderPermission === "granted"
-                        ? needsStatsRefresh ? "Refresh execution stats" : "Refresh"
-                        : needsStatsRefresh ? "Reconnect to refresh" : folders.length > 1 ? "Reconnect folders" : "Reconnect folder"}
+                        ? "Refresh"
+                        : folders.length > 1 ? "Reconnect folders" : "Reconnect folder"}
                 </button>
               )}
               {!isDemo && folders.length > 0 && (

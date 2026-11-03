@@ -203,6 +203,12 @@ export async function runParsePipeline(
      * Unreadable/deferred/cancelled upgrades then remain cached on normal scans.
      * Failure-only records still require an explicit retryFailed request. */
     forceIds?: ReadonlySet<string>;
+    /** A background repair can yield CPU to the active dashboard. */
+    maxWorkers?: number;
+    /** IDs backed by successful cached rows that the caller preserves for this
+     * run. Such IDs cannot be failure-only tombstones; unknown IDs still require
+     * the normal cache check. Never use this when deliberately retrying errors. */
+    knownSuccessfulIds?: ReadonlySet<string>;
     /** Full parse outcomes for local diagnostics, including memory-safe runs.
      * Called before storage; consumers must wait for pipeline success before
      * presenting a completed import. Never receives header previews. */
@@ -213,7 +219,8 @@ export async function runParsePipeline(
   // Only an explicit user retry revisits failures. Keep their seen markers in
   // place until replacement results commit; cancelling or deferring this run
   // must not turn corrupt files into work on every background scan.
-  const failedIds = options.retryFailed || options.forceIds?.size
+  const needsFailureLookup = options.retryFailed || [...(options.forceIds ?? [])].some(id => !options.knownSuccessfulIds?.has(id));
+  const failedIds = needsFailureLookup
     ? failedReplayIds(await allRecords()) : new Set<string>();
   const retryIds = options.retryFailed ? failedIds : new Set<string>();
   const forceIds = new Set([...(options.forceIds ?? [])].filter(id => !failedIds.has(id)));
@@ -272,7 +279,9 @@ export async function runParsePipeline(
   const workerCap = largeImport
     ? largeImportWorkerCap()
     : hasMemory && cores >= 8 ? 8 : hasMemory && cores >= 6 ? 6 : 4;
-  const workerCount = Math.max(1, Math.min(cores, workerCap));
+  const callerCap = options.maxWorkers !== undefined && Number.isInteger(options.maxWorkers)
+    ? Math.max(1, options.maxWorkers) : workerCap;
+  const workerCount = Math.max(1, Math.min(cores, workerCap, callerCap));
   interface Slot {
     worker: Worker;
     job: DiscoveredFile | null;
