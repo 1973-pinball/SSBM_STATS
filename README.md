@@ -16,13 +16,13 @@ and Liquipedia views.
 - **Before openings taken:** preceding actions and ensuing damage or stock loss,
   providing context without claiming verified whiffs or unavoidable punishes.
 - **Archive estimates:** experimental Venue, Tournament, and Pro comparisons
-  matching character, opponent character, and stage across 10,536 public games,
-  including 702 Pro appearances from 27 mapped players, with visible samples.
+  matching character, opponent character, and stage across 11,141 public games,
+  including 1,883 Pro appearances from 98 mapped players, with visible samples.
 - **Replay-audited detection:** longer ledgedash sequence recognition, platform
   shield drops, and input-supported wavedash landings.
-- **Optional local re-analysis:** analyze older replays from Execution while
-  keeping existing stats usable. Experimental labels, measured-game coverage,
-  and small-sample notes make the limits visible.
+- **Automatic recent-game analysis:** update older replays in the filtered
+  150-game window when local files are accessible, while keeping existing stats
+  usable. Coverage notes distinguish pending analysis from unavailable data.
 
 ## How it works
 
@@ -102,7 +102,8 @@ Requires Node 22. Run `git config core.hooksPath .githooks` once per clone. Use 
 ## Experimental interaction analysis
 
 Execution's **Interactions** panel describes your choices and what followed in
-the most recent 150 singles games after the global filters. It includes:
+the most recent 150 singles games after the global filters. It appears directly
+above **Move impact — volume vs wins**. It includes:
 
 - **Ledge and out of shield:** option frequency and the first damaging hit or
   grab within 30 frames (0.5 seconds). Sequences can develop for up to 30 frames
@@ -126,11 +127,15 @@ the most recent 150 singles games after the global filters. It includes:
   states. This does not establish a whiff or an unavoidable punish.
 
 New full parses include these summaries. Older compatible game stats remain
-usable; **Analyze these games** explicitly re-reads matching replays in the
-current window from connected folders, and **Select replay files** handles
-moved or disconnected files. Replays must still be available locally. Frame
-processing stays on the device, raw frames are discarded, and only derived
-summaries are saved and eligible for the existing optional cloud sync.
+usable while the latest 150 filtered singles are analyzed automatically in the
+background. Only matching files are re-read, using connected folders with
+existing read permission or files selected during this visit. **Analyze these
+games** is a manual reconnect/retry, and **Select replay files** handles missing
+or disconnected sources. Cloud summaries alone cannot supply raw frames.
+Automatic analysis attempts each older game once per visit; explicit reconnect
+or retry can try again. Frame processing stays on the device, raw frames are
+discarded, and only derived summaries are saved and eligible for the existing
+optional cloud sync.
 
 Coverage is shown separately for each family. Missing observations stay
 unavailable, and fewer than 20 resolved examples are marked as small samples.
@@ -153,8 +158,11 @@ character-balanced benchmark, or a skill ranking. The panel reports the actual
 sample counts and source. SSBM Stats community estimates are not available for
 these new metrics.
 
-The reference covers 10,536 unique games across 66 eligible bundles; its Pro
-subset contains 702 player appearances from all 27 mapped players in the archive.
+The reference covers 11,141 unique games across 66 eligible bundles; its Pro
+subset contains 1,883 player appearances across 1,338 games from 98 mapped players.
+The expanded interaction sample adds reviewed event-specific labels backed by
+global Top 100 ranking records. These additional identities are probable; they
+do not rewrite the separately published archive or its named-player directory.
 See the [sample methodology](docs/interaction-benchmark-sample.md),
 [184-game defensive audit](docs/defensive-interaction-audit.md), and
 [32-game recovery/opening-context audit](docs/recovery-interaction-audit.md).

@@ -372,8 +372,8 @@ class SsbmDb extends Dexie {
         }
         if (staleIds.length > 0) await tx.table("seen").bulkDelete(staleIds);
       });
-    // Optional interaction analysis (payload v7). Keep valid v6 baselines and
-    // their seen markers: only the explicit analysis button may re-read them.
+    // Interaction analysis. Keep valid v6/v7 baselines and their seen markers;
+    // the scoped recent-game analysis queue releases only the files it needs.
     // Continue releasing genuinely obsolete v1-v5 execution payloads.
     this.version(20)
       .stores({ games: "id, playedAt, stageId, gameType", packs: "++id", seen: "id", kv: "key" })

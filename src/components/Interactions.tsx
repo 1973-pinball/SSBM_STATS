@@ -1,6 +1,5 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import type { ResolvedGame } from "../lib/types";
-import { needsInteractionAnalysis } from "../lib/types";
 import {
   DEFENSIVE_OUTCOME_WINDOW_FRAMES, LEDGE_SEQUENCE_WINDOW_FRAMES, DEFENSIVE_SEQUENCE_WINDOW_FRAMES, LEDGE_OPTION_LABELS, OOS_OPTION_LABELS,
   type ChoiceOutcomes,
@@ -10,7 +9,7 @@ import {
   type EdgeguardOutcomes, type RecoveryOutcomes,
 } from "../lib/recoveryInteractions";
 import { PUNISH_ACTION_LABELS, type PunishOutcome } from "../lib/punishContext";
-import { interactionRate, interactionSummary } from "../lib/interactionSummary";
+import { interactionAnalysisCoverage, interactionRate, interactionSummary } from "../lib/interactionSummary";
 import type { InteractionSummary } from "../lib/interactionSummary";
 import {
   INTERACTION_COHORTS, INTERACTION_MEASURES, interactionBenchmarkValue, interactionComparisonKeys,
@@ -45,7 +44,7 @@ function RateCell({ count, total }: { count: number; total: number }) {
 
 function Missing({ covered, kind }: { covered: number; kind: string }) {
   return <p className="interaction-empty">{covered === 0
-    ? `No measured ${kind} data in these games yet. Older replays need re-analysis; unsupported or incomplete recordings remain unavailable.`
+    ? `No measured ${kind} data is available in this window.`
     : `No qualifying ${kind} were observed in the measured games.`}</p>;
 }
 
@@ -253,10 +252,11 @@ export function Interactions({ games, onAnalyze, onSelectReplayFiles, analyzing 
   const [shieldMode, setShieldMode] = useState<"oos" | "shieldExits">("oos");
   const id = useId();
   const summary = useMemo(() => interactionSummary(games), [games]);
+  const analysisCoverage = useMemo(() => interactionAnalysisCoverage(games), [games]);
   const coverage = section === "ledge" || section === "oos" ? summary.defenseGames
     : section === "punish" ? summary.punishGames : summary.recoveryGames;
-  const missing = summary.defenseGames < summary.games || summary.recoveryGames < summary.games || summary.punishGames < summary.games;
-  const needsAnalysis = games.some((game) => needsInteractionAnalysis(game.rec));
+  const unavailable = analysisCoverage.unavailable[section === "ledge" || section === "oos" ? "defense" : section === "punish" ? "punish" : "recovery"];
+  const needsAnalysis = analysisCoverage.needsAnalysis > 0;
   const family: InteractionFamily = section === "oos" ? shieldMode : section === "punish" ? "beforeOpening" : section;
   return <section className="panel interactions" aria-labelledby={`${id}-heading`}>
     <div className="interaction-heading">
@@ -274,11 +274,20 @@ export function Interactions({ games, onAnalyze, onSelectReplayFiles, analyzing 
     </div>
     <div id={`${id}-content`}>
       <div className="interaction-coverage">
-        <span>{int(coverage)} / {int(summary.games)} {summary.games === 1 ? "game" : "games"} measured</span>
+        <span title="Your measured replays within the recent-game window; archive sample sizes are shown separately below.">{int(coverage)} / {int(summary.games)} {summary.games === 1 ? "game" : "games"} measured</span>
         {section === "oos" && <label>Shield situation <select value={shieldMode} onChange={(event) => setShieldMode(event.target.value as "oos" | "shieldExits")}>
           <option value="oos">After shield contact</option><option value="shieldExits">Other shield exits</option>
         </select></label>}
       </div>
+      {!isDemo && (needsAnalysis || unavailable > 0) && <div className="interaction-coverage-note">
+        <p>This is coverage of your recent games in the current filter. The Venue, Tournament, and Pro samples are separate.</p>
+        {needsAnalysis && <p><strong>{int(analysisCoverage.needsAnalysis)} older {analysisCoverage.needsAnalysis === 1 ? "game needs" : "games need"} interaction analysis.</strong>{" "}
+          {analyzing ? "Replay analysis is running; this count updates as games finish."
+            : "Analysis runs automatically when connected replay folders are accessible. If this count does not change, use Analyze these games to reconnect, or Select replay files."}
+          {" "}Existing stats stay available; replay processing stays on this device.</p>}
+        {unavailable > 0 && <p><strong>{int(unavailable)} {unavailable === 1 ? "game remains" : "games remain"} unavailable for this metric.</strong>{" "}
+          Required recording data is missing or incomplete{section === "recoveries" || section === "edgeguards" ? ", or the stage geometry is unsupported" : ""}. These games are excluded from the rates and are not retried automatically.</p>}
+      </div>}
       {section === "ledge" && <ChoiceTable rows={summary.ledge} labels={LEDGE_OPTION_LABELS} covered={coverage} kind="ledge options" />}
       {section === "oos" && <ChoiceTable rows={summary[shieldMode]} labels={OOS_OPTION_LABELS} covered={coverage} kind={shieldMode === "oos" ? "out-of-shield responses" : "other shield exits"} />}
       {section === "recoveries" && <RecoveryTable rows={summary.recoveries} covered={coverage} />}
@@ -295,7 +304,5 @@ export function Interactions({ games, onAnalyze, onSelectReplayFiles, analyzing 
       {section === "punish" && <p>The preceding meaningful action is taken from the 30 frames before an incoming opening hit or grab. Follow-up hits stay in the same episode until a stock loss or 45 consecutive frames outside damage, capture, knockdown, and tech states. This view does not distinguish a whiff from shield contact, interrupted startup, or a trade.</p>}
       <p>Only measured games contribute. Missing data is unavailable, never a zero; fewer than {SMALL_SAMPLE} resolved observations are marked as a small sample. These experimental rules need comparison with reviewed replays before drawing firm coaching conclusions.</p>
     </details>
-    {!isDemo && needsAnalysis && <p className="hint">Re-read matching replays from connected folders, or select their replay files. Analysis stays on this device; only summaries are saved.</p>}
-    {!isDemo && missing && !needsAnalysis && <p className="hint">Unsupported or incomplete recordings remain unavailable after analysis.</p>}
   </section>;
 }

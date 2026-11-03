@@ -1545,7 +1545,6 @@ export function Execution({
   if (games.length < 2) return <>{interactionPanel}<div className="empty-note">Not enough games for execution trends.</div></>;
   return (
     <>
-      {interactionPanel}
       <div className="kpi-strip compact">
         <Kpi label={`L-cancel success % — last ${summary.games}`} value={summary.lCancel !== null ? `${num(summary.lCancel, 1)}%` : "—"} />
         <TechKpi summary={summary} />
@@ -1703,7 +1702,7 @@ export function Execution({
         )}
       </div>
 
-      <MovesSection games={games} career={career} recent={recentMoves} benchmarks={benchmarks} metric={moveMetric} setMetric={setMoveMetric} />
+      <MovesSection games={games} career={career} recent={recentMoves} benchmarks={benchmarks} metric={moveMetric} setMetric={setMoveMetric} interactionPanel={interactionPanel} />
     </>
   );
 }
@@ -1723,6 +1722,7 @@ function MovesSection({
   benchmarks,
   metric,
   setMetric,
+  interactionPanel,
 }: {
   games: ResolvedGame[];
   career: { rows: MoveRow[]; covered: number };
@@ -1730,6 +1730,7 @@ function MovesSection({
   benchmarks: ExecutionBenchmarks;
   metric: MoveMetricKey;
   setMetric: (metric: MoveMetricKey) => void;
+  interactionPanel: ReactNode;
 }) {
   type OpeningSortKey = "openings" | "venue" | "tournament" | "pro" | "share" | "venueShare" | "damage";
   const [minMoveUsageInput, setMinMoveUsageInput] = useState("3");
@@ -1800,13 +1801,13 @@ function MovesSection({
   );
   if (career.rows.length === 0) {
     return (
-      <div className="panel">
+      <><div className="panel">
         <h2>Moves</h2>
         <div className="empty-note">
           No per-move data is available in these games.
           {hasStaleStats && <> Refresh older cached replays to update their measurements.</>}
         </div>
-      </div>
+      </div>{interactionPanel}</>
     );
   }
   const deltaColor = (d: number | null) => (d === null ? undefined : { color: d >= 0 ? "#3fcf8e" : "#f0564f" });
@@ -2026,6 +2027,8 @@ function MovesSection({
           the selected move metric above.
         </div>
       </div>
+
+      {interactionPanel}
 
       {impact.length > 0 && (
         <div className="panel">

@@ -16,6 +16,7 @@ import { dedupeRecords, gameKey, mergeGameRecords } from "./lib/dedupe";
 import { generateDemoRecords, DEMO_ACCOUNTS } from "./lib/demo";
 import { createImportReport, type ReplayImportReport } from "./lib/importReport";
 import { interactionAnalysisFeedback } from "./lib/interactionAnalysisReport";
+import { automaticInteractionTargets, interactionAnalysisAttemptKey, matchInteractionAnalysisFiles } from "./lib/automaticInteractionAnalysis";
 import { ReplayImportNotice } from "./components/ReplayImportNotice";
 import { Landing } from "./components/Landing";
 import { ProgressBar, IdentityPicker } from "./components/ProgressAndIdentity";
@@ -208,6 +209,14 @@ export default function App() {
   // stomp each other's abort controller and re-parse what the first was still
   // streaming in, so they take turns.
   const scanBusy = useRef(false);
+  // One automatic attempt per game/version per visit. Explicit reconnect/retry
+  // releases the guard; ordinary rerenders must not repeatedly read a bad file.
+  const autoInteractionAttempts = useRef(new Set<string>());
+  // File-input browsers cannot remember directory handles. Retain this visit's
+  // File references so cached older games can still be upgraded automatically.
+  const pickedReplayFiles = useRef(new Map<string, DiscoveredFile>());
+  const pendingFileSelections = useRef<{ files: DiscoveredFile[]; analyze: boolean }[]>([]);
+  const [fileSelectionRevision, setFileSelectionRevision] = useState(0);
   // When the last walk finished; throttles the re-focus rescan.
   const lastFolderSyncAt = useRef(0);
   // Browsers without the File System Access API can never remember a folder,
@@ -611,7 +620,7 @@ export default function App() {
    * added since the last scan actually parse.
    */
   const syncFolders = useCallback(
-    async (selected: readonly ReplayFolder[], repairIds: readonly string[] = [], options: { requestAccess?: boolean; retryFailed?: boolean; interactionAnalysis?: boolean; interactionTargets?: ReadonlyMap<string, string> } = {}) => {
+    async (selected: readonly ReplayFolder[], repairIds: readonly string[] = [], options: { requestAccess?: boolean; retryFailed?: boolean; interactionAnalysis?: boolean; interactionTargets?: readonly GameRecord[] } = {}) => {
       const { requestAccess = false, retryFailed = false, interactionAnalysis = false, interactionTargets } = options;
       if (scanBusy.current) return;
       scanBusy.current = true;
@@ -654,7 +663,7 @@ export default function App() {
         }
         setFolderPermission(access.unavailable.length === 0 ? "granted" : "prompt");
         setFolderIssues(access.unavailable.map((folder) => folder.handle.name));
-        if (access.granted.length === 0) {
+        if (access.granted.length === 0 && !(interactionAnalysis && pickedReplayFiles.current.size)) {
           if (interactionAnalysis) setPipelineError("Reconnect a replay folder, or use Select replay files in Interactions to analyze these games. Your saved stats are still available.");
           return;
         }
@@ -663,18 +672,27 @@ export default function App() {
         const unavailable = [...access.unavailable, ...discovered.unavailable];
         setFolderIssues(unavailable.map((folder) => folder.handle.name));
         if (unavailable.length > 0) setFolderPermission("prompt");
-        if (discovered.unavailable.length === access.granted.length) {
+        if (discovered.unavailable.length === access.granted.length && !(interactionAnalysis && pickedReplayFiles.current.size)) {
           if (interactionAnalysis) setPipelineError("The connected replay folders could not be read. Reconnect them, or use Select replay files in Interactions to choose another copy. Your saved stats are still available.");
           return;
         }
-        const files = discovered.files;
+        let files = discovered.files;
+        let foundAnalysisIds = files.map(file => file.id);
+        const targetByKey = new Map(interactionTargets?.map(rec => [gameKey(rec), rec.id]));
+        if (interactionAnalysis) {
+          const candidates = [...new Map([...pickedReplayFiles.current.values(), ...files].map(file => [file.id, file])).values()];
+          const matched = matchInteractionAnalysisFiles(interactionTargets ?? [], candidates, await allRecords());
+          if (generation.current !== gen) return;
+          files = matched.files;
+          foundAnalysisIds = [...matched.matchedRequestedIds];
+        }
         const completedAnalysis = new Set<string>();
         // "Refresh execution stats" is a forced schema repair, not an ordinary
         // new-file scan. A stale row can still have an id in `seen` (for
         // example when a cloud restore raced an earlier migration); forgetting
         // that marker first prevents the scanner from instantly skipping the
         // very replay the button promised to update.
-        if (repairIds.length > 0) {
+        if (!interactionAnalysis && repairIds.length > 0) {
           const foundIds = new Set(files.map((file) => file.id));
           await forgetCachedRecordIds(repairIds.filter((id) => foundIds.has(id)));
         }
@@ -687,10 +705,11 @@ export default function App() {
             appendRecords(newRecords);
           },
           controller.signal,
-          { retryFailed, onParsedRecord: interactionAnalysis ? (rec) => {
+          { retryFailed, forceIds: interactionAnalysis ? new Set(files.map(file => file.id)) : undefined,
+            onParsedRecord: interactionAnalysis ? (rec) => {
             if (rec.parseError === undefined && hasFullStats(rec)) {
               completedAnalysis.add(rec.id);
-              const requestedId = interactionTargets?.get(gameKey(rec));
+              const requestedId = targetByKey.get(gameKey(rec));
               if (requestedId) completedAnalysis.add(requestedId);
             }
           } : undefined },
@@ -715,7 +734,7 @@ export default function App() {
             if (generation.current === gen) setRecords(cached);
           }
           if (interactionAnalysis && generation.current === gen) {
-            setPipelineError(interactionAnalysisFeedback(repairIds, files.map(file => file.id), completedAnalysis));
+            setPipelineError(interactionAnalysisFeedback(repairIds, foundAnalysisIds, completedAnalysis));
           }
         }
       } catch (err) {
@@ -725,7 +744,7 @@ export default function App() {
           err instanceof RecordSaveError
             ? err.message
             : interactionAnalysis
-              ? "Replay analysis failed mid-scan. Retry Analyze these games, or use Select replay files in Interactions to choose another copy. Your saved stats are still available."
+              ? "Replay analysis failed mid-scan. Use Analyze these games to retry, or Select replay files in Interactions to choose another copy. Your saved stats are still available."
               : "Refresh failed mid-scan. Reload the page and try again — this usually happens when the site updated while this tab was open.",
         );
       } finally {
@@ -743,8 +762,17 @@ export default function App() {
 
   /** Add an explicit file selection without replacing or disconnecting the folder. */
   const syncPickedFiles = useCallback(
-    async (files: DiscoveredFile[], analyze = false) => {
-      if (files.length === 0 || scanBusy.current) return;
+    async (files: DiscoveredFile[], analyze = false, automatic = false) => {
+      if (files.length === 0) return;
+      if (scanBusy.current) {
+        // A file picker can return while the background analysis owns the
+        // parser. Keep explicit selections instead of silently dropping them.
+        if (!automatic) {
+          pendingFileSelections.current.push({ files, analyze });
+          setFileSelectionRevision(value => value + 1);
+        }
+        return;
+      }
       scanBusy.current = true;
       setImportReport(null);
       // Report this selection even when an older library already displays
@@ -762,7 +790,6 @@ export default function App() {
       const tally: { last: ParseProgress | null } = { last: null };
       const completedAnalysis = new Set<string>();
       try {
-        if (analyze) await forgetCachedRecordIds(files.map(file => file.id));
         await runParsePipeline(
           files,
           (p, newRecords) => {
@@ -772,7 +799,8 @@ export default function App() {
             appendRecords(newRecords);
           },
           controller.signal,
-          { retryFailed: true, onParsedRecord: (rec) => {
+          { retryFailed: !automatic, forceIds: analyze ? new Set(files.map(file => file.id)) : undefined,
+            onParsedRecord: (rec) => {
             report.observe(rec);
             if (analyze && rec.parseError === undefined && hasFullStats(rec)) completedAnalysis.add(rec.id);
           } },
@@ -799,7 +827,7 @@ export default function App() {
               if (generation.current === gen) setRecords(pruned);
             }
             // Successful parsing alone does not establish that the cache saved.
-            if (generation.current === gen) setImportReport(report.finish(done));
+            if (!automatic && generation.current === gen) setImportReport(report.finish(done));
             if (analyze && generation.current === gen) {
               const selectedIds = files.map(file => file.id);
               setPipelineError(interactionAnalysisFeedback(selectedIds, selectedIds, completedAnalysis));
@@ -878,6 +906,7 @@ export default function App() {
   }, [phase, isDemo, folders, syncFolders]);
 
   const onRefresh = useCallback(() => {
+    autoInteractionAttempts.current.clear();
     const repairIds = records.filter(needsStatsRepair).map((rec) => rec.id);
     void syncFolders(folders, repairIds, { requestAccess: true, retryFailed: true });
   }, [folders, records, syncFolders]);
@@ -916,6 +945,8 @@ export default function App() {
           : "No .slp or .slpz replay files were selected.");
         return;
       }
+      for (const file of files) pickedReplayFiles.current.set(file.id, file);
+      autoInteractionAttempts.current.clear();
       if (phase === "dashboard") void syncPickedFiles(files);
       else void startPipeline(async () => files);
     },
@@ -947,6 +978,7 @@ export default function App() {
         const added = await addReplayFolder(folders, dir);
         if (generation.current !== gen) return;
         setFolders(added.folders);
+        autoInteractionAttempts.current.clear();
         const saved = await setReplayFolders(added.folders);
         if (generation.current !== gen) return;
         autoSyncDone.current = true;
@@ -1035,6 +1067,9 @@ export default function App() {
     setSyncSkipped(null);
     setImportReport(null);
     autoSyncDone.current = false;
+    autoInteractionAttempts.current.clear();
+    pickedReplayFiles.current.clear();
+    pendingFileSelections.current = [];
     setPhase("landing");
     selectTab("overview", true);
   }, [isDemo, selectTab]);
@@ -1078,8 +1113,9 @@ export default function App() {
       analysisFilesPickRef.current?.click();
       return;
     }
+    for (const rec of targets) autoInteractionAttempts.current.add(interactionAnalysisAttemptKey(rec));
     void syncFolders(folders, targets.map(rec => rec.id), { requestAccess: true, interactionAnalysis: true,
-      interactionTargets: new Map(targets.map(rec => [gameKey(rec), rec.id])) });
+      interactionTargets: targets });
   }, [filtered, folders, isDemo, syncFolders]);
   // Confirms a typed code actually occurs in the library — the identity step
   // and the editor both show it next to the code. Nothing is inferred from it.
@@ -1101,6 +1137,30 @@ export default function App() {
   const showTeams = hasTeamGames && filters.format === "teams";
   const activePending = isTabPending(tab);
   const busy = phase === "parsing" || syncing !== null;
+  useEffect(() => {
+    if (phase !== "dashboard" || busy || pickingFolder || scanBusy.current) return;
+    const selection = pendingFileSelections.current.shift();
+    if (selection) void syncPickedFiles(selection.files, selection.analyze);
+  }, [phase, busy, pickingFolder, fileSelectionRevision, syncPickedFiles]);
+  useEffect(() => {
+    if (phase !== "dashboard" || isDemo || filters.format === "teams" || busy || pickingFolder
+      || cloudRestoring !== null || hasPreviews || pendingFileSelections.current.length
+      || (!folders.length && !pickedReplayFiles.current.size)) return;
+    const targets = automaticInteractionTargets(filtered.map(game => game.rec), autoInteractionAttempts.current, ROLLING_WINDOW);
+    if (!targets.length) return;
+    // Let the dashboard paint, and debounce filter changes before reading files.
+    const timer = window.setTimeout(() => {
+      if (scanBusy.current || pickerBusy.current) return;
+      for (const rec of targets) autoInteractionAttempts.current.add(interactionAnalysisAttemptKey(rec));
+      if (folders.length) {
+        void syncFolders(folders, targets.map(rec => rec.id), { interactionAnalysis: true, interactionTargets: targets });
+      } else {
+        const matched = matchInteractionAnalysisFiles(targets, [...pickedReplayFiles.current.values()], records);
+        if (matched.files.length) void syncPickedFiles(matched.files, true, true);
+      }
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [phase, isDemo, filters.format, busy, pickingFolder, cloudRestoring, hasPreviews, filtered, folders, records, syncFolders, syncPickedFiles]);
   const reloadForUpdate = useCallback(() => {
     const last = Number(sessionStorage.getItem("ssbm-update-reload-at") ?? 0);
     if (Date.now() - last < 30_000) {

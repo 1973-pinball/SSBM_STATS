@@ -199,6 +199,10 @@ export async function runParsePipeline(
   signal?: AbortSignal,
   options: {
     retryFailed?: boolean;
+    /** Reanalyze these exact file versions without removing their seen markers.
+     * Unreadable/deferred/cancelled upgrades then remain cached on normal scans.
+     * Failure-only records still require an explicit retryFailed request. */
+    forceIds?: ReadonlySet<string>;
     /** Full parse outcomes for local diagnostics, including memory-safe runs.
      * Called before storage; consumers must wait for pipeline success before
      * presenting a completed import. Never receives header previews. */
@@ -209,12 +213,15 @@ export async function runParsePipeline(
   // Only an explicit user retry revisits failures. Keep their seen markers in
   // place until replacement results commit; cancelling or deferring this run
   // must not turn corrupt files into work on every background scan.
-  const retryIds = options.retryFailed ? failedReplayIds(await allRecords()) : new Set<string>();
+  const failedIds = options.retryFailed || options.forceIds?.size
+    ? failedReplayIds(await allRecords()) : new Set<string>();
+  const retryIds = options.retryFailed ? failedIds : new Set<string>();
+  const forceIds = new Set([...(options.forceIds ?? [])].filter(id => !failedIds.has(id)));
   // Newest first. Total parse time is unchanged, but the records that reach the
   // dashboard first are then the ones a player actually wants to see — this
   // week's games rather than whatever the directory walk happened to hit first.
   const queue = files
-    .filter((f) => !cached.has(f.id) || retryIds.has(f.id))
+    .filter((f) => !cached.has(f.id) || retryIds.has(f.id) || forceIds.has(f.id))
     .sort((a, b) => b.file.lastModified - a.file.lastModified);
   const largeImport = queue.length >= LARGE_IMPORT_MIN;
   // A preview gets a first-time user out of the blank progress screen quickly:
@@ -354,8 +361,8 @@ export async function runParsePipeline(
         const job = work[next++]!;
         slot.job = job;
         inFlight++;
-        // Retire the job without producing a record. Nothing lands in `seen`,
-        // which is precisely what lets the next scan come back for it.
+        // Retire without producing a record. New files remain unseen; forced
+        // upgrades retain their original markers so normal scans do not retry.
         const retire = (deferred: boolean) => {
           inFlight--;
           slot.job = null;
@@ -378,8 +385,9 @@ export async function runParsePipeline(
             // record an id that matches the bytes we actually parse.
             file = await job.handle.getFile();
             id = fileId(job.path, file);
-            // It moved on since discovery and we already hold this exact version.
-            if (id !== job.id && cached.has(id) && !retryIds.has(id)) return retire(true);
+            // Force applies to exact versions, not paths: a cached version that
+            // appeared since discovery is skipped unless it was also requested.
+            if (id !== job.id && cached.has(id) && !retryIds.has(id) && !forceIds.has(id)) return retire(true);
             // Deferring is only useful when a rescan can come back for the file.
             // The webkitdirectory path has no handle and no rescan, so there it
             // is better to parse what we have than to drop the file silently.

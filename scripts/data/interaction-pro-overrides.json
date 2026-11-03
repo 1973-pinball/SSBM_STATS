@@ -1,0 +1,483 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-11-02",
+  "methodology": "Additive experimental Pro evidence only. Existing v10 population, tournament tiers and public exports remain unchanged. A reviewed event-scoped exact label must coincide with historical/current global Top 100 ranking evidence. Unreviewed candidates, fuzzy matches, broad event-character rules and private connect-code matching are prohibited.",
+  "overrides": [
+    {
+      "kind": "event_aliases",
+      "eventId": "gx3",
+      "resolution": "probable",
+      "sourceUrl": "https://www.ssbwiki.com/Tournament:GENESIS_X3",
+      "notes": "Reviewed against the cited Melee singles results on 2026-11-02. The replay label must match exactly apart from case, surrounding whitespace, and Unicode normalization. Attendance plus a label match is probable identity evidence, not verification of each individual set. Only pre-existing conservative singles and globally ranked players are eligible.",
+      "aliases": [
+        {
+          "observedAlias": "404Cray",
+          "playerId": "4o4cray"
+        },
+        {
+          "observedAlias": "Adwan",
+          "playerId": "adwan"
+        },
+        {
+          "observedAlias": "Agent",
+          "playerId": "agent"
+        },
+        {
+          "observedAlias": "AKLO",
+          "playerId": "aklo"
+        },
+        {
+          "observedAlias": "Aura",
+          "playerId": "aura"
+        },
+        {
+          "observedAlias": "Azel",
+          "playerId": "azel"
+        },
+        {
+          "observedAlias": "Ben",
+          "playerId": "ben"
+        },
+        {
+          "observedAlias": "bonfire10",
+          "playerId": "bonfire1o"
+        },
+        {
+          "observedAlias": "Cody Schwab",
+          "playerId": "codyschwab"
+        },
+        {
+          "observedAlias": "Daniel",
+          "playerId": "daniel"
+        },
+        {
+          "observedAlias": "Fishbait",
+          "playerId": "fishbait"
+        },
+        {
+          "observedAlias": "Frostbyte",
+          "playerId": "frostbyte"
+        },
+        {
+          "observedAlias": "Gahtzu",
+          "playerId": "gahtzu"
+        },
+        {
+          "observedAlias": "Goodie",
+          "playerId": "goodie"
+        },
+        {
+          "observedAlias": "Grab",
+          "playerId": "grab"
+        },
+        {
+          "observedAlias": "Graves",
+          "playerId": "graves"
+        },
+        {
+          "observedAlias": "Inky",
+          "playerId": "inky"
+        },
+        {
+          "observedAlias": "Juicebox",
+          "playerId": "juicebox"
+        },
+        {
+          "observedAlias": "Kacey",
+          "playerId": "kacey"
+        },
+        {
+          "observedAlias": "Kalvar",
+          "playerId": "kalvar"
+        },
+        {
+          "observedAlias": "Kevbot",
+          "playerId": "kevbot"
+        },
+        {
+          "observedAlias": "Khryke",
+          "playerId": "khryke"
+        },
+        {
+          "observedAlias": "KJH",
+          "playerId": "kjh"
+        },
+        {
+          "observedAlias": "Komodo",
+          "playerId": "komodo"
+        },
+        {
+          "observedAlias": "KoopaTroopa895",
+          "playerId": "koopatroopa895"
+        },
+        {
+          "observedAlias": "Lowercase hero",
+          "playerId": "lowercasehero"
+        },
+        {
+          "observedAlias": "Maher",
+          "playerId": "maher"
+        },
+        {
+          "observedAlias": "mayb",
+          "playerId": "mayb"
+        },
+        {
+          "observedAlias": "Medz",
+          "playerId": "medz"
+        },
+        {
+          "observedAlias": "mvlvchi",
+          "playerId": "mvlvchi"
+        },
+        {
+          "observedAlias": "Preeminent",
+          "playerId": "preeminent"
+        },
+        {
+          "observedAlias": "Rocket",
+          "playerId": "rocket"
+        },
+        {
+          "observedAlias": "Rocky",
+          "playerId": "rocky"
+        },
+        {
+          "observedAlias": "SDJ",
+          "playerId": "sdj"
+        },
+        {
+          "observedAlias": "Skerzo",
+          "playerId": "skerzo"
+        },
+        {
+          "observedAlias": "Stiv",
+          "playerId": "stiv"
+        },
+        {
+          "observedAlias": "Swift",
+          "playerId": "swift"
+        },
+        {
+          "observedAlias": "Trif",
+          "playerId": "trif"
+        },
+        {
+          "observedAlias": "Zasa",
+          "playerId": "zasa"
+        },
+        {
+          "observedAlias": "Zeo",
+          "playerId": "zeo"
+        }
+      ]
+    },
+    {
+      "kind": "event_aliases",
+      "eventId": "gx-2",
+      "resolution": "probable",
+      "sourceUrl": "https://www.ssbwiki.com/Tournament:GENESIS_X2",
+      "notes": "Reviewed against the cited Melee singles results on 2026-11-02. The replay label must match exactly apart from case, surrounding whitespace, and Unicode normalization. Attendance plus a label match is probable identity evidence, not verification of each individual set. Only pre-existing conservative singles and globally ranked players are eligible.",
+      "aliases": [
+        {
+          "observedAlias": "Agent",
+          "playerId": "agent"
+        },
+        {
+          "observedAlias": "AKLO",
+          "playerId": "aklo"
+        },
+        {
+          "observedAlias": "Aura",
+          "playerId": "aura"
+        },
+        {
+          "observedAlias": "Azel",
+          "playerId": "azel"
+        },
+        {
+          "observedAlias": "Chango",
+          "playerId": "chango"
+        },
+        {
+          "observedAlias": "Chickenman400",
+          "playerId": "chickenman4oo"
+        },
+        {
+          "observedAlias": "Cody Schwab",
+          "playerId": "codyschwab"
+        },
+        {
+          "observedAlias": "Faust",
+          "playerId": "faust"
+        },
+        {
+          "observedAlias": "fitzy",
+          "playerId": "fitzy"
+        },
+        {
+          "observedAlias": "Frostbyte",
+          "playerId": "frostbyte"
+        },
+        {
+          "observedAlias": "Gahtzu",
+          "playerId": "gahtzu"
+        },
+        {
+          "observedAlias": "Grab",
+          "playerId": "grab"
+        },
+        {
+          "observedAlias": "Graves",
+          "playerId": "graves"
+        },
+        {
+          "observedAlias": "Jah Ridin'",
+          "playerId": "jahridin"
+        },
+        {
+          "observedAlias": "JoJo",
+          "playerId": "jojo"
+        },
+        {
+          "observedAlias": "JSalt",
+          "playerId": "jsalt"
+        },
+        {
+          "observedAlias": "Junebug",
+          "playerId": "junebug"
+        },
+        {
+          "observedAlias": "Kacey",
+          "playerId": "kacey"
+        },
+        {
+          "observedAlias": "Kalvar",
+          "playerId": "kalvar"
+        },
+        {
+          "observedAlias": "LLOD",
+          "playerId": "llod"
+        },
+        {
+          "observedAlias": "Logos",
+          "playerId": "logos"
+        },
+        {
+          "observedAlias": "Lucky",
+          "playerId": "lucky"
+        },
+        {
+          "observedAlias": "Maher",
+          "playerId": "maher"
+        },
+        {
+          "observedAlias": "mayb",
+          "playerId": "mayb"
+        },
+        {
+          "observedAlias": "Medz",
+          "playerId": "medz"
+        },
+        {
+          "observedAlias": "mvlvchi",
+          "playerId": "mvlvchi"
+        },
+        {
+          "observedAlias": "Nanami",
+          "playerId": "nanami"
+        },
+        {
+          "observedAlias": "null",
+          "playerId": "null"
+        },
+        {
+          "observedAlias": "Panda",
+          "playerId": "panda"
+        },
+        {
+          "observedAlias": "Plup",
+          "playerId": "plup"
+        },
+        {
+          "observedAlias": "Rocket",
+          "playerId": "rocket"
+        },
+        {
+          "observedAlias": "salami",
+          "playerId": "salami"
+        },
+        {
+          "observedAlias": "SDJ",
+          "playerId": "sdj"
+        },
+        {
+          "observedAlias": "Slowking",
+          "playerId": "slowking"
+        },
+        {
+          "observedAlias": "Umarth",
+          "playerId": "umarth"
+        },
+        {
+          "observedAlias": "Zamu",
+          "playerId": "zamu"
+        },
+        {
+          "observedAlias": "Zanya",
+          "playerId": "zanya"
+        }
+      ]
+    },
+    {
+      "kind": "event_aliases",
+      "eventId": "bobc-8",
+      "resolution": "probable",
+      "sourceUrl": "https://www.ssbwiki.com/Tournament:Battle_of_BC_8",
+      "notes": "Reviewed against the cited Melee singles results on 2026-11-02. The replay label must match exactly apart from case, surrounding whitespace, and Unicode normalization. Attendance plus a label match is probable identity evidence, not verification of each individual set. Only pre-existing conservative singles and globally ranked players are eligible.",
+      "aliases": [
+        {
+          "observedAlias": "Aura",
+          "playerId": "aura"
+        },
+        {
+          "observedAlias": "bonfire10",
+          "playerId": "bonfire1o"
+        },
+        {
+          "observedAlias": "Dawson",
+          "playerId": "dawson"
+        },
+        {
+          "observedAlias": "Fishbait",
+          "playerId": "fishbait"
+        },
+        {
+          "observedAlias": "Freezus",
+          "playerId": "freezus"
+        },
+        {
+          "observedAlias": "Graves",
+          "playerId": "graves"
+        },
+        {
+          "observedAlias": "Lowercase hero",
+          "playerId": "lowercasehero"
+        },
+        {
+          "observedAlias": "Maher",
+          "playerId": "maher"
+        },
+        {
+          "observedAlias": "OG Kid",
+          "playerId": "ogkid"
+        },
+        {
+          "observedAlias": "OkamiBW",
+          "playerId": "okamibw"
+        },
+        {
+          "observedAlias": "Pleeba",
+          "playerId": "pleeba"
+        },
+        {
+          "observedAlias": "STIV",
+          "playerId": "stiv"
+        },
+        {
+          "observedAlias": "Vish",
+          "playerId": "vish"
+        },
+        {
+          "observedAlias": "Zeo",
+          "playerId": "zeo"
+        }
+      ]
+    },
+    {
+      "kind": "event_aliases",
+      "eventId": "full-bloom-2025",
+      "resolution": "probable",
+      "sourceUrl": "https://www.ssbwiki.com/Tournament:Full_Bloom_2025",
+      "notes": "Reviewed against the cited Melee singles results on 2026-11-02. The replay label must match exactly apart from case, surrounding whitespace, and Unicode normalization. Attendance plus a label match is probable identity evidence, not verification of each individual set. Only pre-existing conservative singles and globally ranked players are eligible.",
+      "aliases": [
+        {
+          "observedAlias": "bonfire10",
+          "playerId": "bonfire1o"
+        },
+        {
+          "observedAlias": "Boyd",
+          "playerId": "boyd"
+        },
+        {
+          "observedAlias": "dz",
+          "playerId": "dz"
+        },
+        {
+          "observedAlias": "Goodie",
+          "playerId": "goodie"
+        },
+        {
+          "observedAlias": "Grab",
+          "playerId": "grab"
+        },
+        {
+          "observedAlias": "Khryke",
+          "playerId": "khryke"
+        },
+        {
+          "observedAlias": "LLOD",
+          "playerId": "llod"
+        },
+        {
+          "observedAlias": "Lowercase hero",
+          "playerId": "lowercasehero"
+        },
+        {
+          "observedAlias": "M1sf1re",
+          "playerId": "m1sf1re"
+        },
+        {
+          "observedAlias": "max",
+          "playerId": "max"
+        },
+        {
+          "observedAlias": "Michael",
+          "playerId": "michael"
+        },
+        {
+          "observedAlias": "mvlvchi",
+          "playerId": "mvlvchi"
+        },
+        {
+          "observedAlias": "Ober",
+          "playerId": "ober"
+        },
+        {
+          "observedAlias": "Pleeba",
+          "playerId": "pleeba"
+        },
+        {
+          "observedAlias": "Polish",
+          "playerId": "polish"
+        },
+        {
+          "observedAlias": "Preeminent",
+          "playerId": "preeminent"
+        },
+        {
+          "observedAlias": "Seven",
+          "playerId": "seven"
+        },
+        {
+          "observedAlias": "Slowking",
+          "playerId": "slowking"
+        },
+        {
+          "observedAlias": "Smash Papi",
+          "playerId": "smashpapi"
+        }
+      ]
+    }
+  ]
+}

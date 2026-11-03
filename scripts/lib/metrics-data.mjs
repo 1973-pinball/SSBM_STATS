@@ -144,7 +144,7 @@ export const SECTIONS = [
       },
       {
         term: "Analyzing older replays",
-        def: "New full parses include the current interaction rules. Older compatible baseline stats remain usable until you choose Analyze these games or select replay files in Interactions; earlier experimental interaction counts are unavailable until re-analysis with the corrected rules. Re-analysis needs the original local replays and reads the current filtered window when using connected folders. Computation stays on your device, raw frames are discarded, and only derived summaries are saved; summaries can sync through the existing optional cloud sync. Unsupported source data remains unavailable after analysis.",
+        def: "New full parses include the current interaction rules. Older compatible baseline stats remain usable while the latest 150 filtered singles are analyzed automatically when their local files are accessible. Only matching replays are read; analysis uses existing folder permission or files selected during this visit. Analyze these games and Select replay files remain reconnect/retry options. Coverage separates older games awaiting analysis from recordings with unsupported or incomplete data. Computation stays on your device, raw frames are discarded, and only derived summaries are saved; summaries can sync through the existing optional cloud sync. Cloud summaries alone cannot supply the required frames, and unavailable current recordings are not retried automatically.",
       },
     ],
   },

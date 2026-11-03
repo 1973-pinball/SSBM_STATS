@@ -1,6 +1,6 @@
 # Experimental interaction references — 0.4.9
 
-The shipped reference reparses 10,536 unique singles games from 66 public replay
+The shipped reference reparses 11,141 unique singles games from 66 public replay
 bundles using the same corrected stats-version-8 detectors as local imports.
 It is a convenience sample, not an estimate of the whole Melee population.
 
@@ -8,13 +8,16 @@ It is a convenience sample, not an estimate of the whole Melee population.
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Venue | 6,327 | 12,654 | 12,050 | 11,188 | 12,650 |
 | Tournament | 4,640 | 9,280 | 8,868 | 8,236 | 9,280 |
-| Pro | 613 | 702 | 702 | 620 | 702 |
+| Pro | 1,338 | 1,883 | 1,883 | 1,677 | 1,883 |
 
 Coverage columns count measured player appearances. Older or incomplete
 recordings can lack required fields, and recovery and edgeguard coverage also
 requires supported stage geometry; unavailable measurements remain excluded.
-The Pro sample contains **all 27 mapped players in the curated archive**, not
-all professionals, and includes only their sides rather than their opponents.
+The Pro sample contains **98 mapped players**, including the 27 mapped players
+in the published archive and 71 additional players supported by reviewed
+event-specific replay labels, tournament results, and historical/current global
+Top 100 rankings. These are not necessarily the current Top 100. Only their
+sides are included rather than their opponents.
 Cohorts overlap, so their game or appearance counts must not be added.
 
 The source population is the existing `nikki-2026-09-08-v10` curation: 142,753
@@ -26,6 +29,15 @@ without the 100-game cap. Tournament membership is determined
 from the **full archive before sampling**, preserving the existing event,
 set-sequence, friendly-exclusion, and identity-evidence rules. Existing archive
 exports and source selection are not rewritten.
+
+The supplemental registry in `scripts/data/interaction-pro-overrides.json`
+reviews 110 event/player aliases at GENESIS X3, GENESIS X2, Battle of BC 8, and
+Full Bloom 2025. Matching permits case, surrounding whitespace, and Unicode
+normalization only. It excludes fuzzy names, private connect codes, and games
+outside the existing conservative population. Conflicting labels fail closed.
+Attendance plus an exact event label is **probable identity evidence**, not
+independent verification of each set; this uncertainty remains part of the
+experimental reference. The separate public archive directory is unchanged.
 
 The archive favors recorded events and stream sets. Capped sampling changes
 the event mix, and repeated players and character matchups can dominate
@@ -50,9 +62,10 @@ the audited `results-v6` and `downloads`, the frozen source audit, and the v10
 named-player evidence export under the archive cache.
 
 ```powershell
-node scripts/build-interaction-benchmarks.mjs --cache <archive-cache> --per-bundle 100
+node scripts/build-interaction-pro-evidence.mjs --cache <archive-cache>
+node scripts/build-interaction-benchmarks.mjs --cache <archive-cache> --per-bundle 100 --pro-evidence <archive-cache>/interaction-pro-evidence.local.json
 node scripts/verify-interaction-benchmarks.mjs
-node scripts/verify-interaction-benchmark-receipt.mjs --cache <archive-cache> --verify-files true
+node scripts/verify-interaction-benchmark-receipt.mjs --cache <archive-cache> --pro-evidence <archive-cache>/interaction-pro-evidence.local.json --verify-files true
 ```
 
 The builder verifies archive counts and sizes, rejects unsafe archive members,
@@ -62,11 +75,15 @@ parser and replay hashes allow interrupted runs to reuse completed parses. A
 separate verifier reconstructs cohort selection and aggregates from the local
 receipt, checks source fingerprints and every counter partition, and rejects
 private or unexpected fields in the published JSON.
+The verifier also independently reconstructs supplemental identities from the
+reviewed registry, frozen rankings, and audited records, comparing every row
+and provenance hash. The identity evidence hash covers the original NDJSON,
+one newline separator, and the supplemental JSON bytes.
 
 Only aggregate counters, public bundle names, provenance hashes, and sample
 counts enter `src/data/interaction-benchmarks.json`. Local replay paths, raw
 frames, game identities, player identities, and connect codes are excluded.
-Lossless counter arrays reduce the shipped JSON to 2,448,378 bytes. The data loads
+Lossless counter arrays reduce the shipped JSON to 2,664,668 bytes. The data loads
 as a separate chunk and is included in the offline cache; decoding preserves
 every counter and the distinction between missing measurements and zero.
 

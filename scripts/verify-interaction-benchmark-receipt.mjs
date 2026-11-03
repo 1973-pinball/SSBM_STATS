@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /** Optional local audit. Reconstruct membership and rollups without exposing replay/player identities.
- * node scripts/verify-interaction-benchmark-receipt.mjs --cache DIR [--verify-files true]
+ * node scripts/verify-interaction-benchmark-receipt.mjs --cache DIR [--pro-evidence FILE.local.json] [--verify-files true]
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -8,14 +8,16 @@ import { createReadStream } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { createInterface } from "node:readline";
 import path from "node:path";
+import { isDeepStrictEqual } from "node:util";
 import { createServer } from "vite";
-import { INTERACTION_FAMILIES, validateShippedInteractionSample } from "./lib/interaction-benchmark-validation.mjs";
+import { INTERACTION_FAMILIES, validateShippedInteractionSample, assertNoInteractionIdentityValues } from "./lib/interaction-benchmark-validation.mjs";
 import { decodeInteractionBenchmarks } from "../src/lib/interactionBenchmarkCodec.mjs";
+import { assembleInteractionProEvidence } from "./lib/interaction-pro-evidence.mjs";
 
 const args = new Map();
 for (let i = 2; i < process.argv.length; i += 2) {
   assert.ok(process.argv[i]?.startsWith("--") && process.argv[i + 1] !== undefined,
-    "Use --cache DIR [--data FILE] [--verify-files true]");
+    "Use --cache DIR [--data FILE] [--pro-evidence FILE.local.json] [--verify-files true]");
   args.set(process.argv[i].slice(2), process.argv[i + 1]);
 }
 assert.ok(args.has("cache"), "--cache is required; the audit reads existing local inputs only");
@@ -90,6 +92,35 @@ try {
     const value = { slot: player.slot, playerId: player.player_id, characterId: player.character_id };
     if (slots.has(player.slot)) assert.deepEqual(slots.get(player.slot), value, "conflicting pro identities cannot enter the sample");
     slots.set(player.slot, value); vetted.set(player.game_key, slots);
+  }
+  if (args.has("pro-evidence")) {
+    const supplementalBytes = await readFile(path.resolve(args.get("pro-evidence")));
+    evidenceDigest.update("\n"); evidenceDigest.update(supplementalBytes);
+    const supplemental = JSON.parse(supplementalBytes);
+    const [registryBytes, rankingBytes] = await Promise.all([
+      readFile(new URL("./data/interaction-pro-overrides.json", import.meta.url)),
+      readFile(path.join(cache, "public-export-v10/archive_player_rankings.ndjson")),
+    ]);
+    const reconstructed = await assembleInteractionProEvidence({ populationBytes, registryBytes, rankingBytes, sourceAuditBytes,
+      readResults: bundle => readFile(path.join(cache, "results-v6", `${bundle.replace(/\.(zip|7z)$/, "")}.json`)),
+    });
+    assert.ok(isDeepStrictEqual(supplemental, reconstructed),
+      "Supplemental identity rows, source hashes and totals must reconstruct exactly from reviewed rules and frozen records");
+    assert.equal(supplemental.schemaVersion, 1);
+    assert.equal(supplemental.sourceDataset, population.sourceDataset);
+    assert.equal(supplemental.populationSha256, hash(populationBytes));
+    assert.ok(Array.isArray(supplemental.rows));
+    for (const player of supplemental.rows) {
+      // Reconstruct all reviewed evidence above, then apply this run's bundle selection.
+      if (!eligiblePros.has(player.game_key)) continue;
+      assert.ok(player.player_id && ["verified", "probable"].includes(player.identity_resolution) && player.identity_source_url);
+      assert.ok(player.slot === 0 || player.slot === 1);
+      assert.ok(Number.isSafeInteger(player.character_id));
+      const slots = vetted.get(player.game_key) ?? new Map();
+      const value = { slot: player.slot, playerId: player.player_id, characterId: player.character_id };
+      if (slots.has(player.slot)) assert.deepEqual(slots.get(player.slot), value, "supplemental evidence cannot replace an existing identity");
+      slots.set(player.slot, value); vetted.set(player.game_key, slots);
+    }
   }
   assert.equal(data.provenance.identityEvidenceSha256, evidenceDigest.digest("hex"));
   const expected = new Map(), expectedCounts = [];
@@ -191,9 +222,9 @@ try {
     }
     if (verifyFiles) assert.equal(await fileHash(path.join(cache, "downloads", archive.bundle)), archive.sha256, "source archive bytes still match provenance");
   }
-  // Exact JSON strings ensure no local record/player identities slipped into an allowed text field.
-  for (const key of manifests.keys()) assert.ok(!dataText.includes(JSON.stringify(key)), "private game identity in shipped artifact");
-  for (const id of proIds) assert.ok(!dataText.includes(JSON.stringify(id)), "player identity in shipped artifact");
+  // Validate decoded values after the strict key allowlist. The compact option
+  // dictionary includes "grab", which is also one player's public ID.
+  assertNoInteractionIdentityValues(data, [...manifests.keys(), ...proIds]);
   assert.ok(!dataText.includes(cache) && !dataText.includes(cache.replaceAll("\\", "/")), "local cache path in shipped artifact");
   console.log(JSON.stringify({ status: "passed", games: expected.size, cells: rows.size, proPlayers: proIds.size,
     cohortPlayerGames: data.provenance.cohortPlayerGames, sourceFilesRehashed: verifyFiles }));

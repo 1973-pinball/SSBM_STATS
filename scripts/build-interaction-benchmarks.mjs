@@ -52,7 +52,7 @@ if (!isMainThread) {
 } else {
   const args = new Map();
   for (let i = 2; i < process.argv.length; i += 2) {
-    if (!process.argv[i]?.startsWith("--") || process.argv[i + 1] === undefined) throw new Error("Use --cache DIR [--prepare-only true] [--bundle-count N (default all)] [--per-bundle 100] [--extract-workers 4] [--tar-encoding utf-8|windows-1252] [--output FILE]");
+    if (!process.argv[i]?.startsWith("--") || process.argv[i + 1] === undefined) throw new Error("Use --cache DIR [--pro-evidence FILE.local.json] [--prepare-only true] [--bundle-count N (default all)] [--per-bundle 100] [--extract-workers 4] [--tar-encoding utf-8|windows-1252] [--output FILE]");
     args.set(process.argv[i].slice(2), process.argv[i + 1]);
   }
   if (!args.has("cache")) throw new Error("--cache is required; source inputs are never downloaded by this command");
@@ -68,13 +68,26 @@ if (!isMainThread) {
   const auditBytes = await readFile(path.join(cache, "source-audit-2026-10-22.json"));
   const audit = JSON.parse(auditBytes);
   const proBytes = await readFile(path.join(cache, "public-export-v10/archive_game_players.ndjson"));
+  const supplementalBytes = args.has("pro-evidence") ? await readFile(path.resolve(args.get("pro-evidence"))) : null;
+  const supplemental = supplementalBytes ? JSON.parse(supplementalBytes) : null;
+  if (supplemental && (supplemental.schemaVersion !== 1 || supplemental.sourceDataset !== index.sourceDataset
+    || supplemental.populationSha256 !== hash(indexBytes) || !Array.isArray(supplemental.rows))) {
+    throw new Error("Supplemental Pro evidence must match the frozen source population");
+  }
+  const identityEvidenceSha256 = hash(supplementalBytes ? Buffer.concat([proBytes, Buffer.from("\n"), supplementalBytes]) : proBytes);
   // The export is staging data (published=false for every row). Identity evidence,
   // not that deployment flag, defines the curated named-player sample.
   const pros = new Map();
-  for (const p of proBytes.toString().trim().split(/\r?\n/).map(JSON.parse)) {
+  const eligibleProGames = new Set(index.games.filter(game => ["verified", "probable"].includes(game.tier)).map(game => game.gameKey));
+  if (supplemental?.rows.some(row => !eligibleProGames.has(row.game_key))) throw new Error("Supplemental identities must belong to conservative singles");
+  for (const p of [...proBytes.toString().trim().split(/\r?\n/).map(JSON.parse), ...(supplemental?.rows ?? [])]) {
+    if (!eligibleProGames.has(p.game_key)) continue;
     if (!p.player_id || !["verified", "probable"].includes(p.identity_resolution) || !p.identity_source_url) continue;
     const slots = pros.get(p.game_key) ?? [];
-    slots.push({ slot: p.slot, playerId: p.player_id, characterId: p.character_id });
+    if (![0, 1].includes(p.slot) || !Number.isSafeInteger(p.character_id)) throw new Error("Invalid Pro evidence player slot");
+    const prior = slots.find(slot => slot.slot === p.slot);
+    if (prior && (prior.playerId !== p.player_id || prior.characterId !== p.character_id)) throw new Error("Conflicting Pro identity evidence");
+    if (!prior) slots.push({ slot: p.slot, playerId: p.player_id, characterId: p.character_id });
     pros.set(p.game_key, slots);
   }
   const grouped = new Map();
@@ -272,7 +285,7 @@ if (!isMainThread) {
       sourceUrl: "https://replays.nikki.sh/",
       method: `Experimental archive sample covering ${bundles.length === grouped.size ? `all ${bundles.length} eligible audited bundles` : `the ${bundles.length} smallest eligible audited bundles`}. Up to ${perBundle} hash-selected singles games per bundle in each Venue and Tournament cohort; Pro includes all evidence-mapped player sides in those bundles' conservative tournament games. Per-bundle sampling caps and archive coverage can bias estimates; counts pool opportunities, not players. Venue may include friendlies; Tournament uses the existing conservative archive curation. Cohorts overlap and are not skill ranks. All dates; exact character, opponent and stage filters.`,
       sample: { bundles: bundles.length, games: items.length, availableGames: index.games.length, proPlayers: proPlayers.size },
-      provenance: { parserSha256, populationSha256: hash(indexBytes), sourceAuditSha256: hash(auditBytes), identityEvidenceSha256: hash(proBytes), archives: bundles.map(b => ({ bundle: b.name, sha256: b.sha256 })), perBundle, counts,
+      provenance: { parserSha256, populationSha256: hash(indexBytes), sourceAuditSha256: hash(auditBytes), identityEvidenceSha256, archives: bundles.map(b => ({ bundle: b.name, sha256: b.sha256 })), perBundle, counts,
         cohortPlayerGames: Object.fromEntries(Object.entries(totals).map(([cohort, row]) => [cohort, row.games])) },
       rows: [...rows.values()].sort((a, b) => a.cohort.localeCompare(b.cohort) || a.characterId - b.characterId || a.opponentCharacterId - b.opponentCharacterId || a.stageId - b.stageId),
     };

@@ -12,7 +12,7 @@ import { createServer } from "vite";
 const temp = await mkdtemp(join(tmpdir(), "ssbm-replay-retry-"));
 const server = await createServer({
   configFile: false, envDir: temp, cacheDir: join(temp, "vite"),
-  server: { middlewareMode: true, hmr: false }, appType: "custom",
+  server: { middlewareMode: true, hmr: false, ws: false }, appType: "custom",
   optimizeDeps: { noDiscovery: true, include: [] },
 });
 try {
@@ -75,9 +75,9 @@ try {
       stageId: 31, gameType: "direct", isTeams: false, players: [],
       winnerIndex: null, winnerTeamId: null, statsVersion: 3 },
   });
-  const run = async (files, retryFailed = false, signal) => {
+  const run = async (files, retryFailed = false, signal, forceIds) => {
     let progress;
-    await runParsePipeline(files, (p) => { progress = p; }, signal, { retryFailed });
+    await runParsePipeline(files, (p) => { progress = p; }, signal, { retryFailed, forceIds });
     return progress;
   };
   const first = replay("Game_20261007.slp");
@@ -167,6 +167,70 @@ try {
   assert.equal((await allRecords())[0].parseError, "preserve on write failure");
   assert.ok(seen.has(first.id));
 
+  // Automatic contextual upgrades bypass seen only for their bounded target
+  // IDs. Failed/deferred attempts must preserve both the usable baseline and
+  // the normal background skip; deleting seen before a force would lose this.
+  packs.clear(); seen.clear();
+  const forced = replay("forced-analysis.slp");
+  const untouched = replay("outside-window.slp");
+  const corrupt = replay("cached-corrupt.slp");
+  const baseline = { ...success(forced, "2026-10-10T12:00:00Z").record, statsVersion: 6 };
+  const otherBaseline = { ...success(untouched, "2026-10-11T12:00:00Z").record, statsVersion: 6 };
+  const corruptRecord = { ...success(corrupt).record, parseError: "already failed" };
+  await putRecords([baseline, otherBaseline, corruptRecord]);
+  const forceIds = new Set([forced.id, corrupt.id]);
+  let beforeForce = attempts.length;
+  verdict = () => ({ ok: false, incomplete: true });
+  const forcedDeferred = await run([forced, untouched, corrupt], false, undefined, forceIds);
+  assert.equal(forcedDeferred.total, 1, "only the selected healthy cached file is forced");
+  assert.equal(forcedDeferred.deferred, 1);
+  assert.deepEqual(attempts.slice(beforeForce), [forced.id], "force cannot retry cached corruption or unrelated games");
+  assert.deepEqual(await allRecords(), [baseline, otherBaseline, corruptRecord]);
+  assert.ok(seen.has(forced.id), "deferral retains the original seen marker");
+  beforeForce = attempts.length;
+  await run([forced, untouched, corrupt]);
+  assert.equal(attempts.length, beforeForce, "a later focus scan skips the deferred cached upgrade");
+
+  verdict = () => ({ ok: false, readFailed: true });
+  assert.equal((await run([forced], false, undefined, forceIds)).unreadable, 1);
+  assert.ok(seen.has(forced.id));
+  beforeForce = attempts.length;
+  await run([forced]);
+  assert.equal(attempts.length, beforeForce, "unreadable forced analysis cannot create a background retry loop");
+  const cancelledForce = new AbortController();
+  cancelledForce.abort();
+  await run([forced], false, cancelledForce.signal, forceIds);
+  assert.equal(attempts.length, beforeForce);
+  assert.deepEqual((await allRecords()).find(rec => rec.id === forced.id), baseline);
+  assert.ok(seen.has(forced.id), "cancellation preserves the cached baseline's seen marker");
+
+  verdict = () => ({ ok: false, error: "new detector failed" });
+  assert.equal((await run([forced], false, undefined, forceIds)).failed, 1);
+  rows = await pruneDuplicates(await allRecords());
+  assert.deepEqual(rows.find(rec => rec.id === forced.id), baseline, "failed analysis cannot replace valid baseline stats");
+  verdict = job => ({ ok: true, record: { ...baseline, id: job.id, path: job.path, statsVersion: 8 } });
+  assert.equal((await run([forced, untouched], false, undefined, forceIds)).total, 1);
+  rows = await pruneDuplicates(await allRecords());
+  assert.equal(rows.find(rec => rec.id === forced.id).statsVersion, 8, "a forced cached game upgrades successfully");
+  assert.deepEqual(rows.find(rec => rec.id === untouched.id), otherBaseline);
+
+  // A file handle can point at a different version by the time workers read it.
+  // Forcing its old ID must not accidentally force a different cached version.
+  const changedFile = new File(["synthetic replay"], forced.path, { lastModified: 2000 });
+  const changedId = `${forced.path}|${changedFile.size}|${changedFile.lastModified}`;
+  await putRecords([{ ...baseline, id: changedId }]);
+  const restatted = { ...forced, handle: { getFile: async () => changedFile } };
+  beforeForce = attempts.length;
+  assert.equal((await run([restatted], false, undefined, new Set([forced.id]))).deferred, 1);
+  assert.equal(attempts.length, beforeForce, "an unrequested cached ID reached by re-stat remains skipped");
+  await run([restatted], false, undefined, new Set([forced.id, changedId]));
+  assert.deepEqual(attempts.slice(beforeForce), [changedId], "re-stat honors force only when the new exact ID is also selected");
+  assert.ok(seen.has(forced.id) && seen.has(changedId));
+
+  const brokenHandle = { ...forced, handle: { getFile: async () => { throw new Error("disconnected"); } } };
+  assert.equal((await run([brokenHandle], false, undefined, new Set([forced.id]))).unreadable, 1);
+  assert.ok(seen.has(forced.id), "handle read errors also preserve pre-existing cache markers");
+
   // Completion reporting must observe every authoritative parse once, even
   // when large imports suppress full-record delivery to React. Header previews
   // cannot count as newly parsed games, and cached files produce no callback.
@@ -255,7 +319,7 @@ try {
   assert.equal(transactions, 1, "aborted queued batches never begin storage transactions");
   assert.equal((await allRecords()).length, 250, "only the already-started transaction can finish");
 
-  console.log("Replay retry checks passed: explicit/background selection, repeated failure, deferred/unreadable/cancelled attempts, dateless and timestamped recovery, healthy-copy protection, deduplication, failed-save rollback, full-parse observation for preview/large/cached/failed imports, and queued-write cancellation.");
+  console.log("Replay retry checks passed: explicit/background selection, scoped forced upgrades with preserved cache markers and restat identity, repeated failure, deferred/unreadable/cancelled attempts, dateless and timestamped recovery, healthy-copy protection, deduplication, failed-save rollback, full-parse observation for preview/large/cached/failed imports, and queued-write cancellation.");
 } finally {
   await server.close();
   await rm(temp, { recursive: true, force: true });

@@ -36,12 +36,12 @@ try {
   assert.equal(types.INTERACTION_STATS_VERSION, 8);
   assert.equal(types.MIN_COMPATIBLE_STATS_VERSION, 6);
   const baseline = rec("a-old", 6), previousAnalysis = rec("b-previous", 7), analyzed = rec("z-new", 8), stale = rec("stale", 5);
-  assert.ok(types.hasCurrentStats(baseline), "baseline stays usable before opt-in");
-  assert.equal(types.needsStatsRepair(baseline), false, "no automatic analysis upgrade");
+  assert.ok(types.hasCurrentStats(baseline), "baseline stays usable while recent-game analysis runs");
+  assert.equal(types.needsStatsRepair(baseline), false, "no whole-library schema repair for interaction upgrades");
   assert.ok(types.needsInteractionAnalysis(baseline));
   assert.ok(types.hasCurrentStats(previousAnalysis), "v7 baseline remains usable after audit corrections");
-  assert.equal(types.needsStatsRepair(previousAnalysis), false, "v7 correction upgrade still requires opt-in");
-  assert.ok(types.needsInteractionAnalysis(previousAnalysis), "older interaction detector needs optional reanalysis");
+  assert.equal(types.needsStatsRepair(previousAnalysis), false, "v7 correction uses the scoped analysis queue");
+  assert.ok(types.needsInteractionAnalysis(previousAnalysis), "older interaction detector needs reanalysis");
   assert.equal(types.needsInteractionAnalysis(analyzed), false, "unsupported v8 fields don't force endless reparsing");
   assert.equal(types.hasCurrentStats(rec("invalid", 6.5)), false);
   assert.equal(dedupeRecords([baseline, analyzed])[0], analyzed);
@@ -81,5 +81,5 @@ try {
   await upgrade({ table: name => { assert.ok(name in stores); return stores[name]; } });
   assert.deepEqual(packs.get(1).records, [baseline, previousAnalysis, analyzed]);
   assert.deepEqual([...seen], [baseline.id, previousAnalysis.id, analyzed.id], "v20 preserves v6/v7 baseline seen markers");
-  console.log("Interaction integration: full-stream coverage, optional upgrade, newer-copy preference and v20 preservation passed.");
+  console.log("Interaction integration: full-stream coverage, scoped upgrade, newer-copy preference and v20 preservation passed.");
 } finally { await server.close(); }

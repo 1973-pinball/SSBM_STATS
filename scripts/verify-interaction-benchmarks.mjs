@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createServer } from "vite";
-import { validateShippedInteractionSample } from "./lib/interaction-benchmark-validation.mjs";
+import { validateShippedInteractionSample, assertNoInteractionIdentityValues } from "./lib/interaction-benchmark-validation.mjs";
 import { encodeInteractionBenchmarks, decodeInteractionBenchmarks, INTERACTION_CODEC_OPTIONS } from "../src/lib/interactionBenchmarkCodec.mjs";
 
 const server = await createServer({
@@ -117,6 +117,9 @@ try {
   assert.deepEqual(unpacked, bundled, "compact transport preserves every exact cell, counter and provenance field");
   assert.deepEqual(decodeInteractionBenchmarks(bundled), bundled, "legacy raw format remains readable during migration");
   validateShippedInteractionSample(unpacked, publicationRules);
+  assertNoInteractionIdentityValues(unpacked, ["grab"], "public grab counters are not a player identity leak");
+  assert.throws(() => assertNoInteractionIdentityValues({ ...unpacked, method: "grab" }, ["grab"]), /identity/,
+    "the same identifier in a free-text value is rejected");
   assert.deepEqual(selectInteractionBenchmarks(parseInteractionBenchmarkData(unpacked), exact), selectInteractionBenchmarks(bundled, exact));
   const zeroAndMissing = structuredClone(bundled);
   zeroAndMissing.rows[0].ledge.unknown = { attempts: 0, punished: 0, hit: 0, traded: 0, noHit: 0, incomplete: 0 };

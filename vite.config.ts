@@ -76,7 +76,7 @@ export default defineConfig({
         // them all); fonts are hashed woff2 files, safe to cache immutably.
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         // The lazy experimental interaction reference contains exact matchup /
-        // stage counters (~2.4 MB before transfer compression). Keep it available
+        // stage counters (~2.7 MB before transfer compression). Keep it available
         // offline alongside the other Execution data.
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         // public/share holds the generated share images — multi-megabyte GIFs

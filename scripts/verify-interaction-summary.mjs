@@ -18,7 +18,7 @@ const server = await createServer({
 });
 
 try {
-  const { interactionSummary, interactionRate } = await server.ssrLoadModule("/src/lib/interactionSummary.ts");
+  const { interactionSummary, interactionAnalysisCoverage, interactionRate } = await server.ssrLoadModule("/src/lib/interactionSummary.ts");
   const { CURRENT_STATS_VERSION } = await server.ssrLoadModule("/src/lib/types.ts");
   const { generateDemoRecords } = await server.ssrLoadModule("/src/lib/demo.ts");
   const { Interactions, TestChoiceTable, TestRecoveryTable, TestEdgeguardTable, TestPunishTable } = await server.ssrLoadModule("/src/components/Interactions.tsx");
@@ -50,6 +50,9 @@ try {
   assert.equal(summary.defenseGames, 2, "measured zero-use game counts; missing field does not");
   assert.equal(summary.recoveryGames, 1, "coverage is independent by metric family");
   assert.equal(summary.punishGames, 1);
+  assert.deepEqual(interactionAnalysisCoverage(games), {
+    needsAnalysis: 1, unavailable: { defense: 0, recovery: 1, punish: 1 },
+  }, "old analysis and unavailable current measurements have separate explanations");
   assert.deepEqual(summary.ledge.roll, choice);
   assert.deepEqual(summary.recoveries.low, recovery);
   assert.deepEqual(summary.edgeguards.holdLedge, edgeguard);
@@ -61,6 +64,9 @@ try {
   assert.equal(outdatedSummary.defenseGames, 0, "version 7 detector results need re-analysis");
   assert.equal(outdatedSummary.recoveryGames, 0);
   assert.equal(outdatedSummary.punishGames, 0);
+  assert.deepEqual(interactionAnalysisCoverage([asGame(outdated)]), {
+    needsAnalysis: 1, unavailable: { defense: 0, recovery: 0, punish: 0 },
+  }, "outdated populated counters still need the current analysis");
   const doubled = interactionSummary([asGame(measured), asGame(measured)]);
   assert.equal(doubled.ledge.roll.attempts, 10);
   assert.equal(doubled.beforeOpening.grab.damage, 90);
@@ -91,8 +97,22 @@ try {
   assert.match(oldHtml, /Analyze these games/);
   assert.match(oldHtml, /Select replay files/);
   assert.match(oldHtml, /0 \/ 1 game measured/);
+  assert.match(oldHtml, /1 older game needs interaction analysis/);
+  assert.match(oldHtml, /Analysis runs automatically when connected replay folders are accessible/);
   const unsupportedHtml = render(Interactions, { games: [asGame({ ...legacy, statsVersion: CURRENT_STATS_VERSION })], onAnalyze() {} });
   assert.doesNotMatch(unsupportedHtml, /Analyze these games/, "unsupported current recordings do not repeatedly request analysis");
+  assert.match(unsupportedHtml, /1 game remains unavailable for this metric/);
+  assert.doesNotMatch(unsupportedHtml, /older game needs interaction analysis/);
+  const recentMixed = [
+    ...Array.from({ length: 5 }, () => asGame(measured)),
+    ...Array.from({ length: 145 }, () => asGame(legacy)),
+  ];
+  const partialHtml = render(Interactions, { games: recentMixed, onAnalyze() {} });
+  assert.match(partialHtml, /5 \/ 150 games measured/);
+  assert.match(partialHtml, /145 older games need interaction analysis/);
+  assert.match(partialHtml, /Venue, Tournament, and Pro samples are separate/);
+  const runningHtml = render(Interactions, { games: recentMixed, analyzing: true, onAnalyze() {} });
+  assert.match(runningHtml, /this count updates as games finish/);
   const demoHtml = render(Interactions, { games: [asGame(measured)], isDemo: true, onAnalyze() {} });
   assert.match(demoHtml, /Demo figures are synthetic/);
   assert.doesNotMatch(demoHtml, /Analyze these games/);
@@ -103,6 +123,9 @@ try {
   assert.equal(demoSummary.defenseGames, 10);
   assert.equal(demoSummary.recoveryGames, 10);
   assert.equal(demoSummary.punishGames, 10);
+  assert.deepEqual(interactionAnalysisCoverage(demoGames), {
+    needsAnalysis: 0, unavailable: { defense: 0, recovery: 0, punish: 0 },
+  });
   for (const game of demoGames) {
     for (const player of game.rec.players) {
       for (const section of Object.values(player.defense)) for (const row of Object.values(section)) {

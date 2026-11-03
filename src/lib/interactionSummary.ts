@@ -1,4 +1,4 @@
-import { hasFullStats, INTERACTION_STATS_VERSION } from "./types";
+import { hasFullStats, INTERACTION_STATS_VERSION, needsInteractionAnalysis } from "./types";
 import type { ResolvedGame } from "./types";
 import type { ChoiceOutcomes } from "./defensiveInteractions";
 import type { EdgeguardOutcomes, RecoveryOutcomes } from "./recoveryInteractions";
@@ -15,6 +15,27 @@ export interface InteractionSummary {
   recoveries: Record<string, RecoveryOutcomes>;
   edgeguards: Record<string, EdgeguardOutcomes>;
   beforeOpening: Record<string, PunishOutcome>;
+}
+
+export interface InteractionAnalysisCoverage {
+  needsAnalysis: number;
+  unavailable: { defense: number; recovery: number; punish: number };
+}
+
+/** Separate older saved stats from recordings that cannot supply a metric after analysis. */
+export function interactionAnalysisCoverage(games: readonly ResolvedGame[]): InteractionAnalysisCoverage {
+  const result: InteractionAnalysisCoverage = { needsAnalysis: 0, unavailable: { defense: 0, recovery: 0, punish: 0 } };
+  for (const game of games) {
+    if (game.rec.isTeams || game.rec.parseError !== undefined || !hasFullStats(game.rec)) continue;
+    if (needsInteractionAnalysis(game.rec)) {
+      result.needsAnalysis++;
+      continue;
+    }
+    for (const family of ["defense", "recovery", "punish"] as const) {
+      if ((game.rec.statsVersion ?? 0) < INTERACTION_STATS_VERSION || !game.me[family]) result.unavailable[family]++;
+    }
+  }
+  return result;
 }
 
 const CHOICE_FIELDS = ["attempts", "punished", "hit", "traded", "noHit", "incomplete"] as const;

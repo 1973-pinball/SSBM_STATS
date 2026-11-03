@@ -18,6 +18,19 @@ const keys = (value, expected, label) => {
   assert.deepEqual(Object.keys(value).sort(), [...expected].sort(), `${label}: unexpected or missing fields (privacy allowlist)`);
 };
 
+/** Run after schema validation on decoded data. Option keys such as "grab"
+ * are public categories, even when a player's public ID happens to match. */
+export function assertNoInteractionIdentityValues(data, identities) {
+  const strings = new Set();
+  const visit = value => {
+    if (typeof value === "string") strings.add(value);
+    else if (Array.isArray(value)) value.forEach(visit);
+    else if (object(value)) Object.values(value).forEach(visit);
+  };
+  visit(data);
+  for (const id of identities) assert.ok(!strings.has(id), "replay or player identity in shipped artifact value");
+}
+
 /** Strict publication allowlists reject private fields anywhere in the shipped hierarchy. */
 export function validateShippedInteractionSample(data, { statsVersion, optionKeys, requireNonempty = true }) {
   keys(data, ["schemaVersion", "statsVersion", "generatedAt", "sourceDataset", "sourceUrl", "method", "sample", "provenance", "rows"], "artifact");
