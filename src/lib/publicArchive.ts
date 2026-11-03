@@ -5,7 +5,7 @@ const PAGE_SIZE = 1_000;
 
 export type ArchivePopulation = "broad" | "conservative";
 export type ArchiveFormat = "singles" | "doubles";
-export type ArchiveScope = "community" | "series" | "tournament" | "player" | "set";
+export type ArchiveScope = "community" | "series" | "tournament" | "player" | "pro" | "set";
 export type ArchiveTarget =
   | { kind: "series"; id: string }
   | { kind: "event"; id: string };
@@ -719,8 +719,33 @@ function aggregateCommunityCharacterRows(
   return [...grouped.values()];
 }
 
+// Revisions are immutable. Retry failed capability reads rather than caching a
+// transient error as an old dataset; an absent filtered cell is never a fallback.
+const pooledProSupport = new Map<string, Promise<boolean>>();
+function hasPooledProRows(datasetId: string, format: ArchiveFormat): Promise<boolean> {
+  const key = `${datasetId}:${format}`;
+  let pending = pooledProSupport.get(key);
+  if (!pending) {
+    pending = (async () => {
+      const response = await requireArchiveClient().from("archive_rollups")
+        .select("rollup_key")
+        .eq("published", true).eq("dataset_id", datasetId)
+        .eq("scope", "pro").eq("population", "conservative").eq("format", format)
+        .is("series_id", null).is("tournament_id", null).is("set_id", null)
+        .is("player_id", null).is("character_id", null)
+        .is("opponent_character_id", null).is("stage_id", null)
+        .range(0, 0);
+      if (response.error) throw new Error(response.error.message);
+      return !!response.data?.length;
+    })().catch((error: unknown) => { pooledProSupport.delete(key); throw error; });
+    pooledProSupport.set(key, pending);
+  }
+  return pending;
+}
+
 /**
- * Aggregate every safely resolved ranked player for one or all characters.
+ * Read pooled Pro rows, built before individual-player sparse suppression.
+ * Older immutable revisions use the legacy per-player aggregation below.
  * This is a player-game sample: when two named pros face each other, both sides belong.
  * An explicit opponent selects that matchup (null selects all opponents).
  * Omit it to retain the full atlas for a character, or the overall row for all characters.
@@ -732,6 +757,23 @@ export async function fetchArchiveProAggregateAtlasRows(
   opponentCharacterId?: number | null,
 ): Promise<ArchiveRollup[]> {
   const client = requireArchiveClient();
+  if (await hasPooledProRows(datasetId, format)) {
+    return readAll<ArchiveRollup>(async (from, to) => {
+      let query = client.from("archive_rollups")
+        .select("rollup_key,dataset_id,scope,population,series_id,tournament_id,set_id,player_id,format,character_id,opponent_character_id,stage_id,game_count,win_rate_game_count,wins,identified_player_count,player_balanced_sample_count,metrics,stats_version")
+        .eq("published", true).eq("dataset_id", datasetId)
+        .eq("scope", "pro").eq("population", "conservative").eq("format", format)
+        .is("player_id", null).is("series_id", null).is("tournament_id", null)
+        .is("set_id", null) as unknown as TargetableQuery;
+      query = characterId === null ? query.is("character_id", null) : query.eq("character_id", characterId);
+      if (opponentCharacterId !== undefined || characterId === null) {
+        query = opponentCharacterId == null
+          ? query.is("opponent_character_id", null) : query.eq("opponent_character_id", opponentCharacterId);
+        query = query.is("stage_id", null);
+      }
+      return await query.order("rollup_key").range(from, to);
+    });
+  }
   const sourceRows = await readAll<ArchiveRollup>(async (from, to) => {
     let query = client
       .from("archive_rollups")

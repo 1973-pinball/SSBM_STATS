@@ -5,7 +5,7 @@ import type { InteractionSummary } from "./interactionSummary";
 import { INTERACTION_STATS_VERSION } from "./types";
 import { decodeInteractionBenchmarks } from "./interactionBenchmarkCodec.mjs";
 
-export const INTERACTION_COHORTS = ["venue", "tournament", "pro"] as const;
+export const INTERACTION_COHORTS = ["tournament", "pro"] as const;
 export type InteractionCohort = typeof INTERACTION_COHORTS[number];
 export interface InteractionBenchmarkScope {
   characterId: number | null;
@@ -19,7 +19,7 @@ export interface InteractionBenchmarkRow extends InteractionSummary {
   stageId: number;
 }
 export interface InteractionBenchmarkData {
-  schemaVersion: 1;
+  schemaVersion: 2;
   statsVersion: number;
   generatedAt: string;
   sourceDataset: string;
@@ -96,7 +96,7 @@ function countsValid(map: unknown, family: InteractionFamily): boolean {
 
 /** Fail closed for old detector versions, malformed denominators, or duplicated exact cells. */
 export function parseInteractionBenchmarkData(raw: unknown): InteractionBenchmarkData | null {
-  if (!isObject(raw) || raw.schemaVersion !== 1 || raw.statsVersion !== INTERACTION_STATS_VERSION
+  if (!isObject(raw) || raw.schemaVersion !== 2 || raw.statsVersion !== INTERACTION_STATS_VERSION
     || typeof raw.generatedAt !== "string" || !Number.isFinite(Date.parse(raw.generatedAt))
     || typeof raw.sourceDataset !== "string" || typeof raw.sourceUrl !== "string"
     || !/^https?:\/\//.test(raw.sourceUrl) || typeof raw.method !== "string" || !isObject(raw.sample)
@@ -152,8 +152,8 @@ function mergeSummary(target: InteractionSummary, source: InteractionSummary): v
 
 /** Exact dimensions only. Null means aggregate that dimension, never substitute a broader matchup. */
 export function selectInteractionBenchmarks(data: InteractionBenchmarkData, scope: InteractionBenchmarkScope): InteractionBenchmarkSelection {
-  const result: InteractionBenchmarkSelection = { venue: null, tournament: null, pro: null };
-  if (data.schemaVersion !== 1 || data.statsVersion !== INTERACTION_STATS_VERSION) return result;
+  const result: InteractionBenchmarkSelection = { tournament: null, pro: null };
+  if (data.schemaVersion !== 2 || data.statsVersion !== INTERACTION_STATS_VERSION) return result;
   for (const row of data.rows) {
     if (scope.characterId !== null && row.characterId !== scope.characterId) continue;
     if (scope.opponentCharacterId !== null && row.opponentCharacterId !== scope.opponentCharacterId) continue;

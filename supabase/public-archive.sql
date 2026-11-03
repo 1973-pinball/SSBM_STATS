@@ -362,7 +362,7 @@ create index if not exists archive_game_players_character_idx
 create table if not exists public.archive_rollups (
   rollup_key text primary key,
   dataset_id text not null references public.archive_datasets (id) on delete cascade,
-  scope text not null check (scope in ('community', 'series', 'tournament', 'player', 'set')),
+  scope text not null check (scope in ('community', 'series', 'tournament', 'player', 'pro', 'set')),
   population text not null check (population in ('broad', 'conservative')),
   series_id text references public.archive_tournament_series (id) on delete cascade,
   tournament_id text references public.archive_tournaments (id) on delete cascade,
@@ -385,6 +385,7 @@ create table if not exists public.archive_rollups (
   check (wins <= win_rate_game_count),
   check (
     (scope = 'community' and series_id is null and tournament_id is null and set_id is null and player_id is null)
+    or (scope = 'pro' and population = 'conservative' and series_id is null and tournament_id is null and set_id is null and player_id is null and identified_player_count is not null and identified_player_count > 0)
     or (scope = 'series' and series_id is not null and tournament_id is null and set_id is null and player_id is null)
     or (scope = 'tournament' and tournament_id is not null and set_id is null and player_id is null)
     or (scope = 'player' and player_id is not null and set_id is null)
@@ -402,7 +403,7 @@ alter table public.archive_rollups
   drop constraint if exists archive_rollups_scope_check;
 alter table public.archive_rollups
   add constraint archive_rollups_scope_check
-  check (scope in ('community', 'series', 'tournament', 'player', 'set'));
+  check (scope in ('community', 'series', 'tournament', 'player', 'pro', 'set'));
 alter table public.archive_rollups
   drop constraint if exists archive_rollups_check;
 alter table public.archive_rollups
@@ -418,6 +419,7 @@ alter table public.archive_rollups
   add constraint archive_rollups_scope_shape_check
   check (
     (scope = 'community' and series_id is null and tournament_id is null and set_id is null and player_id is null)
+    or (scope = 'pro' and population = 'conservative' and series_id is null and tournament_id is null and set_id is null and player_id is null and identified_player_count is not null and identified_player_count > 0)
     or (scope = 'series' and series_id is not null and tournament_id is null and set_id is null and player_id is null)
     or (scope = 'tournament' and tournament_id is not null and set_id is null and player_id is null)
     or (scope = 'player' and player_id is not null and set_id is null)
@@ -606,6 +608,18 @@ grant all on public.archive_rollups to service_role;
 grant all on public.archive_model_runs to service_role;
 grant all on public.archive_forecast_events to service_role;
 grant all on public.archive_forecast_players to service_role;
+
+-- Installed atomically with the scope='pro' constraints. The REST loader checks
+-- this capability before staging pooled rows; older exports do not require it.
+create or replace function public.archive_supports_pooled_pro_rollups()
+returns boolean
+language sql
+stable
+security invoker
+set search_path = public
+as $$ select true; $$;
+revoke all on function public.archive_supports_pooled_pro_rollups() from public, anon, authenticated;
+grant execute on function public.archive_supports_pooled_pro_rollups() to service_role;
 
 -- The loader stages every row as unpublished, validates the row counts locally,
 -- and calls this once. Publication happens in one transaction, so browser
@@ -810,7 +824,7 @@ comment on table public.archive_games is
 comment on table public.archive_game_players is
   'Public per-game/player derived statistics. Anonymous slots have no public player identity.';
 comment on table public.archive_rollups is
-  'Query-ready broad Community and conservative Tournament benchmark aggregates.';
+  'Query-ready Tournament venue aggregates, conservative set samples, named players, and pooled Pro Tournament aggregates.';
 comment on table public.archive_model_runs is
   'Private forecast methodology and validation metadata; service-role access only.';
 comment on table public.archive_forecast_players is

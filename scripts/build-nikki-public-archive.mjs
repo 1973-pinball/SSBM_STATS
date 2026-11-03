@@ -21,6 +21,7 @@ import { ARCHIVE_STATS_VERSION, ARCHIVE_SPECIAL_MOVE_IDS, addArchiveSpecialOutco
 import { archiveBundleStem, planArchiveSourcePopulation, assertArchiveSourcePayload, assertArchiveSourceDownload } from "./lib/archive-source-population.mjs";
 import { readDataset } from "./lib/liquipedia-data.mjs";
 import { displayName as canonicalDisplay, playerKey } from "./lib/liquipedia-parse.mjs";
+import { strictProAlias, compileReviewedProRegistry, resolveReviewedProIdentity, resolveArchiveProIdentity, assertDistinctSinglesIdentities } from "./lib/archive-pro-identity.mjs";
 
 const CACHE_ROOT = process.env.NIKKI_ARCHIVE_CACHE_ROOT ?? path.join(
   homedir(),
@@ -39,6 +40,7 @@ const DEFAULTS = {
   events: fileURLToPath(new URL("./data/nikki-event-registry.json", import.meta.url)),
   series: fileURLToPath(new URL("./data/nikki-series-registry.json", import.meta.url)),
   identities: fileURLToPath(new URL("./data/nikki-player-overrides.json", import.meta.url)),
+  supplementalIdentities: null,
   output: path.join(CACHE_ROOT, "public-export"),
   dataAsOf: localDate(),
   version: "v1",
@@ -52,7 +54,7 @@ for (let index = 2; index < process.argv.length; index += 2) {
   const key = process.argv[index];
   const value = process.argv[index + 1];
   if (!key?.startsWith("--") || value === undefined) {
-    throw new Error("Usage: build-nikki-public-archive.mjs [--results DIR] [--downloads DIR] [--curation FILE] [--events FILE] [--series FILE] [--identities FILE] [--output DIR] [--data-as-of YYYY-MM-DD] [--version vN] [--source-audit FILE] [--exclude-bundles STEM,...] [--population-index FILE.local.json]");
+    throw new Error("Usage: build-nikki-public-archive.mjs [--results DIR] [--downloads DIR] [--curation FILE] [--events FILE] [--series FILE] [--identities FILE] [--supplemental-identities FILE] [--output DIR] [--data-as-of YYYY-MM-DD] [--version vN] [--source-audit FILE] [--exclude-bundles STEM,...] [--population-index FILE.local.json]");
   }
   const name = key.slice(2).replace(/-([a-z])/g, (_, char) => char.toUpperCase());
   if (!(name in args)) throw new Error(`Unknown option ${key}`);
@@ -91,9 +93,7 @@ const normalize = (value) => typeof value === "string" && value.trim()
 // Public identity overrides must match the replay label exactly apart from
 // Unicode normalization, surrounding whitespace, and case. In particular,
 // punctuation and lookalike digits are not folded here.
-const strictAlias = (value) => typeof value === "string" && value.trim()
-  ? value.trim().normalize("NFKC").toLocaleLowerCase("en-US")
-  : null;
+const strictAlias = strictProAlias;
 const eventIdFor = (bundle) => bundle
   .replace(/\.(?:7z|zip)$/i, "")
   .replace(/-(?:main-stream|streams?|top-8|r2-offstream)$/i, "");
@@ -181,6 +181,8 @@ const readJson = async (file) => JSON.parse(await readFile(file, "utf8"));
 const eventDoc = await readJson(args.events);
 const seriesDoc = await readJson(args.series);
 const identityDoc = await readJson(args.identities);
+const supplementalIdentityBytes = args.supplementalIdentities ? await readFile(args.supplementalIdentities) : null;
+const supplementalIdentityDoc = supplementalIdentityBytes ? JSON.parse(supplementalIdentityBytes) : null;
 const curation = await readJson(args.curation);
 const resultFiles = (await readdir(args.results)).filter((name) => name.endsWith(".json")).sort();
 const sourceAuditText = args.sourceAudit ? await readFile(args.sourceAudit, "utf8") : null;
@@ -402,6 +404,9 @@ const candidateRankedIdentity = (player) => {
 };
 
 const matchedGamePlayerOverrideKeys = new Set();
+const supplementalAliases = supplementalIdentityDoc
+  ? compileReviewedProRegistry(supplementalIdentityDoc, rankings, new Set(eventById.keys())) : new Map();
+const matchedSupplementalPlayers = new Set();
 const approvedRankedIdentity = (player, eventId, rawGameKey, slot) => {
   const gameIdentitySha256 = hash(rawGameKey);
   const gamePlayerKey = `${eventId}|${gameIdentitySha256}|${slot}`;
@@ -410,11 +415,7 @@ const approvedRankedIdentity = (player, eventId, rawGameKey, slot) => {
     throw new Error(`Character drift for exact identity override ${gamePlayerKey}`);
   }
   if (gamePlayerOverride) matchedGamePlayerOverrideKeys.add(gamePlayerKey);
-  const aliasOverride = [player.displayName, player.nametag]
-    .map(strictAlias)
-    .filter(Boolean)
-    .map((alias) => aliasIdentityOverrides.get(`${eventId}|${alias}`))
-    .find(Boolean);
+  const aliasOverride = resolveReviewedProIdentity(aliasIdentityOverrides, eventId, player);
   const override = gamePlayerOverride ?? aliasOverride ?? characterIdentityOverrides.get(`${eventId}|${player.characterId}`);
   return override ? {
     playerId: override.playerId,
@@ -605,8 +606,14 @@ if (duplicateFiles !== curation.duplicateFiles || gamesByKey.size !== curation.u
   throw new Error("Deduplication totals drifted from archive-curation.json");
 }
 
-const resolveRankedIdentity = (player, eventId, rawGameKey, slot) => {
-  return approvedRankedIdentity(player, eventId, rawGameKey, slot);
+const resolveRankedIdentity = (player, eventId, rawGameKey, slot, format, tier) => {
+  const legacyIdentity = approvedRankedIdentity(player, eventId, rawGameKey, slot);
+  const identity = resolveArchiveProIdentity({ legacyIdentity, aliases: supplementalAliases, eventId, player, format, tier });
+  if (format === "singles" && ["verified", "probable"].includes(tier)) {
+    const supplemental = resolveReviewedProIdentity(supplementalAliases, eventId, player);
+    if (supplemental) matchedSupplementalPlayers.add(`${eventId}|${supplemental.playerId}`);
+  }
+  return identity;
 };
 
 // Local-only selection index for independently reparsing experimental samples.
@@ -658,6 +665,7 @@ const emptyMetrics = () => ({
 });
 
 const rollups = new Map();
+const proPlayersByRollup = new Map();
 const rollupDimensions = (scope, population, extras, characterId, opponentCharacterId, stageId) => ({
   scope,
   population,
@@ -671,7 +679,7 @@ const rollupDimensions = (scope, population, extras, characterId, opponentCharac
   stage_id: stageId,
 });
 
-const addRollup = (dimensions, record, player, slot, includeMoves) => {
+const addRollup = (dimensions, record, player, slot, includeMoves, identifiedPlayerId = null) => {
   const signature = JSON.stringify(dimensions);
   const rollupKey = `r:${hash(`${DATASET_ID}:${signature}`)}`;
   let row = rollups.get(rollupKey);
@@ -692,6 +700,13 @@ const addRollup = (dimensions, record, player, slot, includeMoves) => {
     rollups.set(rollupKey, row);
   }
   row.game_count++;
+  if (dimensions.scope === "pro") {
+    if (!identifiedPlayerId) throw new Error("Pooled Pro rollups require a resolved player identity");
+    const players = proPlayersByRollup.get(rollupKey) ?? new Set();
+    players.add(identifiedPlayerId);
+    proPlayersByRollup.set(rollupKey, players);
+    row.identified_player_count = players.size;
+  }
   const won = wonBy(record, player, slot);
   if (won !== null) {
     row.win_rate_game_count++;
@@ -747,14 +762,20 @@ const addRollup = (dimensions, record, player, slot, includeMoves) => {
 };
 
 const addScopeRows = (scope, population, extras, record, player, opponent, slot) => {
-  addRollup(rollupDimensions(scope, population, extras, null, null, null), record, player, slot, false);
-  addRollup(rollupDimensions(scope, population, extras, player.characterId, null, null), record, player, slot, true);
-  addRollup(rollupDimensions(scope, population, extras, player.characterId, null, record.stageId), record, player, slot, false);
+  const add = (character, opponentCharacter, stage, includeMoves) => addRollup(
+    rollupDimensions(scope, population, extras, character, opponentCharacter, stage),
+    record, player, slot, includeMoves, extras.identifiedPlayerId);
+  // Pooled Pro has complete all-character move and distinct-player totals. These
+  // cannot be recovered by summing already-suppressed per-player matchup rows.
+  add(null, null, null, scope === "pro");
+  add(player.characterId, null, null, true);
+  add(player.characterId, null, record.stageId, false);
   if (!record.isTeams && opponent) {
     // Execution comparisons need move usage for the exact character matchup.
     // Keep stage-specific rows compact; Execution's archive references span all stages.
-    addRollup(rollupDimensions(scope, population, extras, player.characterId, opponent.characterId, null), record, player, slot, true);
-    addRollup(rollupDimensions(scope, population, extras, player.characterId, opponent.characterId, record.stageId), record, player, slot, false);
+    add(player.characterId, opponent.characterId, null, true);
+    add(player.characterId, opponent.characterId, record.stageId, false);
+    if (scope === "pro") add(null, opponent.characterId, null, true);
   }
 };
 
@@ -809,7 +830,8 @@ for (const [fileIndex, name] of resultFiles.entries()) {
     if (!game || game.selectedRecord !== `${payload.bundle}\0${record.file}` || game.tier === "excluded") continue;
     selectedParsedGames++;
     const format = record.isTeams ? "doubles" : "singles";
-    const identities = record.players.map((player, slot) => resolveRankedIdentity(player, eventId, rawKey, slot));
+    const identities = record.players.map((player, slot) => resolveRankedIdentity(player, eventId, rawKey, slot, format, game.tier));
+    assertDistinctSinglesIdentities(identities, format);
     const conservative = game.tier === "verified" || game.tier === "probable";
     for (const [slot, player] of record.players.entries()) {
       const opponent = !record.isTeams && record.players.length === 2 ? record.players[slot === 0 ? 1 : 0] : null;
@@ -844,6 +866,7 @@ for (const [fileIndex, name] of resultFiles.entries()) {
       if (identity && conservative) {
         mappedPlayerSlots++;
         mappedPlayerIds.add(identity.playerId);
+        addScopeRows("pro", "conservative", { format, identifiedPlayerId: identity.playerId }, record, player, opponent, slot);
         addScopeRows("player", "conservative", { format, playerId: identity.playerId }, record, player, opponent, slot);
         addScopeRows("player", "conservative", { format, playerId: identity.playerId, seriesId }, record, player, opponent, slot);
         addScopeRows("player", "conservative", { format, playerId: identity.playerId, seriesId, tournamentId: tournamentId(eventId) }, record, player, opponent, slot);
@@ -924,6 +947,12 @@ for (const [fileIndex, name] of resultFiles.entries()) {
 }
 await gameWriter.close();
 await gamePlayerWriter.close();
+if (supplementalIdentityDoc) {
+  const unmatched = supplementalIdentityDoc.overrides.flatMap(group => group.aliases
+    .filter(row => !matchedSupplementalPlayers.has(`${group.eventId}|${row.playerId}`))
+    .map(row => `${group.eventId}:${row.playerId}`));
+  if (unmatched.length) throw new Error(`Supplemental identities did not match conservative singles: ${unmatched.join(", ")}`);
+}
 if (matchedGamePlayerOverrideKeys.size !== gamePlayerIdentityOverrides.size) {
   const missing = [...gamePlayerIdentityOverrides.keys()].filter((key) => !matchedGamePlayerOverrideKeys.has(key));
   throw new Error(`Exact identity overrides did not match selected games: ${missing.join(", ")}`);
@@ -1089,7 +1118,8 @@ const datasetRow = {
     sourcePopulation ? `Source cohort: ${sourcePopulation.includedBundles.length} of ${sourcePopulation.originalBundleCount} original bundles from ${sourcePopulation.baseDatasetId}.`
       + (sourcePopulation.excludedBundles.length ? ` Excluded because the original source is unavailable: ${[...excludedEventIds].map((id) => eventById.get(id)?.name ?? id).join(", ") || sourcePopulation.excludedBundles.join(", ")}.` : "")
       + " No new source events were added." : null,
-    "Raw replays, paths, filenames, unresolved tags, connect codes, and private user identifiers are excluded. Broad games feed Venue aggregates; conservative games feed Tournament aggregates.",
+    "Raw replays, paths, filenames, unresolved tags, connect codes, and private user identifiers are excluded. Tournament pools all eligible event-venue recordings, including the conservative set sample, without double-counting. Pro Tournament includes evidence-backed ranked-player sides in conservative tournament games.",
+    supplementalIdentityDoc ? `Pro identity expansion: ${mappedPlayerIds.size} mapped ranked players; supplemental reviewed event labels apply only to already-conservative singles. The existing regional-ranking exception for Ampp is retained. Pooled Pro rollups are computed before per-player sparse-cell suppression.` : null,
   ].filter(Boolean).join(" "),
   published: false,
   published_at: null,
@@ -1103,7 +1133,7 @@ const shouldExportRollup = (row) => {
   const hasStage = row.stage_id !== null;
   if (!hasOpponent && !hasStage) return true;
   if (row.scope === "community") return row.game_count >= 25;
-  if (row.scope === "player") return row.game_count >= (hasOpponent && hasStage ? 5 : 3);
+  if (row.scope === "player" || row.scope === "pro") return row.game_count >= (hasOpponent && hasStage ? 5 : 3);
   return row.game_count >= (hasOpponent && hasStage ? 10 : 5);
 };
 const exportedRollups = [...rollups.values()].filter(shouldExportRollup);
@@ -1199,6 +1229,13 @@ const qa = {
     mappedGames,
     mappedPlayerSlots,
     approvedOverrides: characterIdentityOverrides.size + aliasIdentityOverrides.size + gamePlayerIdentityOverrides.size,
+    supplementalReviewedAliases: supplementalAliases.size,
+    supplementalRegistrySha256: supplementalIdentityBytes ? hash(supplementalIdentityBytes) : null,
+    supplementalReviewedAt: supplementalIdentityDoc?.reviewedAt ?? null,
+    proCohorts: exportedRollups.filter(row => row.scope === "pro" && row.character_id === null
+      && row.opponent_character_id === null && row.stage_id === null).map(row => ({
+      format: row.format, playerGames: row.game_count, players: row.identified_player_count,
+    })),
     unresolvedCandidateEventPlayers: candidateMappings.size,
     method: "Only explicit, publicly sourced overrides are published. Exact replay-tag matches are written to a local candidate report for bracket verification and never enter public rows automatically. Bracket-verified anonymous stream games use a SHA-256 identity fingerprint plus player slot and expected character.",
   },
@@ -1228,6 +1265,8 @@ const qa = {
       seriesOrTournamentMatchupStage: 10,
       playerSingleDimension: 3,
       playerMatchupStage: 5,
+      pooledProSingleDimension: 3,
+      pooledProMatchupStage: 5,
     },
   },
   tableCounts,

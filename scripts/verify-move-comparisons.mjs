@@ -362,8 +362,9 @@ try {
   assert.match(atlasMarkup, /Loading historical tournament comparisons/);
   assert.match(atlasMarkup, />Down B<\/td>/,
     "Down B is visible by default even while archive benchmarks are loading");
-  assert.match(atlasMarkup, /SSBM Stats/);
-  assert.match(atlasMarkup, /Venue archive/);
+  assert.match(atlasMarkup, /SSBMStats Community/);
+  assert.match(atlasMarkup, /Pro Tournament/);
+  assert.doesNotMatch(atlasMarkup, /Venue archive|Tournament archive/);
   assert.match(atlasMarkup, /No-hit uses \/ game/);
   assert.match(atlasMarkup, /No-hit rate/);
   const allSpecialMarkup = renderToStaticMarkup(createElement(ArchiveMoveAtlasComparison, {
@@ -382,7 +383,7 @@ try {
   const noHitChart = renderToStaticMarkup(createElement(TestMoveMetricChart, {
     games: specialGames,
     moves: [table.rows.find((row) => row.key === "nair"), ...specialTable.rows],
-    benchmarks: { characterId: 20, opponentCharacterId: null, communityMoves: [], venue: null, tournament: null, pro: null },
+    benchmarks: { characterId: 20, opponentCharacterId: null, communityMoves: [], tournament: null, pro: null },
     metric: "noHitRate", setMetric: () => {},
   }));
   assert.match(noHitChart, /aria-label="Moves: Side B"/, "no-hit chart replaces a default normal with an outcome-tracked special");
@@ -397,7 +398,7 @@ try {
   const zeroBeforeUsedChart = (metric) => renderToStaticMarkup(createElement(TestMoveMetricChart, {
     games: zeroBeforeUsedGames,
     moves: ["nair", "side-b", "up-b"].map((key) => zeroBeforeUsedRows.find((row) => row.key === key)),
-    benchmarks: { characterId: 20, opponentCharacterId: null, communityMoves: [], venue: null, tournament: null, pro: null },
+    benchmarks: { characterId: 20, opponentCharacterId: null, communityMoves: [], tournament: null, pro: null },
     metric, setMetric: () => {},
   }));
   assert.match(zeroBeforeUsedChart("noHitRate"), /aria-label="Moves: Up B"/, "a measured zero-use special cannot hide a different special's completed-use rate");

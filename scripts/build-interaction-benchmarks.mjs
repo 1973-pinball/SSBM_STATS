@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Reparse a deterministic convenience sample from an already audited local archive.
+// Aggregate a deterministic convenience sample, reusing verified parses when available.
 // No raw replay, path, game identity, or player identity enters the shipped artifact.
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
@@ -52,10 +52,11 @@ if (!isMainThread) {
 } else {
   const args = new Map();
   for (let i = 2; i < process.argv.length; i += 2) {
-    if (!process.argv[i]?.startsWith("--") || process.argv[i + 1] === undefined) throw new Error("Use --cache DIR [--pro-evidence FILE.local.json] [--prepare-only true] [--bundle-count N (default all)] [--per-bundle 100] [--extract-workers 4] [--tar-encoding utf-8|windows-1252] [--output FILE]");
+    if (!process.argv[i]?.startsWith("--") || process.argv[i + 1] === undefined) throw new Error("Use --cache DIR [--pro-evidence FILE.local.json] [--prepare-only true] [--cached-only true] [--bundle-count N (default all)] [--per-bundle 100] [--extract-workers 4] [--tar-encoding utf-8|windows-1252] [--output FILE]");
     args.set(process.argv[i].slice(2), process.argv[i + 1]);
   }
   if (!args.has("cache")) throw new Error("--cache is required; source inputs are never downloaded by this command");
+  if (args.has("cached-only") && !["true", "false"].includes(args.get("cached-only"))) throw new Error("--cached-only must be true or false");
   const cache = path.resolve(args.get("cache"));
   // Freeze the sample seed and staging location across detector upgrades.
   const staging = path.join(cache, "interaction-sample-v8");
@@ -105,14 +106,20 @@ if (!isMainThread) {
     const tournament = all.filter(g => ["verified", "probable"].includes(g.tier));
     const ranked = (games, cohort) => [...games].sort((a, b) => hash(`interactions-v8:${cohort}:${a.gameKey}`).localeCompare(hash(`interactions-v8:${cohort}:${b.gameKey}`))).slice(0, perBundle);
     const take = (game, cohort) => { const entry = selected.get(game.gameKey) ?? { ...game, venue: false, tournament: false, proSlots: [] }; entry[cohort] = true; selected.set(game.gameKey, entry); };
-    for (const game of ranked(all, "venue")) take(game, "venue");
-    for (const game of ranked(tournament, "tournament")) take(game, "tournament");
+    // Keep these two draws and their seeds frozen. The displayed Tournament
+    // cohort is their union, not their sum and not a new random sample.
+    const venueDraw = ranked(all, "venue"), tournamentDraw = ranked(tournament, "tournament");
+    const venueKeys = new Set(venueDraw.map(game => game.gameKey));
+    const overlap = tournamentDraw.filter(game => venueKeys.has(game.gameKey)).length;
+    for (const game of venueDraw) take(game, "venue");
+    for (const game of tournamentDraw) take(game, "tournament");
     for (const game of tournament) if (pros.has(game.gameKey)) {
       const entry = selected.get(game.gameKey) ?? { ...game, venue: false, tournament: false, proSlots: [] };
       entry.proSlots = pros.get(game.gameKey); selected.set(game.gameKey, entry);
     }
     counts.push({ bundle: bundle.name, availableVenueGames: all.length, availableTournamentGames: tournament.length,
-      sampledVenueGames: Math.min(perBundle, all.length), sampledTournamentGames: Math.min(perBundle, tournament.length) });
+      sampledVenueGames: venueDraw.length, sampledTournamentGames: tournamentDraw.length,
+      sampledOverlapGames: overlap, sampledUnionGames: venueDraw.length + tournamentDraw.length - overlap });
   }
   await mkdir(staging, { recursive: true });
   const command = (program, argv) => new Promise((resolve, reject) => {
@@ -237,6 +244,7 @@ if (!isMainThread) {
       } else pending.push(item);
     }
     console.log(`Reusing ${results.length} verified parses; ${pending.length} games require analysis`);
+    if (args.get("cached-only") === "true" && pending.length) throw new Error("Cached-only rebuild requires a matching verified parse for every selected replay");
     const checkpoint = async () => {
       if (parserSha256 !== await fingerprint()) throw new Error("Parser changed during benchmark run; refuse to save mixed classifiers");
       const tmp = `${resultCacheFile}.tmp`;
@@ -265,11 +273,11 @@ if (!isMainThread) {
     if (parserSha256 !== await fingerprint()) throw new Error("Parser changed during benchmark run; rerun to avoid mixing classifiers");
     // Keep floating-point damage sums reproducible across cold and resumed runs.
     results.sort((a, b) => a.gameKey.localeCompare(b.gameKey));
-    const rows = new Map(), proPlayers = new Set(), totals = { venue: empty(), tournament: empty(), pro: empty() };
+    const rows = new Map(), proPlayers = new Set(), totals = { tournament: empty(), pro: empty() };
     for (const result of results) {
       const item = selected.get(result.gameKey);
       for (const [slot, player] of result.players.entries()) {
-        const cohorts = [item.venue && "venue", item.tournament && "tournament"];
+        const cohorts = [(item.venue || item.tournament) && "tournament"];
         const pro = item.proSlots.find(p => p.slot === slot);
         if (pro) {
           if (pro.characterId !== player.characterId || !item.tournament && !["verified", "probable"].includes(item.tier)) throw new Error("Pro evidence mismatch");
@@ -282,9 +290,9 @@ if (!isMainThread) {
         }
       }
     }
-    const output = { schemaVersion: 1, statsVersion: 9, generatedAt: new Date().toISOString(), sourceDataset: index.sourceDataset,
+    const output = { schemaVersion: 2, statsVersion: 9, generatedAt: new Date().toISOString(), sourceDataset: index.sourceDataset,
       sourceUrl: "https://replays.nikki.sh/",
-      method: `Experimental archive sample covering ${bundles.length === grouped.size ? `all ${bundles.length} eligible audited bundles` : `the ${bundles.length} smallest eligible audited bundles`}. Up to ${perBundle} hash-selected singles games per bundle in each Venue and Tournament cohort; Pro includes all evidence-mapped player sides in those bundles' conservative tournament games. Per-bundle sampling caps and archive coverage can bias estimates; counts pool opportunities, not players. Venue may include friendlies; Tournament uses the existing conservative archive curation. Cohorts overlap and are not skill ranks. All dates; exact character, opponent and stage filters.`,
+      method: `Experimental archive sample covering ${bundles.length === grouped.size ? `all ${bundles.length} eligible audited bundles` : `the ${bundles.length} smallest eligible audited bundles`}. Tournament is the deduplicated union of the frozen Venue and conservative Tournament draws, each selecting up to ${perBundle} singles games per bundle by hash. Each game/player side enters Tournament once even if selected by both draws. This includes eligible event-venue recordings without set-level proof. Pro Tournament includes all evidence-mapped player sides in those bundles' conservative tournament games. Per-bundle sampling caps and archive coverage can bias estimates; counts pool opportunities, not players. Tournament and Pro Tournament may overlap and are not skill ranks. All dates; exact character, opponent and stage filters.`,
       sample: { bundles: bundles.length, games: items.length, availableGames: index.games.length, proPlayers: proPlayers.size },
       provenance: { parserSha256, populationSha256: hash(indexBytes), sourceAuditSha256: hash(auditBytes), identityEvidenceSha256, archives: bundles.map(b => ({ bundle: b.name, sha256: b.sha256 })), perBundle, counts,
         cohortPlayerGames: Object.fromEntries(Object.entries(totals).map(([cohort, row]) => [cohort, row.games])) },

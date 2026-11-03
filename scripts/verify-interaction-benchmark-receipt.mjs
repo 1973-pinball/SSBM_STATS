@@ -132,14 +132,19 @@ try {
   };
   for (const bundle of bundles) {
     const games = byBundle.get(bundle.bundle), tournament = games.filter(conservative);
+    const draws = {};
     for (const [cohort, eligible] of [["venue", games], ["tournament", tournament]]) {
       const picked = eligible.map(game => ({ gameKey: game.gameKey, rank: hash(`interactions-v8:${cohort}:${game.gameKey}`) }))
         .sort((a, b) => a.rank.localeCompare(b.rank)).slice(0, data.provenance.perBundle);
+      draws[cohort] = new Set(picked.map(game => game.gameKey));
       for (const game of picked) membership(game.gameKey)[cohort] = true;
     }
     for (const game of tournament) if (vetted.has(game.gameKey)) membership(game.gameKey).pros = vetted.get(game.gameKey);
+    const overlap = [...draws.venue].filter(key => draws.tournament.has(key)).length;
+    const union = new Set([...draws.venue, ...draws.tournament]);
     expectedCounts.push({ bundle: bundle.bundle, availableVenueGames: games.length, availableTournamentGames: tournament.length,
-      sampledVenueGames: Math.min(games.length, data.provenance.perBundle), sampledTournamentGames: Math.min(tournament.length, data.provenance.perBundle) });
+      sampledVenueGames: Math.min(games.length, data.provenance.perBundle), sampledTournamentGames: Math.min(tournament.length, data.provenance.perBundle),
+      sampledOverlapGames: overlap, sampledUnionGames: union.size });
   }
   assert.deepEqual(manifest.counts, expectedCounts);
   assert.deepEqual(data.provenance.counts, expectedCounts);
@@ -177,7 +182,15 @@ try {
   // Recompute every exact cell and coverage count directly from per-game parsed observations.
   const empty = () => ({ games: 0, defenseGames: 0, recoveryGames: 0, punishGames: 0,
     ...Object.fromEntries(INTERACTION_FAMILIES.map(family => [family, {}])) });
-  const rows = new Map(), totals = Object.fromEntries(["venue", "tournament", "pro"].map(cohort => [cohort, empty()]));
+  const rows = new Map(), totals = Object.fromEntries(["tournament", "pro"].map(cohort => [cohort, empty()]));
+  // Reconstruct the union as a set of game/slot identities independently of the
+  // builder's cohort flags. A shared game contributes exactly two sides once.
+  const tournamentSides = new Set();
+  for (const [gameKey, membership] of expected) {
+    for (const selected of [membership.venue, membership.tournament]) if (selected) {
+      for (const slot of [0, 1]) tournamentSides.add(`${gameKey}:${slot}`);
+    }
+  }
   const proIds = new Set();
   const accumulate = (target, player) => {
     target.games++;
@@ -196,8 +209,7 @@ try {
     for (let slot = 0; slot < 2; slot++) {
       const player = result.players[slot], opponent = result.players[1 - slot];
       const included = [];
-      if (membership.venue) included.push("venue");
-      if (membership.tournament) included.push("tournament");
+      if (tournamentSides.has(`${result.gameKey}:${slot}`)) included.push("tournament");
       const pro = membership.pros.get(slot);
       if (pro) { assert.equal(pro.characterId, player.characterId); proIds.add(pro.playerId); included.push("pro"); }
       for (const cohort of included) {
@@ -211,6 +223,8 @@ try {
   const sortedRows = values => [...values].sort((a, b) => tupleKey(a).localeCompare(tupleKey(b))).map(canonical);
   assert.deepEqual(sortedRows(rows.values()), sortedRows(data.rows), "every published exact cell equals receipt observations");
   assert.deepEqual(canonical(totals), canonical(receipt.totals), "receipt cohort totals and coverage reconcile");
+  assert.equal(totals.tournament.games, tournamentSides.size, "every union player side is aggregated exactly once");
+  assert.equal(tournamentSides.size, expectedCounts.reduce((sum, item) => sum + item.sampledUnionGames * 2, 0));
   assert.deepEqual(Object.fromEntries(Object.entries(totals).map(([cohort, value]) => [cohort, value.games])), data.provenance.cohortPlayerGames);
   assert.equal(proIds.size, data.sample.proPlayers);
 

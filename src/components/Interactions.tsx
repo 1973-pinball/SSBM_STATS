@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import type { ResolvedGame } from "../lib/types";
+import { BENCHMARK_LABELS as COHORT_LABELS } from "../lib/benchmarkCohorts";
 import {
   DEFENSIVE_OUTCOME_WINDOW_FRAMES, LEDGE_SEQUENCE_WINDOW_FRAMES, DEFENSIVE_SEQUENCE_WINDOW_FRAMES, LEDGE_OPTION_LABELS, OOS_OPTION_LABELS,
   type ChoiceOutcomes,
@@ -164,7 +165,6 @@ function PunishTable({ rows, covered }: { rows: Record<string, PunishOutcome>; c
 }
 
 const ALL_BENCHMARK_SCOPE: InteractionBenchmarkScope = { characterId: null, opponentCharacterId: null, stageId: null };
-const COHORT_LABELS = { venue: "Venue", tournament: "Tournament", pro: "Pro" } as const;
 
 function ComparisonCell({ result, format }: { result: InteractionBenchmarkValue; format: "percent" | "number" }) {
   if (result.value === null) return <td className="data" title={result.measuredGames ? "No qualifying denominator for this option" : "No measured games for these filters"}>—</td>;
@@ -225,7 +225,7 @@ function InteractionBenchmarkComparison({ local, family, scope, data, isDemo = f
       <summary>Sample and limitations</summary>
       <p>{int(data.sample.games)} replay games in {int(data.sample.bundles)} selected bundles, drawn from an available archive population of {int(data.sample.availableGames)} games; {int(data.sample.proPlayers)} mapped pro players. Updated {new Date(data.generatedAt).toLocaleDateString()}.</p>
       <p>{data.method}</p>
-      <p>Venue samples usable archive games. Tournament independently samples conservative tournament games. Pro includes vetted mapped-player appearances in conservative games from the selected bundles.</p>
+      <p>Tournament combines the independently sampled venue and conservative tournament recordings, counting each player-game once. It includes eligible event-venue games without set-level proof. Pro Tournament includes vetted mapped-player appearances in conservative games from the selected bundles.</p>
       <p>These are estimates from available replay files, not population statistics. Event coverage, repeated players, matchup mix, and uncertain classifications can bias the comparison. Small samples can change sharply with a few more observations.</p>
       <p>Source: <a href={data.sourceUrl} target="_blank" rel="noreferrer">{data.sourceDataset}</a>. Counts under archive headings are player-games; they must not be added across overlapping cohorts.</p>
     </details>

@@ -15,7 +15,7 @@ and Liquipedia views.
   returns, edgeguard tactics, and observed stock-loss outcomes.
 - **Before openings taken:** preceding actions and ensuing damage or stock loss,
   providing context without claiming verified whiffs or unavoidable punishes.
-- **Archive estimates:** experimental Venue, Tournament, and Pro comparisons
+- **Archive estimates:** experimental Tournament and Pro Tournament comparisons
   matching character, opponent character, and stage across 11,141 public games,
   including 1,883 Pro appearances from 98 mapped players, with visible samples.
 - **Replay-audited detection:** longer ledgedash sequence recognition, platform
@@ -28,7 +28,7 @@ and Liquipedia views.
 - **C-stick input:** an experimental OOS column shows observed stick input,
   without claiming buffering or which control caused the action.
 - **Recovery hits:** show attempts hit after the initial launch by route,
-  including experimental Venue, Tournament, and Pro comparisons.
+  including experimental Tournament and Pro Tournament comparisons.
 - **Player card:** show the filtered second-most-played character beneath Main.
 - **Custom ranges:** choose inclusive local start/end dates with calendar
   controls or typed entry, for singles and teams.
@@ -57,22 +57,24 @@ necessarily mean its recorded game date is newer.
 
 ## Community and tournament benchmarks
 
-The Community section compares your local character stats against four separate samples:
+The Community section compares your local character stats against three samples:
 
-- **SSBM Stats** — privacy-thresholded aggregates from users who explicitly opted in.
-- **Venue archive** — usable event-associated games from [Nikki's public Slippi archive](https://replays.nikki.sh/).
-- **Tournament archive** — the conservative subset linked to verified or probable tournament sets.
-- **Pro tournament archive** — the aggregate of published evidence-backed mappings for publicly ranked players, with an optional named-player comparison.
+- **SSBMStats Community** — privacy-thresholded aggregates from users who explicitly opted in. Headline medians retain their player-balanced estimator.
+- **Tournament** — eligible event-venue recordings from [Nikki's public Slippi archive](https://replays.nikki.sh/), including conservative tournament sets, counted once. This is the former broad Venue population, not the sum of the old columns.
+- **Pro Tournament** — evidence-backed named-player sides in conservative tournament games, with an optional named-player comparison. Historical ranking evidence is retained; this is not a sample of the current Top 100.
 
-Matchup, Stage, and Move Atlas use the same side-by-side columns. Community character controls default to the user's most-played character; every Atlas comparison column is sortable, and Move Atlas sorting follows the currently selected measure. The shared My games lookback defaults to the 150 most recent matching games and scopes only the user's column, while benchmark columns retain their full published samples. Stage Atlas defaults to an all-opponents aggregate. Move Atlas defaults to Landed / game and a 1-tracked-attempt-per-game minimum applied to the user's available attempt rates. Recorded specials (including Down B) and throws remain visible with untracked attempts shown as dashes. The measure selector also compares damage share, kills, average kill percent, openings per game, and damage per opening across the same sources. A full execution/action comparison sits directly beneath the move table with its own 1-action-per-game minimum. Move and action differences shade the user's cell on a continuous red-above/blue-below scale against Tournament, falling back to Venue when no tournament sample exists. In the all-opponents Stage view, SSBM Stats remains blank until a privacy-safe character-by-stage aggregate is published rather than summing suppressed matchup cells. Win-rate coloring uses the same blue-low/red-high direction throughout. The compact participation card advances from a 25-user milestone to 100, and the Metrics Guide keeps each section in an independent collapsed disclosure.
+Matchup, Stage, and Move Atlas use the same side-by-side columns. Community character controls default to the user's most-played character; every Atlas comparison column is sortable, and Move Atlas sorting follows the currently selected measure. The shared My games lookback defaults to the 150 most recent matching games and scopes only the user's column, while benchmark columns retain their full published samples. Stage Atlas defaults to an all-opponents aggregate. Move Atlas defaults to Landed / game and a 1-tracked-attempt-per-game minimum applied to the user's available attempt rates. Recorded specials (including Down B) and throws remain visible with untracked attempts shown as dashes. The measure selector also compares damage share, kills, average kill percent, openings per game, and damage per opening across the same sources. A full execution/action comparison sits directly beneath the move table with its own 1-action-per-game minimum. Move and action differences shade the user's cell on a continuous red-above/blue-below scale against the consolidated Tournament sample; unavailable comparisons remain unhighlighted. In the all-opponents Stage view, SSBM Stats remains blank until a privacy-safe character-by-stage aggregate is published rather than summing suppressed matchup cells. Win-rate coloring uses the same blue-low/red-high direction throughout. The compact participation card advances from a 25-user milestone to 100, and the Metrics Guide keeps each section in an independent collapsed disclosure.
 
-The rolling execution, Move Trend, and Actions charts show these samples as fixed horizontal references; they are aggregate benchmarks, not historical time series. Each chart has an optional opponent overlay that is off by default, and the Actions chart shows one selected action at a time. In the current-form tables, Actions retains the opponent per-game rate and adds Venue, Tournament, and Pro per-game comparisons. Move effectiveness compares the selected measure with SSBM Stats, Venue, Tournament, and Pro samples while retaining damage share, kill share, and L-cancel. It defaults to Landed / game and shares its measure with Move Trend; other measures include attempts, damage per game or hit, damage share, kills per game, kill share, average kill percent, and L-cancel. Special moves retain their measured landed, damage, and kill comparisons while attempts remain unavailable. Openings adds the archive columns for openings per game. The user's selected move measure, action/game, and opening/game cells use the same continuous comparison heatmap. The full execution table compares tech, L-cancel, input, and available action rates across the same sources; a dash is retained when a source does not publish the required denominator. Matchup Atlas separates the user's local game count from win rate, defaults to Games descending, and can sort by any benchmark column. The Tournament Predictions tab sits before Liquipedia; its Public Replay Archive is collapsed by default and can be browsed by series or event after expansion. Selecting a named pro limits the Event menu to that player's published evidence-backed mappings and automatically selects their most-observed character for the event. Its tech KPI includes the in-place/in/away split, while the adjacent execution panel ranks the selected character's four largest moves by damage share.
+The rolling execution, Move Trend, and Actions charts show these samples as fixed horizontal references; they are aggregate benchmarks, not historical time series. Each chart has an optional opponent overlay that is off by default, and the Actions chart shows one selected action at a time. In the current-form tables, Actions retains the opponent per-game rate and adds Tournament and Pro Tournament per-game comparisons. Move effectiveness compares the selected measure with SSBMStats Community, Tournament, and Pro Tournament samples while retaining damage share, kill share, and L-cancel. It defaults to Landed / game and shares its measure with Move Trend; other measures include attempts, damage per game or hit, damage share, kills per game, kill share, average kill percent, and L-cancel. Special moves compare measured attempts and supported outcomes using per-move coverage; unsupported or unmeasured values remain unavailable. Openings adds the archive columns for openings per game. The user's selected move measure, action/game, and opening/game cells use the same continuous comparison heatmap. The full execution table compares tech, L-cancel, input, and available action rates across the same sources; a dash is retained when a source does not publish the required denominator. Matchup Atlas separates the user's local game count from win rate, defaults to Games descending, and can sort by any benchmark column. The Tournament Predictions tab sits before Liquipedia; its Public Replay Archive is collapsed by default and can be browsed by series or event after expansion. Selecting a named pro limits the Event menu to that player's published evidence-backed mappings and automatically selects their most-observed character for the event. Its tech KPI includes the in-place/in/away split, while the adjacent execution panel ranks the selected character's four largest moves by damage share.
 
-The current `nikki-2026-09-02-v7` snapshot contains 160,075 unique parsed games, of which 152,566 are in the broad usable sample and 25,598 are in the conservative tournament sample. Those 152,566 games represent 321,668 player-games because singles contribute two player appearances and doubles contribute four. Twenty-seven players have publishable identity mappings: Aklo, Ampp, aMSa, Axe, Cody Schwab, Fiction, Ginger, Hungrybox, Jmook, Joshman, KoDoRiN, Krudo, lloD, Magi, Moky, n0ne, Ossify, RapMonster, S2J, Salt, SDJ, SFAT, Shroomed, Soonsay, Spark, Wizzrobe, and Zain. Across the named subset, 819 conservative games contain at least one resolved player, representing 956 named player-game slots (841 singles and 115 doubles). Identity publication uses public event or bracket evidence with narrowly scoped rules: exact replay-label matches for tournament aliases, game-identity fingerprints plus player slots and expected characters for bracket-verified anonymous stream games, and event-and-character rules for the verified two-player Zain–Cody exhibition. Ambiguous identities and deliberately excluded Summit aliases remain anonymous while still contributing to aggregate statistics.
+The rebuilt `nikki-2026-09-08-v11` snapshot is staged locally for publication. It retains v10's 158,530 unique parsed games, 151,021 broad usable games (318,578 player-games), and 24,055 conservative games. Reviewed identity evidence expands the main Pro singles cohort from 702 to 1,883 player-games across 98 players and 1,338 distinct games. The all-format named subset has 1,420 games and 1,998 identified sides, including the unchanged 115 doubles sides. A character, matchup, stage, or measured-metric filter can show fewer appearances. Supplemental aliases apply only to already-conservative singles games; ambiguous identities remain anonymous. Existing Ampp membership retains its regional-ranking basis, while new aliases require historical/current global Top 100 evidence.
 
-The v7 Supabase-ready export is 120,632,473 bytes (115.04 MiB) of derived NDJSON. Because published versions are immutable and database tuples, JSONB, TOAST, and indexes add overhead, operators should budget roughly 140–200 MB of incremental Supabase storage for this version. Raw archives are not part of that figure.
+The new revision pools Pro counters before sparse individual-player cells are suppressed, preserving contributions that the legacy client-side sum could lose. It also publishes exact distinct-player counts and all-character move aggregates. Older published revisions remain readable. Apply the additive Pro-rollup schema upgrade before loading v11; see the [rebuild and release guide](docs/benchmark-baselines-release.md). Until publication, the live archive remains v10.
 
 Raw `.slp` files, source paths, unresolved tags, connect codes, and private user identifiers are not published. The archive contains only derived game/player statistics and rollups, in tables separate from private user-sync data.
+
+Diamond/Master source investigation and remaining ranked-tier work are tracked
+in the [benchmark baseline roadmap](docs/benchmark-baselines-roadmap.md).
 
 ## Tournament Predictions
 
@@ -151,27 +153,34 @@ unavailable, and fewer than 20 resolved examples are marked as small samples.
 The rules are experimental and require review against real replays before firm
 coaching claims. The Metrics Guide contains their full definitions.
 
-**Archive estimates** compare the selected measure with sampled Venue,
-Tournament, and Pro observations. They follow the exact **Me / Vs / Stage**
-filters across all dates in the sample; date, mode, account, and named-opponent
-filters apply only to your column. Missing matchups remain unavailable rather
-than falling back to a broader sample. Rates pool opportunities, not players.
+**Archive estimates** compare the selected measure with Tournament and Pro
+Tournament observations. They follow the exact **Me / Vs / Stage** filters
+across all dates in the sample; date, mode, account, and named-opponent filters
+apply only to your column. Missing matchups remain unavailable rather than
+falling back to a broader sample. Rates pool opportunities, not players.
 
-The reproducible sample covers every eligible bundle in the already-audited
-public archive, independently selecting up to 100 singles games per bundle for
-Venue and Tournament by a deterministic hash. Pro includes every vetted
-named-player side in conservative tournament games across those bundles.
-Cohorts overlap; archive headings show player-games. This capped archive sample
-is affected by event coverage and is not a population estimate, a player- or
-character-balanced benchmark, or a skill ranking. The panel reports the actual
-sample counts and source. SSBM Stats community estimates are not available for
-these new metrics.
+The reproducible sample preserves the original draws of up to 100 singles
+games per eligible audited bundle, selected independently by deterministic hash
+from the Venue and conservative Tournament populations. The displayed Tournament
+cohort is their deduplicated union: 6,327 + 4,640 - 869 shared games = **10,098
+games / 20,196 player-games**. Pro Tournament includes every vetted named-player
+side in conservative games across those bundles, independently of the cap.
+Eligible venue recordings need not have individual bracket-set proof.
 
-The reference covers 11,141 unique games across 66 eligible bundles; its Pro
-subset contains 1,883 player appearances across 1,338 games from 98 mapped players.
-The expanded interaction sample adds reviewed event-specific labels backed by
-global Top 100 ranking records. These additional identities are probable; they
-do not rewrite the separately published archive or its named-player directory.
+The whole reference covers 11,141 unique games across 66 eligible bundles.
+Pro Tournament contains **1,883 player appearances across 1,338 games from 98
+mapped players**. Its supplemental event-specific aliases require public result
+and global Top 100 ranking evidence; these identities remain probable. The main
+archive rebuild now shares that resolver, while the bundled interaction sample
+keeps its frozen membership. Consolidation reused all verified stats-v9 parses.
+
+The two displayed cohorts can overlap; headings show player-games, not unique
+players. Event coverage, repeated players, and per-bundle caps affect the sample.
+It is not a population estimate, a player- or character-balanced benchmark, or
+a skill ranking. SSBMStats Community estimates are unavailable for these metrics.
+The schema-2, encoding-v3 artifact preserves missing measurements separately
+from zero and rejects the older cohort meanings.
+
 See the [sample methodology](docs/interaction-benchmark-sample.md),
 [184-game defensive audit](docs/defensive-interaction-audit.md), and
 [32-game recovery/opening-context audit](docs/recovery-interaction-audit.md).
@@ -185,10 +194,10 @@ heading, matching Move Atlas. Win-rate sample totals count decided results in
 the displayed rows; community counts are approximate, and suppressed samples
 remain unavailable.
 
-Execution's Venue, Tournament, and Pro references follow both **Me** and **Vs**.
+Execution's Tournament and Pro Tournament references follow both **Me** and **Vs**.
 For example, Marth vs Jigglypuff compares your moves, openings, actions, and execution
 against that exact matchup across all stages and dates. Missing matchup metrics
-stay unavailable; SSBM Stats remains an explicitly labeled all-opponent reference.
+stay unavailable; SSBMStats Community remains an explicitly labeled all-opponent reference.
 Archive builds retain per-move metrics on matchup rows as well as character rows.
 Existing archives need a new versioned build and publication before matchup moves
 appear; they cannot be recovered from the older rollups alone.

@@ -66,6 +66,9 @@ jobs:
       - name: Verify interaction detection and experimental references
         run: npm run verify:interactions
 
+      - name: Verify baseline cohorts and pooled Pro schema
+        run: npm run verify:benchmarks
+
       - name: Local forecast pipeline tests (fixtures only; no credentials)
         run: npm run test:forecast
 

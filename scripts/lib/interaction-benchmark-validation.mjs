@@ -10,7 +10,7 @@ const fields = {
   beforeOpening: ["openings", "damage", "kills", "incomplete"],
 };
 export const INTERACTION_FAMILIES = Object.keys(fields);
-const cohorts = ["venue", "tournament", "pro"];
+const cohorts = ["tournament", "pro"];
 const object = value => value !== null && typeof value === "object" && !Array.isArray(value);
 const integer = value => Number.isSafeInteger(value) && value >= 0;
 const sha = value => typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
@@ -35,7 +35,7 @@ export function assertNoInteractionIdentityValues(data, identities) {
 /** Strict publication allowlists reject private fields anywhere in the shipped hierarchy. */
 export function validateShippedInteractionSample(data, { statsVersion, optionKeys, requireNonempty = true }) {
   keys(data, ["schemaVersion", "statsVersion", "generatedAt", "sourceDataset", "sourceUrl", "method", "sample", "provenance", "rows"], "artifact");
-  assert.equal(data.schemaVersion, 1);
+  assert.equal(data.schemaVersion, 2);
   assert.equal(data.statsVersion, statsVersion);
   assert.ok(Number.isFinite(Date.parse(data.generatedAt)), "valid generation timestamp");
   assert.match(data.sourceDataset, /^[a-zA-Z0-9_.-]+$/, "source version cannot contain a local path or private identifier");
@@ -62,13 +62,18 @@ export function validateShippedInteractionSample(data, { statsVersion, optionKey
   }
   const counted = new Set();
   for (const item of data.provenance.counts) {
-    keys(item, ["bundle", "availableVenueGames", "availableTournamentGames", "sampledVenueGames", "sampledTournamentGames"], "bundle counts");
+    keys(item, ["bundle", "availableVenueGames", "availableTournamentGames", "sampledVenueGames", "sampledTournamentGames", "sampledOverlapGames", "sampledUnionGames"], "bundle counts");
     assert.ok(archives.has(item.bundle) && !counted.has(item.bundle)); counted.add(item.bundle);
     for (const [key, value] of Object.entries(item)) if (key !== "bundle") assert.ok(integer(value));
     assert.ok(item.availableTournamentGames <= item.availableVenueGames);
     assert.equal(item.sampledVenueGames, Math.min(data.provenance.perBundle, item.availableVenueGames));
     assert.equal(item.sampledTournamentGames, Math.min(data.provenance.perBundle, item.availableTournamentGames));
+    assert.ok(item.sampledOverlapGames <= Math.min(item.sampledVenueGames, item.sampledTournamentGames));
+    assert.equal(item.sampledUnionGames, item.sampledVenueGames + item.sampledTournamentGames - item.sampledOverlapGames);
+    assert.ok(item.sampledUnionGames <= item.availableVenueGames);
   }
+  assert.equal(data.provenance.cohortPlayerGames.tournament,
+    data.provenance.counts.reduce((sum, item) => sum + item.sampledUnionGames * 2, 0), "Tournament counts both sides of each sampled union game once");
   assert.ok(Array.isArray(data.rows));
   if (requireNonempty) assert.ok(data.rows.length > 0 && data.sample.games > 0, "shipped benchmark must contain analyzed observations");
   const exact = new Set(), totals = Object.fromEntries(cohorts.map(cohort => [cohort, 0]));
@@ -110,7 +115,7 @@ export function validateShippedInteractionSample(data, { statsVersion, optionKey
     }
   }
   assert.deepEqual(totals, data.provenance.cohortPlayerGames, "published cohort totals must reconcile with exact cells");
-  assert.ok(totals.venue <= data.sample.games * 2 && totals.tournament <= data.sample.games * 2 && totals.pro <= data.sample.games * 2);
+  assert.ok(totals.tournament <= data.sample.games * 2 && totals.pro <= data.sample.games * 2);
   if (requireNonempty) for (const cohort of cohorts) assert.ok(totals[cohort] > 0, `${cohort} sample is empty`);
   return totals;
 }

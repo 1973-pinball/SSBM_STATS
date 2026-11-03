@@ -1,3 +1,4 @@
+import { BENCHMARK_LABELS } from "../lib/benchmarkCohorts";
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import type {
   CommunityBenchmarkRow,
@@ -95,7 +96,7 @@ function ssbmStatsExecution(
   const contributors = Math.max(benchmark?.contributors ?? 0, execution?.contributors ?? 0, character?.contributors ?? 0);
   return {
     key: "ssbm-stats",
-    label: "SSBM Stats",
+    label: BENCHMARK_LABELS.community,
     sample,
     sampleLabel: "player-games",
     winRate: character?.winRate ?? null,
@@ -168,15 +169,12 @@ function groupArchiveMoves(row: ArchiveRollup | null): Map<string, GroupedArchiv
 function archiveExecution(
   row: ArchiveRollup,
   label: string,
-  usePlayerBalance: boolean,
   sampleLabel = "player-games",
 ): ExecutionRow {
   const metrics = row.metrics;
   const groundSuccess = metrics.techInPlace + metrics.techToward + metrics.techAway;
-  const playerBalanced = usePlayerBalance ? metrics.playerBalanced : null;
-  const lCancel = playerBalanced?.lCancel.equalWeightMean ?? ratio(metrics.lCancelSuccess, metrics.lCancelSuccess + metrics.lCancelFail);
+  const lCancel = ratio(metrics.lCancelSuccess, metrics.lCancelSuccess + metrics.lCancelFail);
   const groundTech = ratio(groundSuccess, groundSuccess + metrics.techMissed);
-  const balancedSamples = playerBalanced?.lCancel.qualifiedPlayers ?? 0;
   return {
     key: `${row.population}:${label}`,
     label,
@@ -189,7 +187,6 @@ function archiveExecution(
     opk: ratio(metrics.openingsPerKillSum, metrics.openingsPerKillSamples),
     dpo: ratio(metrics.damagePerOpeningSum, metrics.damagePerOpeningSamples),
     ipm: ratio(metrics.inputsPerMinuteSum, metrics.inputsPerMinuteSamples),
-    balanceNote: balancedSamples > 0 ? `L-cancel equally weights ${balancedSamples.toLocaleString()} qualified players` : undefined,
   };
 }
 
@@ -281,11 +278,11 @@ export function ArchiveCommunityBenchmark({
         <div><div className="eyebrow">Full-field comparison</div><h2>Compare your character across every benchmark</h2></div>
         <div className="community-controls">{controls}</div>
       </div>
-      <div className="empty-note">Choose a character above to compare against venue, tournament, and published pro samples.</div>
+      <div className="empty-note">Choose a character above to compare against Tournament and published Pro Tournament samples.</div>
     </section>
   );
 
-  if (loading && !benchmarks.broad && !benchmarks.conservative) return <section className="panel acb-panel"><div className="empty-note">Loading tournament archive benchmarks…</div></section>;
+  if (loading && !benchmarks.broad) return <section className="panel acb-panel"><div className="empty-note">Loading tournament archive benchmarks…</div></section>;
 
   const ownWins = games.reduce((count, game) => count + (game.isWin === true ? 1 : 0), 0);
   const ownDecided = games.reduce((count, game) => count + (game.isWin !== null ? 1 : 0), 0);
@@ -303,14 +300,12 @@ export function ArchiveCommunityBenchmark({
     ipm: ownExecution.ipm,
   };
   const ssbmStatsExecutionRow = ssbmStatsExecution(communityBenchmark, communityExecution, communityCharacter);
-  const venueExecutionRow = benchmarks.broad ? archiveExecution(benchmarks.broad, "Venue archive", false) : null;
-  const tournamentExecutionRow = benchmarks.conservative ? archiveExecution(benchmarks.conservative, "Tournament archive", true) : null;
-  const proAggregateExecutionRow = proAggregateBenchmark ? archiveExecution(proAggregateBenchmark, "Pro tournament archive", false) : null;
+  const tournamentExecutionRow = benchmarks.broad ? archiveExecution(benchmarks.broad, BENCHMARK_LABELS.tournament) : null;
+  const proAggregateExecutionRow = proAggregateBenchmark ? archiveExecution(proAggregateBenchmark, BENCHMARK_LABELS.pro) : null;
   const selectedProExecutionRow = proBenchmark && selectedPro
-    ? archiveExecution(proBenchmark, selectedPro.display_name, false, "games")
+    ? archiveExecution(proBenchmark, selectedPro.display_name, "games")
     : null;
   const executionRows: ExecutionRow[] = [ownExecutionRow, ssbmStatsExecutionRow];
-  if (venueExecutionRow) executionRows.push(venueExecutionRow);
   if (tournamentExecutionRow) executionRows.push(tournamentExecutionRow);
   if (proAggregateExecutionRow) executionRows.push(proAggregateExecutionRow);
   if (selectedProExecutionRow) executionRows.push(selectedProExecutionRow);
@@ -326,7 +321,7 @@ export function ArchiveCommunityBenchmark({
     },
     {
       key: "ssbm-stats",
-      label: "SSBM Stats",
+      label: BENCHMARK_LABELS.community,
       sampleNote: ssbmStatsExecutionRow.sample === null
         ? "sample not yet publishable"
         : `${ssbmStatsExecutionRow.sample.toLocaleString()} player-games`,
@@ -335,22 +330,15 @@ export function ArchiveCommunityBenchmark({
       actionRate: () => null,
     },
     {
-      key: "venue",
-      label: "Venue archive",
+      key: "tournament",
+      label: BENCHMARK_LABELS.tournament,
       sampleNote: `${benchmarks.broad?.game_count.toLocaleString() ?? "—"} player-games`,
-      execution: venueExecutionRow,
+      execution: tournamentExecutionRow,
       actionRate: (key) => archiveActionRate(benchmarks.broad, key),
     },
     {
-      key: "tournament",
-      label: "Tournament archive",
-      sampleNote: `${benchmarks.conservative?.game_count.toLocaleString() ?? "—"} player-games`,
-      execution: tournamentExecutionRow,
-      actionRate: (key) => archiveActionRate(benchmarks.conservative, key),
-    },
-    {
       key: "pro-aggregate",
-      label: "Pro tournament archive",
+      label: BENCHMARK_LABELS.pro,
       sampleNote: `${proAggregateBenchmark?.game_count.toLocaleString() ?? "—"} player-games · ${countNoun(proAggregateBenchmark?.identified_player_count, "pro")}`,
       execution: proAggregateExecutionRow,
       actionRate: (key) => archiveActionRate(proAggregateBenchmark, key),
@@ -366,12 +354,11 @@ export function ArchiveCommunityBenchmark({
 
   const moveSources = {
     broad: groupArchiveMoves(benchmarks.broad),
-    conservative: groupArchiveMoves(benchmarks.conservative),
     proAggregate: groupArchiveMoves(proAggregateBenchmark),
     pro: groupArchiveMoves(proBenchmark),
   };
-  const comparisonRow = benchmarks.conservative ?? benchmarks.broad;
-  const comparisonMoves = benchmarks.conservative ? moveSources.conservative : moveSources.broad;
+  const comparisonRow = benchmarks.broad;
+  const comparisonMoves = moveSources.broad;
   const communityMoveByKey = new Map(communityMoves.map((move) => [move.moveKey, move]));
   const communityDamage = communityMoves.reduce((sum, move) => sum + move.damage, 0);
   const communityGames = communityMoves.length
@@ -382,7 +369,6 @@ export function ArchiveCommunityBenchmark({
     ...ownMoveByKey.keys(),
     ...communityMoveByKey.keys(),
     ...moveSources.broad.keys(),
-    ...moveSources.conservative.keys(),
     ...moveSources.proAggregate.keys(),
     ...moveSources.pro.keys(),
   ])].sort((a, b) => {
@@ -390,7 +376,6 @@ export function ArchiveCommunityBenchmark({
       ownMoveByKey.get(key)?.dmgShare ?? 0,
       ratio(communityMoveByKey.get(key)?.damage ?? 0, communityDamage) ?? 0,
       ratio(moveSources.broad.get(key)?.damage ?? 0, benchmarks.broad?.metrics.damageTotal ?? 0) ?? 0,
-      ratio(moveSources.conservative.get(key)?.damage ?? 0, benchmarks.conservative?.metrics.damageTotal ?? 0) ?? 0,
       ratio(moveSources.proAggregate.get(key)?.damage ?? 0, proAggregateBenchmark?.metrics.damageTotal ?? 0) ?? 0,
       ratio(moveSources.pro.get(key)?.damage ?? 0, proBenchmark?.metrics.damageTotal ?? 0) ?? 0,
     );
@@ -430,7 +415,7 @@ export function ArchiveCommunityBenchmark({
             <h3>Move profile</h3>
             <label>Measure<select value={moveMetric} onChange={(event) => setMoveMetric(event.target.value as MoveMetric)}><option value="attempts">Attempts / game</option><option value="landed">Landed / game</option><option value="damage">Damage share</option><option value="kills">Kills / game</option><option value="killPct">Average kill %</option></select></label>
           </div>
-          {moveKeys.length ? <div className="table-scroll"><table><thead><tr><th>Move</th><th className="data">You</th><th className="data">SSBM Stats<span className="sample-note">{communityGames === null ? "sample not yet publishable" : `${communityGames.toLocaleString()} player-games`}</span></th><th className="data">Venue archive<span className="sample-note">{benchmarks.broad?.game_count.toLocaleString() ?? "—"} player-games</span></th><th className="data">Tournament archive<span className="sample-note">{benchmarks.conservative?.game_count.toLocaleString() ?? "—"} player-games</span></th><th className="data">Pro tournament archive<span className="sample-note">{proAggregateBenchmark?.game_count.toLocaleString() ?? "—"} player-games · {countNoun(proAggregateBenchmark?.identified_player_count, "pro")}</span></th>{selectedPro && <th className="data">{selectedPro.display_name}<span className="sample-note">{proBenchmark?.game_count.toLocaleString() ?? "—"} games</span></th>}</tr></thead><tbody>{moveKeys.map((key) => {
+          {moveKeys.length ? <div className="table-scroll"><table><thead><tr><th>Move</th><th className="data">You</th><th className="data">{BENCHMARK_LABELS.community}<span className="sample-note">{communityGames === null ? "sample not yet publishable" : `${communityGames.toLocaleString()} player-games`}</span></th><th className="data">{BENCHMARK_LABELS.tournament}<span className="sample-note">{benchmarks.broad?.game_count.toLocaleString() ?? "—"} player-games</span></th><th className="data">{BENCHMARK_LABELS.pro}<span className="sample-note">{proAggregateBenchmark?.game_count.toLocaleString() ?? "—"} player-games · {countNoun(proAggregateBenchmark?.identified_player_count, "pro")}</span></th>{selectedPro && <th className="data">{selectedPro.display_name}<span className="sample-note">{proBenchmark?.game_count.toLocaleString() ?? "—"} games</span></th>}</tr></thead><tbody>{moveKeys.map((key) => {
             const ownMove = ownMoveByKey.get(key);
             const mine = localMoveMetric(ownMove, moveMetric, ownMoves.covered);
             const field = archiveMoveMetric(comparisonMoves.get(key), moveMetric, comparisonRow);
@@ -438,8 +423,8 @@ export function ArchiveCommunityBenchmark({
             const fieldSample = moveMetric === "attempts" ? archiveMoveComparisonGames(comparisonRow, key, "attemptsPerGame") : comparisonRow?.game_count ?? 0;
             const difference = moveDifference(mine, field, moveMetric, localSample, fieldSample);
             const localValue = formatLocalMove(ownMove, moveMetric, ownMoves.covered);
-            const comparisonLabel = benchmarks.conservative ? "tournament" : "venue";
-            return <tr key={key}><td>{ownMove?.label ?? moveGroupLabel(key)}</td><td className={`data ${difference ? `community-diff-${difference.direction}` : ""}`} style={differenceStyle(difference)} title={difference ? `${difference.direction === "above" ? "Higher than" : "Lower than"} the ${comparisonLabel} archive benchmark; highlight intensity reflects the size of the difference` : undefined} aria-label={difference ? `${localValue}, ${difference.direction === "above" ? "higher" : "lower"} than the ${comparisonLabel} archive benchmark` : undefined}>{localValue}{difference && <span className="community-diff-cue" aria-hidden="true">{difference.direction === "above" ? "▲" : "▼"}</span>}</td><td className="data">{formatCommunityMove(communityMoveByKey.get(key), moveMetric, communityDamage)}</td><td className="data">{formatArchiveMove(moveSources.broad.get(key), moveMetric, benchmarks.broad)}</td><td className="data">{formatArchiveMove(moveSources.conservative.get(key), moveMetric, benchmarks.conservative)}</td><td className="data">{formatArchiveMove(moveSources.proAggregate.get(key), moveMetric, proAggregateBenchmark)}</td>{selectedPro && <td className="data">{formatArchiveMove(moveSources.pro.get(key), moveMetric, proBenchmark)}</td>}</tr>;
+            const comparisonLabel = "Tournament";
+            return <tr key={key}><td>{ownMove?.label ?? moveGroupLabel(key)}</td><td className={`data ${difference ? `community-diff-${difference.direction}` : ""}`} style={differenceStyle(difference)} title={difference ? `${difference.direction === "above" ? "Higher than" : "Lower than"} the ${comparisonLabel} archive benchmark; highlight intensity reflects the size of the difference` : undefined} aria-label={difference ? `${localValue}, ${difference.direction === "above" ? "higher" : "lower"} than the ${comparisonLabel} archive benchmark` : undefined}>{localValue}{difference && <span className="community-diff-cue" aria-hidden="true">{difference.direction === "above" ? "▲" : "▼"}</span>}</td><td className="data">{formatCommunityMove(communityMoveByKey.get(key), moveMetric, communityDamage)}</td><td className="data">{formatArchiveMove(moveSources.broad.get(key), moveMetric, benchmarks.broad)}</td><td className="data">{formatArchiveMove(moveSources.proAggregate.get(key), moveMetric, proAggregateBenchmark)}</td>{selectedPro && <td className="data">{formatArchiveMove(moveSources.pro.get(key), moveMetric, proBenchmark)}</td>}</tr>;
           })}</tbody></table></div> : <div className="empty-note">No move data is published for this character yet.</div>}
 
           <h3 className="table-subhead acb-execution-comparison-heading">Full execution comparison</h3>
@@ -460,17 +445,16 @@ export function ArchiveCommunityBenchmark({
             </table>
           </div>
           <div className="hint acb-execution-comparison-note">
-            Action rates use total measured actions divided by total measured game minutes. SSBM Stats does not publish
+            Action rates use total measured actions divided by total measured game minutes. SSBMStats Community does not publish
             that duration denominator, so its action-rate cells show dashes rather than estimates.
           </div>
         </>
       )}
 
       <div className="acb-separation-note">
-        These archive columns are separate event-derived averages—not additional members of the opt-in SSBM Stats cohort,
-        and not merged into its player-balanced quartiles. “Venue archive” includes usable event-associated games;
-        “Tournament archive” uses conservatively curated tournament games. Named rows appear only for published,
-        externally resolved publicly ranked identities.
+        Tournament pools eligible event-venue games, including conservatively curated tournament games, with each player-game counted once.
+        Pro Tournament uses published, evidence-backed ranked-player sides in conservative tournament games.
+        Archive rates pool measured opportunities and remain separate from the Community headline medians.
       </div>
       {dataset && <div className="hint">
         Sources: <a href={dataset.source_url} target="_blank" rel="noreferrer">{dataset.source_label}</a> · derived snapshot {shortDate(dataset.data_as_of)};

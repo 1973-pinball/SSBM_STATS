@@ -121,10 +121,10 @@ export function Community({ games, isDemo, onOpenAccount }: Props) {
   return (
     <>
       <div className="panel community-warmup community-preview-progress">
-          <div className="eyebrow">Community Lab · SSBM Stats growth</div>
+          <div className="eyebrow">Community Lab · SSBMStats Community growth</div>
           <h2>See the community sample grow</h2>
           <p>
-            Each SSBM Stats breakdown needs at least {displaySnapshot.minPlayers} unique players and {displaySnapshot.minGames} distinct games,
+            Each SSBMStats Community breakdown needs at least {displaySnapshot.minPlayers} unique players and {displaySnapshot.minGames} distinct games,
             including opponents. Players are identified by connect code; contributor counts are informational.
             Opt-in contributions and the historical tournament archive remain separate comparison samples.
             {" "}Each unique contributed singles game supplies two player samples, one for each character.
@@ -138,7 +138,7 @@ export function Community({ games, isDemo, onOpenAccount }: Props) {
           </div>
           <div className="community-progress-footer">
             <div className="community-progress-label">
-              <b>{hasSnapshot ? displaySnapshot.contributorCount.toLocaleString() : "—"}</b> / {nextMilestone.toLocaleString()} SSBM Stats users toward the next milestone ·{" "}
+              <b>{hasSnapshot ? displaySnapshot.contributorCount.toLocaleString() : "—"}</b> / {nextMilestone.toLocaleString()} SSBMStats Community users toward the next milestone ·{" "}
               <b>{hasSnapshot ? displaySnapshot.playerGameCount.toLocaleString() : "—"}</b> opt-in player-games ·{" "}
               <b>{archiveGames === null ? "—" : archiveGames.toLocaleString()}</b> historical games
               {archivePlayerGames === null ? null : <> ({archivePlayerGames.toLocaleString()} player-games)</>}
@@ -148,8 +148,8 @@ export function Community({ games, isDemo, onOpenAccount }: Props) {
           {error && <div className="error-note" role="alert">{error}</div>}
       </div>
 
-      {overallBenchmark && <section className="panel" aria-label="SSBM Stats overall benchmarks">
-        <h2>SSBM Stats · all characters</h2>
+      {overallBenchmark && <section className="panel" aria-label="SSBMStats Community overall benchmarks">
+        <h2>SSBMStats Community · all characters</h2>
         <p className="hint">
           Published medians across {overallBenchmark.contributors.toLocaleString()} contributors · all opponents and all history ·
           approximately {overallBenchmark.games.toLocaleString()} player samples · updated {shortDate(displaySnapshot.refreshedAt)}.
