@@ -7,6 +7,14 @@ Everything is parsed and cached in your browser; raw replay files never leave yo
 No replays? Try the demo or browse the public Community, Tournament Predictions,
 and Liquipedia views.
 
+## Version 0.5.1 — Clearer execution charts
+
+Execution charts default to your trend plus Tournament. Use **Chart references**
+to choose which benchmark lines appear across all three charts, or hide them
+all. Detailed explanations are expandable; table highlighting is a separate
+choice. This presentation update does not require another replay refresh.
+See the [v0.5.1 notes](docs/releases/v0.5.1.md).
+
 ## Version 0.5.0 — Diamond and Master baselines
 
 This version includes the full ranked export, verified against the source and
