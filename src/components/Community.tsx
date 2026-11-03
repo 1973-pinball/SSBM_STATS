@@ -54,8 +54,9 @@ interface Props {
   onOpenAccount: () => void;
 }
 
+const PLAYABLE_CHARACTERS = Array.from({ length: 26 }, (_, id) => id);
 const selectCharacters = (snapshot: CommunitySnapshot): number[] =>
-  snapshot.characters.map((c) => c.characterId).sort((a, b) => charName(a).localeCompare(charName(b)));
+  [...new Set([...PLAYABLE_CHARACTERS, ...snapshot.characters.map((c) => c.characterId)])].sort((a, b) => charName(a).localeCompare(charName(b)));
 
 export function Community({ games, isDemo, onOpenAccount }: Props) {
   const [view, setView] = useState<CommunityView>("atlas");
@@ -126,7 +127,7 @@ export function Community({ games, isDemo, onOpenAccount }: Props) {
           <p>
             Each SSBMStats Community breakdown needs at least {displaySnapshot.minPlayers} unique players and {displaySnapshot.minGames} distinct games,
             including opponents. Players are identified by connect code; contributor counts are informational.
-            Opt-in contributions and the historical tournament archive remain separate comparison samples.
+            Opt-in contributions, historical Diamond Slippi and Master Slippi recordings, Tournament, and Pro Tournament remain separate comparison samples. Ranked source labels do not establish current rank or season.
             {" "}Each unique contributed singles game supplies two player samples, one for each character.
             Duplicate uploads count once; opponents do not increase the contributor count.
           </p>
@@ -238,13 +239,14 @@ const defaultCharacter = (games: ResolvedGame[], available: number[]): number =>
 function MatchupAtlas({ snapshot, games, ...lookback }: { snapshot: CommunitySnapshot; games: ResolvedGame[] } & LookbackProps) {
   const communityRows = snapshot.matchups.filter(allHistory);
   const chars = [...new Set([
+    ...PLAYABLE_CHARACTERS,
     ...communityRows.map((row) => row.characterId),
     ...games.map((game) => game.me.characterId),
   ])]
     .sort((a, b) => charName(a).localeCompare(charName(b)));
   const preferredCharacterId = defaultCharacter(games, chars);
-  const [characterId, setCharacterId] = useState(preferredCharacterId);
-  const selectedCharacterId = chars.includes(characterId) ? characterId : preferredCharacterId;
+  const [characterId, setCharacterId] = useState<number | null>(null);
+  const selectedCharacterId = characterId !== null && chars.includes(characterId) ? characterId : preferredCharacterId;
   const [stageId, setStageId] = useState(0);
   const [gameType, setGameType] = useState("all");
   const rows = communityRows
@@ -275,8 +277,8 @@ function CommunityBenchmarks({ snapshot, games, ...lookback }: { snapshot: Commu
     return [...ids].sort((a, b) => charName(a).localeCompare(charName(b)));
   }, [games, snapshot]);
   const preferredCharacterId = defaultCharacter(games, chars);
-  const [characterId, setCharacterId] = useState(preferredCharacterId);
-  const selectedCharacterId = chars.includes(characterId) ? characterId : preferredCharacterId;
+  const [characterId, setCharacterId] = useState<number | null>(null);
+  const selectedCharacterId = characterId !== null && chars.includes(characterId) ? characterId : preferredCharacterId;
   const row = snapshot.benchmarks.find((item) => item.characterId === selectedCharacterId);
   const communityExecution = snapshot.execution.find((item) => item.lookbackDays === null && item.characterId === selectedCharacterId);
   const communityCharacter = snapshot.characters.find((item) => item.characterId === selectedCharacterId);
@@ -307,13 +309,14 @@ function MoveAtlas({ snapshot, games, ...lookback }: { snapshot: CommunitySnapsh
   const communityMoves = snapshot.moves.filter(allHistory);
   const communityExecution = snapshot.execution.filter(allHistory);
   const chars = [...new Set([
+    ...PLAYABLE_CHARACTERS,
     ...communityMoves.map((m) => m.characterId),
     ...communityExecution.filter((r) => r.characterId !== -1).map((r) => r.characterId),
     ...games.map((game) => game.me.characterId),
   ])].sort((a, b) => charName(a).localeCompare(charName(b)));
   const preferredCharacterId = defaultCharacter(games, chars);
-  const [characterId, setCharacterId] = useState(preferredCharacterId);
-  const selectedCharacterId = chars.includes(characterId) ? characterId : preferredCharacterId;
+  const [characterId, setCharacterId] = useState<number | null>(null);
+  const selectedCharacterId = characterId !== null && chars.includes(characterId) ? characterId : preferredCharacterId;
   const rows = communityMoves.filter((m) => m.characterId === selectedCharacterId).sort((a, b) => b.damage - a.damage);
   const execution = communityExecution.find((row) => row.characterId === selectedCharacterId);
   const benchmark = snapshot.benchmarks.find((row) => row.characterId === selectedCharacterId);
@@ -337,17 +340,19 @@ function StageLab({ snapshot, games, ...lookback }: { snapshot: CommunitySnapsho
   const overall = snapshot.matchups.filter((r) => allHistory(r) && r.stageId === 0 && r.gameType === "all").sort((a, b) => b.games - a.games);
   const characterStages = snapshot.characterStages.filter((r) => allHistory(r) && r.gameType === "all");
   const chars = [...new Set([
+    ...PLAYABLE_CHARACTERS,
     ...overall.map((row) => row.characterId),
     ...characterStages.map((row) => row.characterId),
     ...games.map((game) => game.me.characterId),
   ])]
     .sort((a, b) => charName(a).localeCompare(charName(b)));
   const preferredCharacterId = defaultCharacter(games, chars);
-  const [characterId, setCharacterId] = useState(preferredCharacterId);
-  const selectedCharacterId = chars.includes(characterId) ? characterId : preferredCharacterId;
+  const [characterId, setCharacterId] = useState<number | null>(null);
+  const selectedCharacterId = characterId !== null && chars.includes(characterId) ? characterId : preferredCharacterId;
   const localGames = recentGames(games.filter((game) => game.me.characterId === selectedCharacterId), lookback.lookbackGames);
   const communityOpponents = overall.filter((r) => r.characterId === selectedCharacterId);
   const opponentIds = [...new Set([
+    ...PLAYABLE_CHARACTERS,
     ...communityOpponents.map((row) => row.opponentCharacterId),
     ...localGames.filter((game) => game.me.characterId === selectedCharacterId).map((game) => game.opp.characterId),
   ])].sort((a, b) => charName(a).localeCompare(charName(b)));
@@ -368,15 +373,9 @@ function StageLab({ snapshot, games, ...lookback }: { snapshot: CommunitySnapsho
     lookbackGames={lookback.lookbackGames}
     communityRows={rows}
     communityCharacterStages={characterStages.filter((r) => r.characterId === selectedCharacterId)}
-    onCharacterChange={(id) => {
-      setCharacterId(id);
-      if (selectedOpponentId === null) return;
-      const nextCommunity = overall.find((row) => row.characterId === id)?.opponentCharacterId;
-      const nextLocal = localGames.find((game) => game.me.characterId === id)?.opp.characterId;
-      setOpponentId(nextCommunity ?? nextLocal ?? null);
-    }}
+    onCharacterChange={setCharacterId}
     controls={<>
-      <label>Character<select value={selectedCharacterId} onChange={(event) => { const id = Number(event.target.value); setCharacterId(id); if (selectedOpponentId === null) return; const nextCommunity = overall.find((row) => row.characterId === id)?.opponentCharacterId; const nextLocal = localGames.find((game) => game.me.characterId === id)?.opp.characterId; setOpponentId(nextCommunity ?? nextLocal ?? null); }}>{chars.map((id) => <option key={id} value={id}>{charName(id)}</option>)}</select></label>
+      <label>Character<select value={selectedCharacterId} onChange={(event) => setCharacterId(Number(event.target.value))}>{chars.map((id) => <option key={id} value={id}>{charName(id)}</option>)}</select></label>
       <label>Opponent<select value={selectedOpponentId ?? "all"} onChange={(event) => setOpponentId(event.target.value === "all" ? null : Number(event.target.value))}><option value="all">All opponents</option>{opponentIds.map((id) => <option key={id} value={id}>{charName(id)}</option>)}</select></label>
       <GamesLookbackInput {...lookback} />
     </>}

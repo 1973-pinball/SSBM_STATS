@@ -1,6 +1,6 @@
 import { Component, Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Account, Filters, GameRecord, ParseProgress } from "./lib/types";
-import { DEFAULT_FILTERS, failedReplayIds, hasFullStats, hasKnownCpu, needsStatsRepair, needsInteractionAnalysis } from "./lib/types";
+import { DEFAULT_FILTERS, failedReplayIds, hasFullStats, hasKnownCpu, needsStatsRepair, needsParserRepair, needsInteractionAnalysis } from "./lib/types";
 import {
   discoverFromHandle,
   discoverFromFolders,
@@ -907,7 +907,7 @@ export default function App() {
 
   const onRefresh = useCallback(() => {
     autoInteractionAttempts.current.clear();
-    const repairIds = records.filter(needsStatsRepair).map((rec) => rec.id);
+    const repairIds = records.filter(rec => needsStatsRepair(rec) || needsParserRepair(rec)).map((rec) => rec.id);
     void syncFolders(folders, repairIds, { requestAccess: true, retryFailed: true });
   }, [folders, records, syncFolders]);
 
@@ -984,7 +984,7 @@ export default function App() {
         autoSyncDone.current = true;
         pickerBusy.current = false;
         setPickingFolder(false);
-        const repairIds = records.filter(needsStatsRepair).map((rec) => rec.id);
+        const repairIds = records.filter(rec => needsStatsRepair(rec) || needsParserRepair(rec)).map((rec) => rec.id);
         await syncFolders(added.folders, repairIds, { retryFailed: true });
         if (!saved && generation.current === gen) {
           setPipelineError("These folders work for this visit, but couldn't be remembered. Add them again next time.");
@@ -1107,7 +1107,7 @@ export default function App() {
   const filteredTeams = useMemo(() => applyTeamFilters(resolvedTeams, filters), [resolvedTeams, filters]);
   const onAnalyzeInteractions = useCallback(() => {
     if (scanBusy.current || pickerBusy.current || isDemo) return;
-    const targets = filtered.slice(-ROLLING_WINDOW).map(g => g.rec).filter(needsInteractionAnalysis);
+    const targets = filtered.slice(-ROLLING_WINDOW).map(g => g.rec).filter(rec => needsInteractionAnalysis(rec) || needsParserRepair(rec));
     if (!targets.length) return;
     if (folders.length === 0) {
       analysisFilesPickRef.current?.click();
@@ -1129,7 +1129,7 @@ export default function App() {
   // running" flag to keep in step. An incremental refresh never sets it: below
   // HEADER_PASS_MIN the pipeline skips the preview pass entirely.
   const hasPreviews = useMemo(() => shouldResolveDashboard && deduped.some((r) => !hasFullStats(r)), [deduped, shouldResolveDashboard]);
-  const needsStatsRefresh = useMemo(() => shouldResolveDashboard && deduped.some(needsStatsRepair), [deduped, shouldResolveDashboard]);
+  const needsStatsRefresh = useMemo(() => shouldResolveDashboard && deduped.some(rec => needsStatsRepair(rec) || needsParserRepair(rec)), [deduped, shouldResolveDashboard]);
   const isTabPending = (id: Tab) => hasPreviews && NEEDS_FULL_STATS.has(id);
 
   // Never strand the user in a teams view they have no games for.
@@ -1217,7 +1217,7 @@ export default function App() {
                   !online
                     ? "Offline — local stats still work"
                     : needsStatsRefresh
-                      ? "Some cached or cloud records predate tech stats. Refresh the replay folder to update them in place."
+                      ? "Some saved records need updated replay analysis. Refresh available replay files to update them in place; saved stats remain available until replaced."
                     : needsFolder
                       ? "These stats came from the cache or the cloud. Connect your replay folder to pick up games played from now on."
                     : folderIssues.length > 0

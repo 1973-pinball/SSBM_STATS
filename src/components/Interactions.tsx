@@ -1,6 +1,8 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import type { ResolvedGame } from "../lib/types";
 import { BENCHMARK_LABELS as COHORT_LABELS } from "../lib/benchmarkCohorts";
+import { RANKED_TIERS, useRankedBenchmarks } from "../lib/rankedBenchmarks";
+import { RankedBenchmarkSource } from "./RankedBenchmarkSource";
 import {
   DEFENSIVE_OUTCOME_WINDOW_FRAMES, LEDGE_SEQUENCE_WINDOW_FRAMES, DEFENSIVE_SEQUENCE_WINDOW_FRAMES, LEDGE_OPTION_LABELS, OOS_OPTION_LABELS,
   type ChoiceOutcomes,
@@ -188,7 +190,7 @@ function InteractionBenchmarkComparison({ local, family, scope, data, isDemo = f
   local: InteractionSummary;
   family: InteractionFamily;
   scope: InteractionBenchmarkScope;
-  data: InteractionBenchmarkData;
+  data: InteractionBenchmarkData | null;
   isDemo?: boolean;
 }) {
   const [measures, setMeasures] = useState<Partial<Record<InteractionFamily, InteractionMeasure>>>({});
@@ -196,12 +198,15 @@ function InteractionBenchmarkComparison({ local, family, scope, data, isDemo = f
   const measure = measures[family] ?? options[0]!.key;
   const selected = options.find((option) => option.key === measure)!;
   const { characterId, opponentCharacterId, stageId } = scope;
-  const benchmarks = useMemo(() => selectInteractionBenchmarks(data, { characterId, opponentCharacterId, stageId }), [data, characterId, opponentCharacterId, stageId]);
+  const archiveBenchmarks = useMemo(() => data ? selectInteractionBenchmarks(data, { characterId, opponentCharacterId, stageId }) : { tournament: null, pro: null }, [data, characterId, opponentCharacterId, stageId]);
+  const ranked = useRankedBenchmarks(scope);
+  const benchmarks = { diamond: ranked.diamond?.interactions ?? null, master: ranked.master?.interactions ?? null, community: null, ...archiveBenchmarks };
+  const cohorts = [...RANKED_TIERS, "community", ...INTERACTION_COHORTS] as const;
   const keys = interactionComparisonKeys(local, benchmarks, family);
   const scopeLabel = `${scope.characterId === null ? "All characters" : charName(scope.characterId)} vs ${scope.opponentCharacterId === null ? "all opponents" : charName(scope.opponentCharacterId)} · ${scope.stageId === null ? "all stages" : stageName(scope.stageId)}`;
   return <div className="interaction-benchmarks">
     <div className="interaction-benchmark-heading">
-      <h3>Archive estimates <span className="badge">Sampled · experimental</span></h3>
+      <h3>Benchmark estimates <span className="badge">Sampled · experimental</span></h3>
       <label>Compare <select value={measure} onChange={(event) => setMeasures((current) => ({ ...current, [family]: event.target.value as InteractionMeasure }))}>
         {options.map((option) => <option key={option.key} value={option.key}>{option.label}</option>)}
       </select></label>
@@ -212,23 +217,24 @@ function InteractionBenchmarkComparison({ local, family, scope, data, isDemo = f
         <table className="interaction-table interaction-comparison-table"><thead><tr>
           <th scope="col">{family === "beforeOpening" ? "Preceding action" : family === "recoveries" ? "Route" : family === "edgeguards" ? "Observed tactic" : "Option"}</th>
           <th scope="col" className="data">{isDemo ? "Demo" : "You"}<span className="sample-note">{int(interactionFamilyCoverage(local, family))} / {int(local.games)} measured games</span></th>
-          {INTERACTION_COHORTS.map((cohort) => <th scope="col" className="data" key={cohort}>{COHORT_LABELS[cohort]}<span className="sample-note">{benchmarks[cohort] ? `${int(interactionFamilyCoverage(benchmarks[cohort], family))} / ${int(benchmarks[cohort].games)} measured player-games` : "No matching sample"}</span></th>)}
+          {cohorts.map((cohort) => <th scope="col" className="data" key={cohort}>{COHORT_LABELS[cohort]}<span className="sample-note">{benchmarks[cohort] ? `${int(interactionFamilyCoverage(benchmarks[cohort], family))} / ${int(benchmarks[cohort].games)} measured player-games` : cohort === "community" ? "Not published" : "No matching sample"}</span></th>)}
         </tr></thead><tbody>{keys.map((key) => <tr key={key}>
           <th scope="row">{comparisonLabel(family, key)}</th>
           <ComparisonCell result={interactionBenchmarkValue(local, family, key, measure)} format={selected.format} />
-          {INTERACTION_COHORTS.map((cohort) => <ComparisonCell key={cohort} result={interactionBenchmarkValue(benchmarks[cohort], family, key, measure)} format={selected.format} />)}
+          {cohorts.map((cohort) => <ComparisonCell key={cohort} result={interactionBenchmarkValue(benchmarks[cohort], family, key, measure)} format={selected.format} />)}
         </tr>)}</tbody></table>
       </div>}
     <p className="hint">Each cell shows {selected.format === "number" ? "damage / resolved openings" : "observations / qualifying opportunities"}. A dash means no qualifying sample. {measure === "hitDuringRecoveryRate" ? "Hit during recovery uses all recorded attempts, including unfinished ones; the initial launch is excluded." : "Outcome rates exclude unresolved events; stock-loss rate uses completed contests."} Empty matchups stay unavailable without a broader fallback.</p>
-    <p className="hint">Your column uses the current game window and filters. Archive estimates follow Me / Vs / Stage across their full sampled history, ignoring date, mode, account, and named-opponent filters. The cohorts can overlap and are not balanced by player or character. The full Pro sample covers {int(data.sample.proPlayers)} mapped players; it is not a general professional average.</p>
-    <details className="interaction-benchmark-method">
+    <p className="hint">Your column uses the current game window and filters. Archive estimates follow Me / Vs / Stage across their full sampled history, ignoring date, mode, account, and named-opponent filters. The cohorts can overlap and are not balanced by player or character. {data && <>The full Pro sample covers {int(data.sample.proPlayers)} mapped players; it is not a general professional average.</>}</p>
+    <RankedBenchmarkSource state={ranked} />
+    {data && <details className="interaction-benchmark-method">
       <summary>Sample and limitations</summary>
       <p>{int(data.sample.games)} replay games in {int(data.sample.bundles)} selected bundles, drawn from an available archive population of {int(data.sample.availableGames)} games; {int(data.sample.proPlayers)} mapped pro players. Updated {new Date(data.generatedAt).toLocaleDateString()}.</p>
       <p>{data.method}</p>
       <p>Tournament combines the independently sampled venue and conservative tournament recordings, counting each player-game once. It includes eligible event-venue games without set-level proof. Pro Tournament includes vetted mapped-player appearances in conservative games from the selected bundles.</p>
       <p>These are estimates from available replay files, not population statistics. Event coverage, repeated players, matchup mix, and uncertain classifications can bias the comparison. Small samples can change sharply with a few more observations.</p>
       <p>Source: <a href={data.sourceUrl} target="_blank" rel="noreferrer">{data.sourceDataset}</a>. Counts under archive headings are player-games; they must not be added across overlapping cohorts.</p>
-    </details>
+    </details>}
   </div>;
 }
 
@@ -244,10 +250,10 @@ function ArchiveEstimates({ local, family, scope, isDemo }: {
       .catch(() => { if (active) setError(true); });
     return () => { active = false; };
   }, [retry]);
-  if (error) return <div className="interaction-benchmarks"><p className="hint">Archive interaction estimates could not be loaded.</p><button type="button" onClick={() => { setError(false); setRetry((value) => value + 1); }}>Retry estimates</button></div>;
-  if (!data) return <div className="interaction-benchmarks"><p className="hint" role="status">Loading sampled archive estimates…</p></div>;
-  if (!data.rows.length) return <div className="interaction-benchmarks"><p className="hint">No analyzed archive sample has been bundled for these metrics yet.</p></div>;
-  return <InteractionBenchmarkComparison local={local} family={family} scope={scope} data={data} isDemo={isDemo} />;
+  return <>
+    {error ? <p className="hint">Tournament interaction estimates could not be loaded. <button type="button" onClick={() => { setError(false); setRetry(value => value + 1); }}>Retry estimates</button></p> : !data && <p className="hint" role="status">Loading tournament interaction estimates…</p>}
+    <InteractionBenchmarkComparison local={local} family={family} scope={scope} data={data} isDemo={isDemo} />
+  </>;
 }
 
 export function Interactions({ games, onAnalyze, onSelectReplayFiles, analyzing = false, isDemo = false, benchmarkScope = ALL_BENCHMARK_SCOPE }: {

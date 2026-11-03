@@ -82,7 +82,9 @@ export default defineConfig({
         // public/share holds the generated share images — multi-megabyte GIFs
         // plus their posters. They're for sending to other people, not for
         // running the app, so they stay out of the offline bundle.
-        globIgnores: ['**/share/**'],
+        // Ranked references load only the selected character's immutable shard.
+        // Do not force every public cohort into the offline app installation.
+        globIgnores: ['**/share/**', '**/ranked/**'],
         navigateFallback: '/index.html',
         // The static pages rendered by scripts/render-seo-pages.mjs are real
         // documents at their own URLs. Without this the service worker answers
@@ -100,7 +102,7 @@ export default defineConfig({
         // since these pages are written after `vite build` and so are absent
         // from the precache manifest. Invisible to Googlebot, which registers
         // no worker; it only ever hit returning humans following a link.
-        navigateFallbackDenylist: [/^\/(about|metrics|melee-majors)(\.html)?\/?(\?|$)/],
+        navigateFallbackDenylist: [/^\/(about|metrics|melee-majors)(\.html)?\/?(\?|$)/, /^\/ranked\//],
       },
     }),
   ],

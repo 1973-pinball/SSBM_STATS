@@ -7,11 +7,13 @@ import { validateShippedInteractionSample, assertNoInteractionIdentityValues } f
 import { encodeInteractionBenchmarks, decodeInteractionBenchmarks, INTERACTION_CODEC_OPTIONS } from "../src/lib/interactionBenchmarkCodec.mjs";
 
 const server = await createServer({
-  configFile: false, server: { middlewareMode: true, hmr: false, watch: null }, appType: "custom",
+  configFile: false, server: { middlewareMode: true, hmr: false, ws: false, watch: null }, appType: "custom",
   optimizeDeps: { noDiscovery: true, include: [] },
   plugins: [{
     name: "interaction-benchmark-presentation-fixtures",
+    enforce: "pre",
     transform(source, id) {
+      if (id.endsWith("/src/lib/rankedBenchmarks.ts")) return source.replace("export function useRankedBenchmarkRows(characterId: number | null): RankedBenchmarkState {", "export function useRankedBenchmarkRows(characterId: number | null): RankedBenchmarkState { return globalThis.__ssbmRankedInteractionFixture ?? { characterId, manifest: null, loading: false, error: null, rows: { diamond: [], master: [] } };");
       if (id.endsWith("/src/components/Interactions.tsx")) return `${source}\nexport { InteractionBenchmarkComparison as TestBenchmarkComparison };\n`;
     },
   }],
@@ -132,6 +134,10 @@ try {
 
   const html = renderToStaticMarkup(createElement(TestBenchmarkComparison, { local, family: "ledge", scope: exact, data }));
   assert.match(html, /Sampled · experimental/);
+  assert.match(html, /Diamond Slippi/);
+  assert.match(html, /Master Slippi/);
+  assert.match(html, /SSBMStats Community/);
+  assert.match(html, /Not published/);
   assert.match(html, /Pro Tournament/);
   assert.doesNotMatch(html, /<th[^>]*>Venue/);
   assert.match(html, /No matching sample/);
@@ -144,6 +150,12 @@ try {
   assert.match(html, /without a broader fallback/);
   const empty = renderToStaticMarkup(createElement(TestBenchmarkComparison, { local: { ...local, ledge: {} }, family: "ledge", scope: { ...exact, characterId: 26 }, data }));
   assert.match(empty, /No qualifying observations/);
+  globalThis.__ssbmRankedInteractionFixture = { characterId: 9, manifest: null, loading: false, error: null, rows: { diamond: [{ ...exact, tier: "diamond", interactions: selected.tournament }], master: [{ ...exact, tier: "master", stageId: 32, interactions: selected.tournament }] } };
+  const rankedOnly = renderToStaticMarkup(createElement(TestBenchmarkComparison, { local: { ...local, ledge: {} }, family: "ledge", scope: exact, data: null }));
+  assert.match(rankedOnly, /Ledge roll/, "ranked-only observed options appear even without tournament data");
+  assert.match(rankedOnly, /10 \/ 10 measured player-games/);
+  assert.match(rankedOnly, /No matching sample/, "a different ranked stage never becomes an exact match");
+  delete globalThis.__ssbmRankedInteractionFixture;
 
   const bundled = await loadInteractionBenchmarks();
   assert.equal(bundled.statsVersion, INTERACTION_STATS_VERSION, "bundled sample matches detector version");
@@ -257,5 +269,6 @@ try {
   assert.throws(() => validateShippedInteractionSample(privateNested, publicationRules), /privacy allowlist/);
   console.log(`Interaction benchmark selection, denominators, coverage, presentation and codec passed (${bundled.rows.length} bundled cells; ${Buffer.byteLength(packedText)} compact bytes / ${Buffer.byteLength(JSON.stringify(bundled))} raw bytes).`);
 } finally {
+  delete globalThis.__ssbmRankedInteractionFixture;
   await server.close();
 }

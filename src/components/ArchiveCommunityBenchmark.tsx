@@ -1,4 +1,5 @@
-import { BENCHMARK_LABELS } from "../lib/benchmarkCohorts";
+import { BENCHMARK_LABELS, type BenchmarkMetricRow } from "../lib/benchmarkCohorts";
+import { RANKED_TIERS, rankedMetricRow, rankedSampleLabel, useRankedBenchmarks, type RankedTier } from "../lib/rankedBenchmarks";
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import type {
   CommunityBenchmarkRow,
@@ -25,6 +26,8 @@ import {
 import { actionAverages, executionSummary, moveTable } from "../lib/stats";
 import type { ActionCounts, ResolvedGame } from "../lib/types";
 import "./ArchiveCommunityBenchmark.css";
+import { RankedBenchmarkSource } from "./RankedBenchmarkSource";
+import { BenchmarkSourceControl, type ComparisonSource } from "./BenchmarkSourceControl";
 
 interface Props {
   games: ResolvedGame[];
@@ -117,7 +120,7 @@ function ssbmStatsExecution(
 const EMPTY_BENCHMARKS: ArchiveCommunityBenchmarks = { broad: null, conservative: null };
 const ratio = (numerator: number, denominator: number): number | null => denominator > 0 ? numerator / denominator : null;
 
-function archiveActionRate(row: ArchiveRollup | null, key: keyof ActionCounts): number | null {
+function archiveActionRate(row: BenchmarkMetricRow | null, key: keyof ActionCounts): number | null {
   if (!row || row.metrics.durationFrames <= 0) return null;
   const count = row.metrics.actions?.[key];
   return count === undefined ? null : count / (row.metrics.durationFrames / 3_600);
@@ -135,7 +138,7 @@ function formatExecutionComparison(value: number | null, metric: ExecutionCompar
   return metric.format === "percent" ? pct(value) : num(value, 1);
 }
 
-function groupArchiveMoves(row: ArchiveRollup | null): Map<string, GroupedArchiveMove> {
+function groupArchiveMoves(row: BenchmarkMetricRow | null): Map<string, GroupedArchiveMove> {
   const grouped = new Map<string, GroupedArchiveMove>();
   for (const [moveId, move] of Object.entries(row?.metrics.moves ?? {})) {
     const group = moveGroup(Number(moveId));
@@ -167,7 +170,7 @@ function groupArchiveMoves(row: ArchiveRollup | null): Map<string, GroupedArchiv
 }
 
 function archiveExecution(
-  row: ArchiveRollup,
+  row: BenchmarkMetricRow,
   label: string,
   sampleLabel = "player-games",
 ): ExecutionRow {
@@ -176,7 +179,7 @@ function archiveExecution(
   const lCancel = ratio(metrics.lCancelSuccess, metrics.lCancelSuccess + metrics.lCancelFail);
   const groundTech = ratio(groundSuccess, groundSuccess + metrics.techMissed);
   return {
-    key: `${row.population}:${label}`,
+    key: label,
     label,
     sample: row.game_count,
     sampleLabel,
@@ -200,12 +203,14 @@ export function ArchiveCommunityBenchmark({
   controls,
   onCharacterChange,
 }: Props) {
+  const ranked = useRankedBenchmarks({ characterId, opponentCharacterId: null, stageId: null });
   const [dataset, setDataset] = useState<ArchiveDataset | null>(null);
   const [benchmarks, setBenchmarks] = useState<ArchiveCommunityBenchmarks>(EMPTY_BENCHMARKS);
   const [pros, setPros] = useState<ArchiveProOption[]>([]);
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [proAggregateBenchmark, setProAggregateBenchmark] = useState<ArchiveRollup | null>(null);
   const [proBenchmark, setProBenchmark] = useState<ArchiveRollup | null>(null);
+  const [comparisonSource, setComparisonSource] = useState<ComparisonSource>("tournament");
   const [moveMetric, setMoveMetric] = useState<MoveMetric>("attempts");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -278,11 +283,11 @@ export function ArchiveCommunityBenchmark({
         <div><div className="eyebrow">Full-field comparison</div><h2>Compare your character across every benchmark</h2></div>
         <div className="community-controls">{controls}</div>
       </div>
-      <div className="empty-note">Choose a character above to compare against Tournament and published Pro Tournament samples.</div>
+      <div className="empty-note">Choose a character above to compare with historical ranked and tournament samples.</div>
     </section>
   );
 
-  if (loading && !benchmarks.broad) return <section className="panel acb-panel"><div className="empty-note">Loading tournament archive benchmarks…</div></section>;
+
 
   const ownWins = games.reduce((count, game) => count + (game.isWin === true ? 1 : 0), 0);
   const ownDecided = games.reduce((count, game) => count + (game.isWin !== null ? 1 : 0), 0);
@@ -305,7 +310,10 @@ export function ArchiveCommunityBenchmark({
   const selectedProExecutionRow = proBenchmark && selectedPro
     ? archiveExecution(proBenchmark, selectedPro.display_name, "games")
     : null;
-  const executionRows: ExecutionRow[] = [ownExecutionRow, ssbmStatsExecutionRow];
+  const rankedMetrics = { diamond: rankedMetricRow(ranked.diamond), master: rankedMetricRow(ranked.master) };
+  const rankedMoveMetrics = { diamond: rankedMetricRow(ranked.diamond, "move"), master: rankedMetricRow(ranked.master, "move") };
+  const rankedExecutionRows = Object.fromEntries(RANKED_TIERS.map(tier => [tier, rankedMetrics[tier] ? archiveExecution(rankedMetrics[tier]!, BENCHMARK_LABELS[tier]) : { key: tier, label: BENCHMARK_LABELS[tier], sample: null, sampleLabel: "player-games", winRate: null, lCancel: null, groundTech: null, wallTech: null, opk: null, dpo: null, ipm: null }])) as Record<RankedTier, ExecutionRow>;
+  const executionRows: ExecutionRow[] = [ownExecutionRow, ...RANKED_TIERS.map(tier => rankedExecutionRows[tier]), ssbmStatsExecutionRow];
   if (tournamentExecutionRow) executionRows.push(tournamentExecutionRow);
   if (proAggregateExecutionRow) executionRows.push(proAggregateExecutionRow);
   if (selectedProExecutionRow) executionRows.push(selectedProExecutionRow);
@@ -344,6 +352,7 @@ export function ArchiveCommunityBenchmark({
       actionRate: (key) => archiveActionRate(proAggregateBenchmark, key),
     },
   ];
+  executionComparisonSources.splice(1, 0, ...RANKED_TIERS.map(tier => ({ key: tier, label: BENCHMARK_LABELS[tier], sampleNote: rankedSampleLabel(ranked[tier]), execution: rankedExecutionRows[tier], actionRate: (key: keyof ActionCounts) => archiveActionRate(rankedMetricRow(ranked[tier], "action"), key) })));
   if (selectedPro) executionComparisonSources.push({
     key: `pro:${selectedPro.id}`,
     label: selectedPro.display_name,
@@ -353,12 +362,14 @@ export function ArchiveCommunityBenchmark({
   });
 
   const moveSources = {
+    diamond: groupArchiveMoves(rankedMoveMetrics.diamond),
+    master: groupArchiveMoves(rankedMoveMetrics.master),
     broad: groupArchiveMoves(benchmarks.broad),
     proAggregate: groupArchiveMoves(proAggregateBenchmark),
     pro: groupArchiveMoves(proBenchmark),
   };
-  const comparisonRow = benchmarks.broad;
-  const comparisonMoves = moveSources.broad;
+  const comparisonRow = comparisonSource === "diamond" || comparisonSource === "master" ? rankedMoveMetrics[comparisonSource] : comparisonSource === "pro" ? proAggregateBenchmark : benchmarks.broad;
+  const comparisonMoves = comparisonSource === "diamond" || comparisonSource === "master" ? moveSources[comparisonSource] : comparisonSource === "pro" ? moveSources.proAggregate : moveSources.broad;
   const communityMoveByKey = new Map(communityMoves.map((move) => [move.moveKey, move]));
   const communityDamage = communityMoves.reduce((sum, move) => sum + move.damage, 0);
   const communityGames = communityMoves.length
@@ -367,6 +378,7 @@ export function ArchiveCommunityBenchmark({
   const ownMoveByKey = new Map(ownMoves.rows.map((move) => [move.key, move]));
   const moveKeys = [...new Set([
     ...ownMoveByKey.keys(),
+    ...moveSources.diamond.keys(), ...moveSources.master.keys(),
     ...communityMoveByKey.keys(),
     ...moveSources.broad.keys(),
     ...moveSources.proAggregate.keys(),
@@ -391,8 +403,9 @@ export function ArchiveCommunityBenchmark({
         </div>
         <div className="community-controls">
           {controls}
+          <BenchmarkSourceControl value={comparisonSource} onChange={setComparisonSource} />
           <label>
-            Named ranked player
+            Named pro player
             <select value={playerId ?? "none"} disabled={pros.length === 0} onChange={(event) => {
               const nextId = event.target.value === "none" ? null : event.target.value;
               setPlayerId(nextId);
@@ -406,7 +419,8 @@ export function ArchiveCommunityBenchmark({
         </div>
       </div>
 
-      {error ? <div className="acb-error" role="status">{error} Archive comparisons are temporarily unavailable.</div> : (
+      {loading && <div className="empty-note" role="status">Loading tournament archive benchmarks…</div>}
+      {error && <div className="acb-error" role="status">{error}</div>}
         <>
           <h3 className="table-subhead community-table-subhead">Headline execution</h3>
           <div className="table-scroll acb-execution"><table><thead><tr><th>Sample</th><th className="data">Win rate</th><th className="data">L-cancel</th><th className="data">Ground tech</th><th className="data">Wall tech</th><th className="data">Openings / kill</th><th className="data">Damage / opening</th><th className="data">Inputs / min</th><th className="data">Sample size</th></tr></thead><tbody>{executionRows.map((row) => <tr key={row.key}><td>{row.label}{row.balanceNote && <span className="sample-note">{row.balanceNote}</span>}</td><td className="data">{pct(row.winRate)}</td><td className="data">{pct(row.lCancel)}</td><td className="data">{pct(row.groundTech)}</td><td className="data">{pct(row.wallTech)}</td><td className="data">{num(row.opk, 2)}</td><td className="data">{num(row.dpo, 1)}</td><td className="data">{num(row.ipm, 1)}</td><td className="data">{row.sample === null ? "—" : row.sample.toLocaleString()}<span className="sample-note">{row.sampleLabel}</span></td></tr>)}</tbody></table></div>
@@ -415,7 +429,7 @@ export function ArchiveCommunityBenchmark({
             <h3>Move profile</h3>
             <label>Measure<select value={moveMetric} onChange={(event) => setMoveMetric(event.target.value as MoveMetric)}><option value="attempts">Attempts / game</option><option value="landed">Landed / game</option><option value="damage">Damage share</option><option value="kills">Kills / game</option><option value="killPct">Average kill %</option></select></label>
           </div>
-          {moveKeys.length ? <div className="table-scroll"><table><thead><tr><th>Move</th><th className="data">You</th><th className="data">{BENCHMARK_LABELS.community}<span className="sample-note">{communityGames === null ? "sample not yet publishable" : `${communityGames.toLocaleString()} player-games`}</span></th><th className="data">{BENCHMARK_LABELS.tournament}<span className="sample-note">{benchmarks.broad?.game_count.toLocaleString() ?? "—"} player-games</span></th><th className="data">{BENCHMARK_LABELS.pro}<span className="sample-note">{proAggregateBenchmark?.game_count.toLocaleString() ?? "—"} player-games · {countNoun(proAggregateBenchmark?.identified_player_count, "pro")}</span></th>{selectedPro && <th className="data">{selectedPro.display_name}<span className="sample-note">{proBenchmark?.game_count.toLocaleString() ?? "—"} games</span></th>}</tr></thead><tbody>{moveKeys.map((key) => {
+          {moveKeys.length ? <div className="table-scroll"><table><thead><tr><th>Move</th><th className="data">You</th>{RANKED_TIERS.map(tier => <th className="data" key={tier}>{BENCHMARK_LABELS[tier]}<span className="sample-note">{rankedSampleLabel(ranked[tier])}</span></th>)}<th className="data">{BENCHMARK_LABELS.community}<span className="sample-note">{communityGames === null ? "sample not yet publishable" : `${communityGames.toLocaleString()} player-games`}</span></th><th className="data">{BENCHMARK_LABELS.tournament}<span className="sample-note">{benchmarks.broad?.game_count.toLocaleString() ?? "—"} player-games</span></th><th className="data">{BENCHMARK_LABELS.pro}<span className="sample-note">{proAggregateBenchmark?.game_count.toLocaleString() ?? "—"} player-games · {countNoun(proAggregateBenchmark?.identified_player_count, "pro")}</span></th>{selectedPro && <th className="data">{selectedPro.display_name}<span className="sample-note">{proBenchmark?.game_count.toLocaleString() ?? "—"} games</span></th>}</tr></thead><tbody>{moveKeys.map((key) => {
             const ownMove = ownMoveByKey.get(key);
             const mine = localMoveMetric(ownMove, moveMetric, ownMoves.covered);
             const field = archiveMoveMetric(comparisonMoves.get(key), moveMetric, comparisonRow);
@@ -423,8 +437,8 @@ export function ArchiveCommunityBenchmark({
             const fieldSample = moveMetric === "attempts" ? archiveMoveComparisonGames(comparisonRow, key, "attemptsPerGame") : comparisonRow?.game_count ?? 0;
             const difference = moveDifference(mine, field, moveMetric, localSample, fieldSample);
             const localValue = formatLocalMove(ownMove, moveMetric, ownMoves.covered);
-            const comparisonLabel = "Tournament";
-            return <tr key={key}><td>{ownMove?.label ?? moveGroupLabel(key)}</td><td className={`data ${difference ? `community-diff-${difference.direction}` : ""}`} style={differenceStyle(difference)} title={difference ? `${difference.direction === "above" ? "Higher than" : "Lower than"} the ${comparisonLabel} archive benchmark; highlight intensity reflects the size of the difference` : undefined} aria-label={difference ? `${localValue}, ${difference.direction === "above" ? "higher" : "lower"} than the ${comparisonLabel} archive benchmark` : undefined}>{localValue}{difference && <span className="community-diff-cue" aria-hidden="true">{difference.direction === "above" ? "▲" : "▼"}</span>}</td><td className="data">{formatCommunityMove(communityMoveByKey.get(key), moveMetric, communityDamage)}</td><td className="data">{formatArchiveMove(moveSources.broad.get(key), moveMetric, benchmarks.broad)}</td><td className="data">{formatArchiveMove(moveSources.proAggregate.get(key), moveMetric, proAggregateBenchmark)}</td>{selectedPro && <td className="data">{formatArchiveMove(moveSources.pro.get(key), moveMetric, proBenchmark)}</td>}</tr>;
+            const comparisonLabel = BENCHMARK_LABELS[comparisonSource];
+            return <tr key={key}><td>{ownMove?.label ?? moveGroupLabel(key)}</td><td className={`data ${difference ? `community-diff-${difference.direction}` : ""}`} style={differenceStyle(difference)} title={difference ? `${difference.direction === "above" ? "Higher than" : "Lower than"} the ${comparisonLabel} archive benchmark; highlight intensity reflects the size of the difference` : undefined} aria-label={difference ? `${localValue}, ${difference.direction === "above" ? "higher" : "lower"} than the ${comparisonLabel} archive benchmark` : undefined}>{localValue}{difference && <span className="community-diff-cue" aria-hidden="true">{difference.direction === "above" ? "▲" : "▼"}</span>}</td>{RANKED_TIERS.map(tier => <td className="data" key={tier}>{formatArchiveMove(moveSources[tier].get(key), moveMetric, rankedMoveMetrics[tier])}</td>)}<td className="data">{formatCommunityMove(communityMoveByKey.get(key), moveMetric, communityDamage)}</td><td className="data">{formatArchiveMove(moveSources.broad.get(key), moveMetric, benchmarks.broad)}</td><td className="data">{formatArchiveMove(moveSources.proAggregate.get(key), moveMetric, proAggregateBenchmark)}</td>{selectedPro && <td className="data">{formatArchiveMove(moveSources.pro.get(key), moveMetric, proBenchmark)}</td>}</tr>;
           })}</tbody></table></div> : <div className="empty-note">No move data is published for this character yet.</div>}
 
           <h3 className="table-subhead acb-execution-comparison-heading">Full execution comparison</h3>
@@ -449,7 +463,7 @@ export function ArchiveCommunityBenchmark({
             that duration denominator, so its action-rate cells show dashes rather than estimates.
           </div>
         </>
-      )}
+      <RankedBenchmarkSource state={ranked} />
 
       <div className="acb-separation-note">
         Tournament pools eligible event-venue games, including conservatively curated tournament games, with each player-game counted once.
@@ -470,7 +484,7 @@ function formatLocalMove(move: ReturnType<typeof moveTable>["rows"][number] | un
   return formatMoveMetric(localMoveMetric(move, metric, covered), metric);
 }
 
-function formatArchiveMove(move: GroupedArchiveMove | undefined, metric: MoveMetric, row: ArchiveRollup | null): string {
+function formatArchiveMove(move: GroupedArchiveMove | undefined, metric: MoveMetric, row: BenchmarkMetricRow | null): string {
   return formatMoveMetric(archiveMoveMetric(move, metric, row), metric);
 }
 
@@ -492,7 +506,7 @@ function localMoveMetric(move: ReturnType<typeof moveTable>["rows"][number] | un
   return move.avgKillPct;
 }
 
-function archiveMoveMetric(move: GroupedArchiveMove | undefined, metric: MoveMetric, row: ArchiveRollup | null): number | null {
+function archiveMoveMetric(move: GroupedArchiveMove | undefined, metric: MoveMetric, row: BenchmarkMetricRow | null): number | null {
   if (!move || !row || row.game_count === 0) return null;
   if (metric === "attempts") return archiveMoveBenchmark(row, move.key, "attemptsPerGame");
   if (metric === "landed") return move.landed / row.game_count;

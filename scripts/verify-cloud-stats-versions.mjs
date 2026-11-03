@@ -81,6 +81,7 @@ let bucketFor;
 try {
   const { syncRecords, restoreCloudRecords, gameRecordBucket, isSyncable } = await server.ssrLoadModule("/src/lib/cloudSync.ts");
   const { gameKey } = await server.ssrLoadModule("/src/lib/dedupe.ts");
+  const { CURRENT_STATS_VERSION } = await server.ssrLoadModule("/src/lib/types.ts");
   bucketFor = gameRecordBucket;
   const codes = new Set(["ME#1"]);
   const record = (statsVersion, id = "game", extras = {}) => ({
@@ -138,11 +139,23 @@ try {
   result = await syncRecords([analyzed], codes, result.knowledge);
   assert.equal(result.pushed, 0, "acknowledged upgrade does not repeat");
 
-  reset(); remote(record(10));
+  const parserCorrected = record(10);
+  reset(); remote(analyzed);
+  result = await syncRecords([parserCorrected], codes);
+  assert.equal(result.pushed, 1, "v10 parser correction upgrades compatible v9 cloud records");
+  assert.equal(uploads[0].stats_version, 10);
+  assert.equal(uploads[0].data.statsVersion, 10);
+  result = await syncRecords([analyzed], codes, result.knowledge);
+  assert.equal(result.pushed, 0, "a late v9 response cannot downgrade corrected parser output");
+  reset(); remote(parserCorrected);
+  result = await syncRecords([analyzed], codes);
+  assert.deepEqual(result.pulled, [parserCorrected], "v10 corrections restore across devices without relabelling v9");
+
+  reset(); remote(record(CURRENT_STATS_VERSION + 1));
   result = await syncRecords([analyzed], codes);
   assert.equal(result.pushed, 0, "future remote payload also cannot be downgraded");
   assert.deepEqual(result.pulled, [], "unsupported future payload is not persisted by reconciliation");
-  assert.equal(result.knowledge.versions.get("game"), 10);
+  assert.equal(result.knowledge.versions.get("game"), CURRENT_STATS_VERSION + 1);
 
   reset(); remote(baseline);
   result = await restoreCloudRecords();
@@ -181,7 +194,7 @@ try {
   const copiedAnalysis = record(9, "copy-z", { playedAt: copiedBase.playedAt });
   result = await syncRecords([copiedBase, copiedPrevious, copiedAnalysis], codes);
   assert.equal(result.pushed, 1); assert.equal(uploads[0].stats_version, 9, "duplicate paths upload the best payload once");
-  console.log("Cloud stats-version checks passed: v6/v7/v8 preserved; v9 upgrades push/pull; versions persist; old copies never downgrade newer data.");
+  console.log("Cloud stats-version checks passed: compatible baselines preserved; v9 detector and v10 parser upgrades push/pull; old copies never downgrade newer data.");
 } finally {
   await server.close();
   delete globalThis.__ssbmCloudVersionTest;

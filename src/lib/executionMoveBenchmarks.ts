@@ -1,10 +1,11 @@
 import type { CommunityMoveRow } from "./community";
 import { moveGroup, moveGroupTracksAttempts, specialMoveId } from "./melee";
-import type { ArchiveMoveMetrics, ArchiveRollup } from "./publicArchive";
+import type { ArchiveMoveMetrics } from "./publicArchive";
+import type { BenchmarkMetricRow } from "./benchmarkCohorts";
 import type { MoveMetricKey, MoveRow } from "./stats";
 import { CURRENT_STATS_VERSION } from "./types";
 
-export function groupedArchiveMove(row: ArchiveRollup | null, moveKey: string): ArchiveMoveMetrics | null {
+export function groupedArchiveMove(row: BenchmarkMetricRow | null, moveKey: string): ArchiveMoveMetrics | null {
   let aggregate: ArchiveMoveMetrics | null = null;
   for (const [moveId, value] of Object.entries(row?.metrics.moves ?? {})) {
     if (moveGroup(Number(moveId)).key !== moveKey) continue;
@@ -48,7 +49,7 @@ export function localMoveSample(move: MoveRow | undefined, metric: MoveMetricKey
   return undefined;
 }
 
-export function archiveMoveSample(row: ArchiveRollup | null, moveKey: string, metric: MoveMetricKey): string | undefined {
+export function archiveMoveSample(row: BenchmarkMetricRow | null, moveKey: string, metric: MoveMetricKey): string | undefined {
   if (specialMoveId(moveKey) === null || !row) return undefined;
   const move = groupedArchiveMove(row, moveKey);
   const unavailable = (row.stats_version ?? 0) < CURRENT_STATS_VERSION ? "Archive reparse needed" : "No tracked games";
@@ -67,7 +68,7 @@ export function localMoveComparisonGames(move: MoveRow, metric: MoveMetricKey, c
   return coveredGames;
 }
 
-export function archiveMoveComparisonGames(row: ArchiveRollup | null, moveKey: string, metric: MoveMetricKey): number {
+export function archiveMoveComparisonGames(row: BenchmarkMetricRow | null, moveKey: string, metric: MoveMetricKey): number {
   if (!row) return 0;
   const move = groupedArchiveMove(row, moveKey);
   if (specialMoveId(moveKey) !== null && metric === "attemptsPerGame") return move?.attemptGames ?? 0;
@@ -75,10 +76,11 @@ export function archiveMoveComparisonGames(row: ArchiveRollup | null, moveKey: s
   return row.game_count;
 }
 
-export function archiveMoveBenchmark(row: ArchiveRollup | null, moveKey: string, metric: MoveMetricKey): number | null {
+export function archiveMoveBenchmark(row: BenchmarkMetricRow | null, moveKey: string, metric: MoveMetricKey): number | null {
   const move = groupedArchiveMove(row, moveKey);
   if (!row || row.game_count <= 0 || !move) return null;
   if (metric === "attemptsPerGame") {
+    if (row.unavailableMoveAttempts?.has(moveKey)) return null;
     if (specialMoveId(moveKey) !== null) return (move.attemptGames ?? 0) > 0 ? move.attempts / move.attemptGames! : null;
     if (!moveGroupTracksAttempts(moveKey)) return null;
     return move.attempts === 0 && move.landed > 0 ? null : move.attempts / row.game_count;

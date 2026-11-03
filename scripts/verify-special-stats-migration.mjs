@@ -14,7 +14,7 @@ const server = await createServer({
 try {
   const { db } = await server.ssrLoadModule("/src/lib/db.ts");
   const { CURRENT_STATS_VERSION, hasCurrentStats, needsStatsRepair } = await server.ssrLoadModule("/src/lib/types.ts");
-  assert.equal(CURRENT_STATS_VERSION, 9);
+  assert.equal(CURRENT_STATS_VERSION, 10);
   const record = (id, statsVersion) => ({
     id, statsVersion, players: [{ techs: {}, actions: { crouchCancels: 0 } }],
   });

@@ -29,6 +29,7 @@ export interface Recommendation {
 export interface CoachMoveBenchmark {
   characterId: number;
   gameCount: number;
+  sourceLabel?: string;
   /** Aggregate landed instances by the same grouped move keys used by moveImpact(). */
   landedByMove: Record<string, number>;
 }
@@ -371,6 +372,7 @@ export function recommendations(games: ResolvedGame[], max = 5, options: Recomme
     characterId?: number;
     tournamentShare?: number;
     tournamentGames?: number;
+    benchmarkLabel?: string;
   };
   const negativeMoveCandidate = (
     rows: ReturnType<typeof moveImpact>,
@@ -407,6 +409,7 @@ export function recommendations(games: ResolvedGame[], max = 5, options: Recomme
           characterId: benchmark?.characterId,
           tournamentShare,
           tournamentGames: benchmark?.gameCount,
+          benchmarkLabel: benchmark?.sourceLabel,
         };
       }
     }
@@ -424,7 +427,7 @@ export function recommendations(games: ResolvedGame[], max = 5, options: Recomme
   if (!worstMove) worstMove = negativeMoveCandidate(moveImpact(games));
   if (worstMove) {
     const benchmarkDetail = worstMove.tournamentShare !== undefined && worstMove.tournamentGames !== undefined && worstMove.characterId !== undefined
-      ? `${worstMove.label} is ${pctText(worstMove.share)} of your landed hits, versus ${pctText(worstMove.tournamentShare)} across ${worstMove.tournamentGames.toLocaleString()} tournament ${charName(worstMove.characterId)} player-games. `
+      ? `${worstMove.label} is ${pctText(worstMove.share)} of your landed hits, versus ${pctText(worstMove.tournamentShare)} across ${worstMove.tournamentGames.toLocaleString()} ${worstMove.benchmarkLabel ?? "Tournament"} ${charName(worstMove.characterId)} player-games. `
       : `${worstMove.label} averages ${pctText(worstMove.share)} of your landed hits. `;
     push(
       "move",
