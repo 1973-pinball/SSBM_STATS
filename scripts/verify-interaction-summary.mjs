@@ -140,7 +140,8 @@ try {
   const partialHtml = render(Interactions, { games: recentMixed, onAnalyze() {} });
   assert.match(partialHtml, /5 \/ 150 games measured/);
   assert.match(partialHtml, /145 older games need interaction analysis/);
-  assert.match(partialHtml, /Venue, Tournament, and Pro samples are separate/);
+  assert.match(partialHtml, /Ranked and tournament reference samples are shown separately below/);
+  assert.doesNotMatch(partialHtml, /Venue, Tournament, and Pro samples are separate/);
   const runningHtml = render(Interactions, { games: recentMixed, analyzing: true, onAnalyze() {} });
   assert.match(runningHtml, /this count updates as games finish/);
   const demoHtml = render(Interactions, { games: [asGame(measured)], isDemo: true, onAnalyze() {} });
