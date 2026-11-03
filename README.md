@@ -23,6 +23,15 @@ and Liquipedia views.
 - **Automatic recent-game analysis:** update older replays in the filtered
   150-game window when local files are accessible, while keeping existing stats
   usable. Coverage notes distinguish pending analysis from unavailable data.
+- **OOS wavedashes:** distinguish jump → air dodge → landing from jumps, and
+  keep measured zero-use Wavedash rows visible.
+- **C-stick input:** an experimental OOS column shows observed stick input,
+  without claiming buffering or which control caused the action.
+- **Recovery hits:** show attempts hit after the initial launch by route,
+  including experimental Venue, Tournament, and Pro comparisons.
+- **Player card:** show the filtered second-most-played character beneath Main.
+- **Custom ranges:** choose inclusive local start/end dates with calendar
+  controls or typed entry, for singles and teams.
 
 ## How it works
 
