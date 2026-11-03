@@ -270,7 +270,7 @@ export function Interactions({ games, onAnalyze, onSelectReplayFiles, analyzing 
   const family: InteractionFamily = section === "oos" ? shieldMode : section === "punish" ? "beforeOpening" : section;
   return <section className="panel interactions" aria-labelledby={`${id}-heading`}>
     <div className="interaction-heading">
-      <h2 id={`${id}-heading`}>Interactions <span className="badge">Experimental</span></h2>
+      <h2 id={`${id}-heading`}>Interactions (past {int(summary.games)} {summary.games === 1 ? "game" : "games"}) <span className="badge">Experimental</span></h2>
       {!isDemo && needsAnalysis && <div className="interaction-analysis-actions">
         {onAnalyze && <button type="button" onClick={onAnalyze} disabled={analyzing}>
           {analyzing ? "Analyzing replays…" : "Analyze these games"}
@@ -278,7 +278,7 @@ export function Interactions({ games, onAnalyze, onSelectReplayFiles, analyzing 
         {onSelectReplayFiles && <button type="button" className="ghost" onClick={onSelectReplayFiles} disabled={analyzing}>Select replay files</button>}
       </div>}
     </div>
-    <p className="interaction-intro">Your choices and what followed, across the most recent {int(summary.games)} {summary.games === 1 ? "game" : "games"} in this filter.{isDemo && " Demo figures are synthetic."}</p>
+    <p className="interaction-intro">Your choices and what followed.{isDemo && " Demo figures are synthetic."}</p>
     <div className="interaction-tabs" role="group" aria-label="Interaction statistic">
       {SECTIONS.map((item) => <button type="button" key={item.key} aria-pressed={section === item.key} aria-controls={`${id}-content`} onClick={() => setSection(item.key)}>{item.label}</button>)}
     </div>
