@@ -12,6 +12,7 @@ import { getSpecialMoveCapability } from "../lib/specialMoves";
 import { Kpi } from "./Kpi";
 import { RankedBenchmarkSource } from "./RankedBenchmarkSource";
 import { BenchmarkSourceControl, type ComparisonSource } from "./BenchmarkSourceControl";
+import "./Views.css";
 import { Interactions } from "./Interactions";
 import { axisStyle, tooltipStyle, gridStyle, dayTick, OPP_SERIES_COLOR } from "./chartStyle";
 import { activateOnKey } from "../lib/a11y";
@@ -626,6 +627,7 @@ const EXECUTION_BENCHMARK_STYLES: { key: BenchmarkKind; label: string; color: st
 
 interface ExecutionBenchmarks {
   comparisonSource?: ComparisonSource;
+  chartSources?: ReadonlySet<BenchmarkKind>;
   rankedState?: Pick<RankedBenchmarkState, "manifest" | "loading" | "error">;
   characterId: number | null;
   opponentCharacterId: number | null;
@@ -720,15 +722,71 @@ function archiveBenchmarkLabel(benchmarks: ExecutionBenchmarks): string {
   return `${character} vs ${opponent}`;
 }
 
+const DEFAULT_CHART_SOURCES: ReadonlySet<BenchmarkKind> = new Set(["tournament"]);
+const selectedBenchmarkStyles = (benchmarks: ExecutionBenchmarks) =>
+  EXECUTION_BENCHMARK_STYLES.filter(style => (benchmarks.chartSources ?? DEFAULT_CHART_SOURCES).has(style.key));
+
+function ChartBenchmarkControl({ selected, onChange }: {
+  selected: ReadonlySet<BenchmarkKind>;
+  onChange: (selected: ReadonlySet<BenchmarkKind>) => void;
+}) {
+  const selectedStyles = EXECUTION_BENCHMARK_STYLES.filter(style => selected.has(style.key));
+  const label = selectedStyles.length === 0 ? "None" : selectedStyles.length === 1 ? selectedStyles[0]!.label : `${selectedStyles.length} selected`;
+  return <details className="execution-reference-picker">
+    <summary><span>Chart references</span><strong>{label}</strong></summary>
+    <div className="execution-reference-menu">
+      <fieldset>
+        <legend>References for all three charts</legend>
+        {EXECUTION_BENCHMARK_STYLES.map(style => <label key={style.key}>
+          <input type="checkbox" checked={selected.has(style.key)} onChange={() => {
+            const next = new Set(selected);
+            if (next.has(style.key)) next.delete(style.key); else next.add(style.key);
+            onChange(next);
+          }} />
+          <span className="dot" style={{ background: style.color }} aria-hidden="true" />
+          {style.label}
+        </label>)}
+      </fieldset>
+      <button type="button" className="ghost" disabled={selected.size === 0} onClick={() => onChange(new Set())}>None — hide references</button>
+    </div>
+  </details>;
+}
+
+function BenchmarkAvailability({ benchmarks, available, context = "this metric and filter" }: {
+  benchmarks: ExecutionBenchmarks;
+  available: (source: BenchmarkKind) => boolean;
+  context?: string;
+}) {
+  const missing = selectedBenchmarkStyles(benchmarks).filter(style => !available(style.key)
+    && !(benchmarks.rankedState?.loading && (style.key === "diamond" || style.key === "master")));
+  return missing.length > 0 ? <div className="hint execution-reference-unavailable" role="status">
+    No matching reference for {context}: {missing.map(style => style.label).join(", ")}.
+  </div> : null;
+}
+
+function ChartReferenceScope({ benchmarks }: { benchmarks: ExecutionBenchmarks }) {
+  const selected = new Set(selectedBenchmarkStyles(benchmarks).map(style => style.key));
+  const scope = archiveBenchmarkLabel(benchmarks);
+  const descriptions: string[] = [];
+  const tournament = (["tournament", "pro"] as const).filter(source => selected.has(source));
+  if (tournament.length) descriptions.push(`${tournament.map(source => BENCHMARK_LABELS[source]).join(" + ")}: ${scope}; all stages and dates.`);
+  const ranked = RANKED_TIERS.filter(source => selected.has(source));
+  if (ranked.length) descriptions.push(`${ranked.map(source => BENCHMARK_LABELS[source]).join(" + ")}: ${scope}; ${benchmarks.stageId === null ? "all stages" : stageName(benchmarks.stageId)}; full historical sample.`);
+  if (selected.has("community")) descriptions.push(`${BENCHMARK_LABELS.community}: ${benchmarks.characterId === null ? "all characters" : charName(benchmarks.characterId)}; all opponents, stages and dates.`);
+  return descriptions.length > 0 ? <div className="hint execution-reference-scope">{descriptions.map(description => <span key={description}>{description}</span>)}</div> : null;
+}
+
 function BenchmarkFootnote({ benchmarks }: { benchmarks: ExecutionBenchmarks }) {
   return (
-    <div className="hint execution-benchmark-footnote">
+    <details className="hint execution-chart-method">
+      <summary>Comparison scope and method</summary>
+      <p>
       Tournament and Pro Tournament use {archiveBenchmarkLabel(benchmarks)}, matching the Me and Vs filters, across all stages and dates.
-      {" "}SSBMStats Community follows Me and includes all opponents. Tournament includes eligible event-venue games, counted once; Pro Tournament uses identified players in conservative tournament games. Dotted lines show fixed aggregates; Community headline medians retain their player-balanced weighting. A missing line
+      {" "}SSBMStats Community follows Me and includes all opponents. Tournament includes eligible event-venue games, counted once; Pro Tournament uses identified players in conservative tournament games. Dotted lines show fixed aggregates; Community headline medians retain their player-balanced weighting. A missing selected reference
       means that source has no qualifying published sample for that metric.
       {" "}Diamond Slippi and Master Slippi also follow Stage ({benchmarks.stageId === null ? "all stages" : stageName(benchmarks.stageId)}), without a broader fallback.
-      {benchmarks.rankedState && <RankedBenchmarkSource state={benchmarks.rankedState} />}
-    </div>
+      </p>
+    </details>
   );
 }
 
@@ -791,7 +849,7 @@ function RollingExecChart({ games, benchmarks }: { games: ResolvedGame[]; benchm
   const points = useMemo(() => rollingExecutionSeries(games, metric), [games, metric]);
   const benchmarkValues = useMemo(() => {
     const values = new Map<BenchmarkKind, number>();
-    for (const style of EXECUTION_BENCHMARK_STYLES) {
+    for (const style of selectedBenchmarkStyles(benchmarks)) {
       const value = executionBenchmarkValue(benchmarks, style.key, metric);
       if (value !== null) values.set(style.key, value);
     }
@@ -891,7 +949,7 @@ function RollingExecChart({ games, benchmarks }: { games: ResolvedGame[]; benchm
         games in this filter
         {games.length > MAX_SERIES_POINTS ? `, sampled down to ${MAX_SERIES_POINTS.toLocaleString()} points` : ""}.
       </div>
-      <BenchmarkFootnote benchmarks={benchmarks} />
+      <BenchmarkAvailability benchmarks={benchmarks} available={source => benchmarkValues.has(source)} />
     </div>
   );
 }
@@ -1026,7 +1084,7 @@ function PerGameMetricChart({
   );
   const benchmarkValues = useMemo(() => {
     const values = new Map<string, number>();
-    for (const item of series) for (const style of EXECUTION_BENCHMARK_STYLES) {
+    for (const item of series) for (const style of selectedBenchmarkStyles(benchmarks)) {
       const value = actionBenchmarkValue(benchmarks, style.key, item.key);
       if (value !== null) values.set(`benchmark:${style.key}:${item.key}`, value);
     }
@@ -1144,7 +1202,7 @@ function PerGameMetricChart({
         games in this filter
         {games.length > MAX_SERIES_POINTS ? `, sampled down to ${MAX_SERIES_POINTS.toLocaleString()} points` : ""}.
       </div>
-      <BenchmarkFootnote benchmarks={benchmarks} />
+      <BenchmarkAvailability benchmarks={benchmarks} available={source => benchmarkValues.has(`benchmark:${source}:${selected}`)} />
     </div>
   );
 }
@@ -1301,7 +1359,7 @@ function MoveMetricChart({ games, moves, benchmarks, metric, setMetric }: {
     const values = new Map<string, number>();
     for (let index = 0; index < activeMoves.length; index++) {
       const move = activeMoves[index]!;
-      for (const style of EXECUTION_BENCHMARK_STYLES) {
+      for (const style of selectedBenchmarkStyles(benchmarks)) {
         const value = moveBenchmarkValue(benchmarks, style.key, move.key, metric);
         if (value !== null) values.set(`benchmark:${style.key}:move-${index}`, value);
       }
@@ -1477,15 +1535,19 @@ function MoveMetricChart({ games, moves, benchmarks, metric, setMetric }: {
             </LineChart>
           </ResponsiveContainer>
           <div className="hint">
-            Each line is {def.label} for a selected move over the previous {ROLLING_WINDOW} games, so its last point
-            is the figure the Move effectiveness table below shows. The chart spans all{" "}
+            {def.label} over the previous {ROLLING_WINDOW} games, across all{" "}
             {games.length.toLocaleString()} games in this filter
             {games.length > MAX_SERIES_POINTS ? `, sampled down to ${MAX_SERIES_POINTS.toLocaleString()} points` : ""}.
+          </div>
+          <BenchmarkAvailability benchmarks={benchmarks} context="one or more selected moves in this filter" available={source => activeMoves.every((_move, index) => benchmarkValues.has(`benchmark:${source}:move-${index}`))} />
+          <details className="hint execution-chart-method">
+            <summary>Move measurements</summary>
+            <p>The last point matches the Move effectiveness table below.
             Attempted/game correctly reaches zero when you did not initiate the move; gaps mean the selected metric is
             unavailable, such as initiation counts for throws or outcomes for utility specials. SSBMStats Community move rates are approximate because
             public game counts are privacy-rounded; damage and kill shares cover published move rows.
-          </div>
-          <BenchmarkFootnote benchmarks={benchmarks} />
+            </p>
+          </details>
         </>
       )}
       {activeMoves.length > 0 && hasStaleStats && <div className="hint">Some cached replays use older statistics. Refresh replays to update their measurements.</div>}
@@ -1538,6 +1600,7 @@ export function Execution({
 }) {
   const [moveMetric, setMoveMetric] = useState<MoveMetricKey>("landedPerGame");
   const [comparisonSource, setComparisonSource] = useState<ComparisonSource>("tournament");
+  const [chartSources, setChartSources] = useState<ReadonlySet<BenchmarkKind>>(DEFAULT_CHART_SOURCES);
   // The charts cover the whole filter; everything under them describes current
   // form, so it reads the trailing window the charts smooth over. The same
   // number on purpose — see ROLLING_WINDOW.
@@ -1550,7 +1613,7 @@ export function Execution({
   const career = useMemo(() => moveTable(games), [games]);
   const recentMoves = useMemo(() => moveTable(recentGames), [recentGames]);
   const loadedBenchmarks = useExecutionBenchmarks(games, isDemo, selectedCharacterId, selectedOpponentCharacterId, selectedStageId);
-  const benchmarks = { ...loadedBenchmarks, comparisonSource };
+  const benchmarks = { ...loadedBenchmarks, comparisonSource, chartSources };
   const interactionPanel = <Interactions games={recentGames} isDemo={isDemo} onAnalyze={onAnalyzeInteractions}
     onSelectReplayFiles={onSelectAnalysisFiles} analyzing={analyzingInteractions}
     benchmarkScope={{ characterId: selectedCharacterId, opponentCharacterId: selectedOpponentCharacterId, stageId: selectedStageId }} />;
@@ -1565,7 +1628,15 @@ export function Execution({
         <Kpi label={`Inputs / min — last ${summary.games}`} value={int(summary.ipm)} />
       </div>
 
-      <div className="panel-heading-row"><span className="hint">Highlighting shows differences, not a skill rating.</span><BenchmarkSourceControl value={comparisonSource} onChange={setComparisonSource} /></div>
+      <div className="execution-reference-controls">
+        <div><ChartBenchmarkControl selected={chartSources} onChange={setChartSources} /><span className="hint">Applies to all three charts.</span></div>
+        <div className="execution-table-comparison"><BenchmarkSourceControl value={comparisonSource} onChange={setComparisonSource} /><span className="hint">Table highlighting only · differences, not a skill rating.</span></div>
+      </div>
+      <div className="execution-reference-notes">
+        <ChartReferenceScope benchmarks={benchmarks} />
+        <BenchmarkFootnote benchmarks={benchmarks} />
+        {benchmarks.rankedState && <RankedBenchmarkSource state={benchmarks.rankedState} />}
+      </div>
       <RollingExecChart games={games} benchmarks={benchmarks} />
 
       <MoveMetricChart games={games} moves={career.rows} benchmarks={benchmarks} metric={moveMetric} setMetric={setMoveMetric} />
