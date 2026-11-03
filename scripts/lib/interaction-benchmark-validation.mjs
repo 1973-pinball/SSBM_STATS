@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 
+const cStickFields = ["cStickInputs", "cStickSamples"];
 const fields = {
   ledge: ["attempts", "punished", "hit", "traded", "noHit", "incomplete"],
-  oos: ["attempts", "punished", "hit", "traded", "noHit", "incomplete"],
-  shieldExits: ["attempts", "punished", "hit", "traded", "noHit", "incomplete"],
-  recoveries: ["attempts", "reachedLedge", "returned", "died", "incomplete"],
+  oos: ["attempts", "punished", "hit", "traded", "noHit", "incomplete", ...cStickFields],
+  shieldExits: ["attempts", "punished", "hit", "traded", "noHit", "incomplete", ...cStickFields],
+  recoveries: ["attempts", "reachedLedge", "hitDuringRecovery", "returned", "died", "incomplete"],
   edgeguards: ["opportunities", "contested", "completedContests", "stocksTaken", "opponentReturned", "uncontestedDeaths", "incomplete"],
   beforeOpening: ["openings", "damage", "kills", "incomplete"],
 };
@@ -86,19 +87,25 @@ export function validateShippedInteractionSample(data, { statsVersion, optionKey
       const coverage = family === "beforeOpening" ? row.punishGames : ["recoveries", "edgeguards"].includes(family) ? row.recoveryGames : row.defenseGames;
       for (const [option, values] of Object.entries(row[family])) {
         assert.ok(optionKeys[family].includes(option), `${family}: unexpected option key`);
-        keys(values, fields[family], `${family} counters`);
+        const optionalInputs = family === "oos" || family === "shieldExits";
+        const hasInputSamples = object(values) && cStickFields.some(field => Object.hasOwn(values, field));
+        keys(values, fields[family].filter(field => !optionalInputs || !cStickFields.includes(field) || hasInputSamples), `${family} counters`);
         for (const [counter, value] of Object.entries(values)) assert.ok(counter === "damage" ? Number.isFinite(value) && value >= 0 : integer(value));
         assert.ok(coverage > 0 || Object.values(values).every(value => value === 0), "unmeasured games cannot supply observations");
         if (family === "recoveries") {
           assert.equal(values.attempts, values.returned + values.died + values.incomplete);
           assert.ok(values.reachedLedge <= values.attempts);
+          assert.ok(values.hitDuringRecovery <= values.attempts);
         } else if (family === "edgeguards") {
           assert.equal(values.opportunities, values.stocksTaken + values.opponentReturned + values.uncontestedDeaths + values.incomplete);
           assert.ok(values.completedContests <= values.contested && values.contested <= values.opportunities);
           assert.ok(values.completedContests <= values.opportunities - values.incomplete && values.stocksTaken <= values.completedContests);
         } else if (family === "beforeOpening") {
           assert.ok(values.incomplete <= values.openings && values.kills <= values.openings - values.incomplete);
-        } else assert.equal(values.attempts, values.punished + values.hit + values.traded + values.noHit + values.incomplete);
+        } else {
+          assert.equal(values.attempts, values.punished + values.hit + values.traded + values.noHit + values.incomplete);
+          if (optionalInputs && hasInputSamples) assert.ok(values.cStickInputs <= values.cStickSamples && values.cStickSamples <= values.attempts);
+        }
       }
     }
   }

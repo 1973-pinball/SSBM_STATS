@@ -25,7 +25,7 @@ try {
   const base = generateDemoRecords(1).find((rec) => !rec.isTeams);
   assert.ok(base);
   const choice = { attempts: 5, punished: 2, hit: 1, traded: 0, noHit: 1, incomplete: 1 };
-  const recovery = { attempts: 4, reachedLedge: 3, returned: 2, died: 1, incomplete: 1 };
+  const recovery = { attempts: 4, reachedLedge: 3, returned: 2, died: 1, incomplete: 1, hitDuringRecovery: 2 };
   const edgeguard = { opportunities: 4, contested: 3, completedContests: 2, stocksTaken: 1, opponentReturned: 2, uncontestedDeaths: 0, incomplete: 1 };
   const punish = { openings: 4, damage: 45, kills: 1, incomplete: 1 };
   const measured = structuredClone(base);
@@ -70,6 +70,22 @@ try {
   const doubled = interactionSummary([asGame(measured), asGame(measured)]);
   assert.equal(doubled.ledge.roll.attempts, 10);
   assert.equal(doubled.beforeOpening.grab.damage, 90);
+  assert.equal(doubled.recoveries.low.hitDuringRecovery, 4);
+  const missingHit = structuredClone(measured);
+  delete missingHit.players[0].recovery.recoveries.low.hitDuringRecovery;
+  for (const pair of [[measured, missingHit], [missingHit, measured]]) {
+    assert.equal(interactionSummary(pair.map(asGame)).recoveries.low.hitDuringRecovery, undefined,
+      "missing hit counts must not produce partial numerator / full denominator rates");
+  }
+  const cStick = structuredClone(measured);
+  cStick.players[0].defense.oos = { jump: { ...choice, cStickInputs: 1, cStickSamples: 3 } };
+  const missingInputs = structuredClone(cStick);
+  delete missingInputs.players[0].defense.oos.jump.cStickInputs;
+  delete missingInputs.players[0].defense.oos.jump.cStickSamples;
+  const cStickSummary = interactionSummary([cStick, missingInputs, cStick].map(asGame));
+  assert.equal(cStickSummary.oos.jump.attempts, 15);
+  assert.equal(cStickSummary.oos.jump.cStickInputs, 2);
+  assert.equal(cStickSummary.oos.jump.cStickSamples, 6, "only recorded eligible inputs enter the input denominator");
   assert.equal(choice.attempts, 5, "aggregation does not mutate stored counts");
   assert.equal(interactionRate(0, 0), null);
   assert.equal(interactionRate(0, 5), 0);
@@ -82,6 +98,20 @@ try {
   assert.match(ledgeHtml, /Small sample/);
   const recoveryHtml = render(TestRecoveryTable, { rows: { low: recovery }, covered: 1 });
   assert.match(recoveryHtml, /66\.7%/, "stable return rate uses completed recoveries");
+  assert.match(recoveryHtml, /50\.0%/, "recovery-hit rate includes unresolved attempts in its denominator");
+  assert.match(recoveryHtml, /2 \/ 4/);
+  const missingHitHtml = render(TestRecoveryTable, { rows: missingHit.players[0].recovery.recoveries, covered: 1 });
+  assert.match(missingHitHtml, /Hit tracking unavailable for these attempts">—/);
+  const oosHtml = render(TestChoiceTable, {
+    rows: cStickSummary.oos, labels: [{ key: "jump", label: "Jump" }, { key: "wavedash", label: "Wavedash" }],
+    covered: 3, kind: "out-of-shield responses", showWavedash: true,
+  });
+  assert.match(oosHtml, /Wavedash<\/th><td class="data">0<\/td>/, "measured zero wavedashes remain visible");
+  assert.match(oosHtml, /C-stick input/);
+  assert.match(oosHtml, /2 \/ 6/);
+  assert.match(oosHtml, /No recorded eligible C-stick inputs">—/);
+  const unmeasuredOosHtml = render(TestChoiceTable, { rows: {}, labels: [], covered: 0, kind: "out-of-shield responses", showWavedash: true });
+  assert.doesNotMatch(unmeasuredOosHtml, /Wavedash/, "missing coverage never invents a zero-use row");
   const edgeguardHtml = render(TestEdgeguardTable, { rows: { holdLedge: edgeguard }, covered: 1 });
   assert.match(edgeguardHtml, /50\.0%/, "edgeguard rate uses completed contests, not all contests");
   const punishHtml = render(TestPunishTable, { rows: { grab: punish }, covered: 1 });

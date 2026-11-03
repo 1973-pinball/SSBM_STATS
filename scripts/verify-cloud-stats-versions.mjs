@@ -91,7 +91,7 @@ try {
   });
   const reset = () => { packs.clear(); saved.length = 0; uploads.length = 0; queries.length = 0; tick = 1; };
   const remote = (rec, version = rec.statsVersion) => store(gameKey(rec), rec, version, bucketFor(gameKey(rec)));
-  const baseline = record(6), previousAnalysis = record(7), analyzed = record(8, "game", { players: record(8).players.map(p => ({ ...p, defense: { ledge: {}, oos: {}, shieldExits: {} } })) });
+  const baseline = record(6), previousAnalysis = record(7), previousRevision = record(8), analyzed = record(9, "game", { players: record(9).players.map(p => ({ ...p, defense: { ledge: {}, oos: {}, shieldExits: {} } })) });
 
   reset();
   let result = await syncRecords([baseline], codes);
@@ -101,14 +101,15 @@ try {
   assert.equal(result.knowledge.versions.get("game"), 6);
   assert.ok(isSyncable(baseline, codes));
   assert.ok(isSyncable(previousAnalysis, codes), "v7 baseline may still sync without claiming corrected coverage");
+  assert.ok(isSyncable(previousRevision, codes), "v8 baseline may still sync without claiming current interaction coverage");
   assert.ok(isSyncable(analyzed, codes));
   assert.equal(isSyncable(record(5), codes), false);
 
   reset(); remote(baseline);
   result = await syncRecords([analyzed], codes);
   assert.equal(result.pushed, 1, "analyzed payload upgrades same remote game key");
-  assert.equal(uploads[0].stats_version, 8);
-  assert.equal(result.knowledge.versions.get("game"), 8);
+  assert.equal(uploads[0].stats_version, 9);
+  assert.equal(result.knowledge.versions.get("game"), 9);
   assert.deepEqual(result.pulled, []);
 
   reset(); remote(analyzed);
@@ -125,7 +126,7 @@ try {
   remote(analyzed);
   result = await syncRecords([baseline], codes, baselineKnowledge);
   assert.equal(result.pushed, 0); assert.deepEqual(result.pulled, [analyzed]);
-  assert.equal(result.knowledge.versions.get("game"), 8, "delta sync updates persisted version knowledge");
+  assert.equal(result.knowledge.versions.get("game"), 9, "delta sync updates persisted version knowledge");
   assert.ok(queries.some(q => q.since === baselineKnowledge.cursor));
 
   reset(); remote(baseline);
@@ -133,15 +134,15 @@ try {
   const knownBaseline = result.knowledge;
   result = await syncRecords([analyzed], codes, knownBaseline);
   assert.equal(result.pushed, 1, "same-key local upgrade pushes even with unchanged remote cursor");
-  assert.equal(result.knowledge.versions.get("game"), 8);
+  assert.equal(result.knowledge.versions.get("game"), 9);
   result = await syncRecords([analyzed], codes, result.knowledge);
   assert.equal(result.pushed, 0, "acknowledged upgrade does not repeat");
 
-  reset(); remote(record(9));
+  reset(); remote(record(10));
   result = await syncRecords([analyzed], codes);
   assert.equal(result.pushed, 0, "future remote payload also cannot be downgraded");
   assert.deepEqual(result.pulled, [], "unsupported future payload is not persisted by reconciliation");
-  assert.equal(result.knowledge.versions.get("game"), 9);
+  assert.equal(result.knowledge.versions.get("game"), 10);
 
   reset(); remote(baseline);
   result = await restoreCloudRecords();
@@ -151,22 +152,24 @@ try {
   result = await restoreCloudRecords();
   assert.deepEqual(saved, [analyzed]);
 
-  reset(); remote(previousAnalysis);
-  result = await restoreCloudRecords();
-  assert.deepEqual(saved, [previousAnalysis], "v7 restore keeps actual baseline version rather than stamping8");
-  reset();
-  result = await syncRecords([previousAnalysis], codes);
-  assert.equal(uploads[0].stats_version, 7);
-  assert.equal(uploads[0].data.statsVersion, 7);
-  result = await syncRecords([analyzed], codes, result.knowledge);
-  assert.equal(result.pushed, 1, "v8 upgrade also replaces a previously acknowledged v7");
-  assert.equal(result.knowledge.versions.get("game"), 8);
-  reset(); remote(analyzed);
-  result = await syncRecords([previousAnalysis], codes);
-  assert.equal(result.pushed, 0);
-  assert.deepEqual(result.pulled, [analyzed], "v7 device restores corrected same-key v8");
+  for (const previous of [previousAnalysis, previousRevision]) {
+    reset(); remote(previous);
+    result = await restoreCloudRecords();
+    assert.deepEqual(saved, [previous], `v${previous.statsVersion} restore preserves its actual version rather than stamping v9`);
+    reset();
+    result = await syncRecords([previous], codes);
+    assert.equal(uploads[0].stats_version, previous.statsVersion);
+    assert.equal(uploads[0].data.statsVersion, previous.statsVersion);
+    result = await syncRecords([analyzed], codes, result.knowledge);
+    assert.equal(result.pushed, 1, `v9 upgrade replaces a previously acknowledged v${previous.statsVersion}`);
+    assert.equal(result.knowledge.versions.get("game"), 9);
+    reset(); remote(analyzed);
+    result = await syncRecords([previous], codes);
+    assert.equal(result.pushed, 0);
+    assert.deepEqual(result.pulled, [analyzed], `v${previous.statsVersion} device restores current same-key v9`);
+  }
 
-  reset(); remote(baseline, 8);
+  reset(); remote(baseline, 9);
   await syncRecords([], codes);
   assert.deepEqual(saved, [], "mismatched index/payload version is not persisted");
   await restoreCloudRecords();
@@ -174,10 +177,11 @@ try {
 
   reset();
   const copiedBase = record(6, "copy-a", { playedAt: "2026-01-01T00:00:00Z" });
-  const copiedAnalysis = record(8, "copy-z", { playedAt: copiedBase.playedAt });
-  result = await syncRecords([copiedBase, copiedAnalysis], codes);
-  assert.equal(result.pushed, 1); assert.equal(uploads[0].stats_version, 8, "duplicate paths upload the best payload once");
-  console.log("Cloud stats-version checks passed: v6/v7 preserved; corrected v8 upgrades push/pull; versions persist; old copies never downgrade newer data.");
+  const copiedPrevious = record(8, "copy-b", { playedAt: copiedBase.playedAt });
+  const copiedAnalysis = record(9, "copy-z", { playedAt: copiedBase.playedAt });
+  result = await syncRecords([copiedBase, copiedPrevious, copiedAnalysis], codes);
+  assert.equal(result.pushed, 1); assert.equal(uploads[0].stats_version, 9, "duplicate paths upload the best payload once");
+  console.log("Cloud stats-version checks passed: v6/v7/v8 preserved; v9 upgrades push/pull; versions persist; old copies never downgrade newer data.");
 } finally {
   await server.close();
   delete globalThis.__ssbmCloudVersionTest;

@@ -52,6 +52,20 @@ assert.equal(closedLedge([29, 236, 43]), "drop", "airdodge without an observed j
 assert.equal(closedLedge([29, 252, 253]), "regrab");
 assert.equal(closedLedge([29, 341]), "unknown", "unsupported character state stays unknown");
 {
+  const r = replay(); r.feed(post(253)); r.feed(post(29)); r.feed(post(27));
+  r.feed(post(354, { isAirborne: true })); // Fox's aerial Fire Fox startup.
+  r.feed(post(355, { isAirborne: true })); r.feed(post(252)); r.frames(30, post(253));
+  assert.deepEqual(r.finish().get(0).ledge, { unknown: totals("noHit") },
+    "Fire Fox stall is neither a normal aerial attack nor an uninterrupted drop/regrab");
+}
+{
+  const r = replay(); r.feed(post(253, { internalCharacterId: 24 }));
+  r.feed(post(29, { internalCharacterId: 24 }));
+  r.feed(post(347, { internalCharacterId: 24, isAirborne: true })); r.frames(30, post());
+  assert.deepEqual(r.finish().get(0).ledge.dropAerial, totals("noHit"),
+    "G&W's character-specific neutral aerial remains a normal aerial attack");
+}
+{
   // Minimized local replay index0, frames3282–3309: the double jump rises
   // from below the stage for24 frames before the air dodge and landing.
   const r = replay(); r.feed(post(253)); r.frames(2, post(29)); r.frames(24, post(27));
@@ -138,6 +152,72 @@ for (const [sequence, key] of [[[24, 25, 65], "aerial"], [[24, 25, 236, 43], "wa
   for (const state of sequence) r.feed(post(state, state === 341 ? { isAirborne: true } : {}));
   r.frames(DEFENSIVE_OUTCOME_WINDOW_FRAMES, post());
   assert.deepEqual(r.finish().get(0).oos[key], totals("noHit"), `OOS sequence ${key}`);
+}
+{
+  const r = replay(); r.feed(post(181)); r.feed(post(24)); r.feed(post(25));
+  r.feed(post(236)); r.frames(30, post(236));
+  assert.deepEqual(r.finish().get(0).oos, { jump: totals("noHit") },
+    "jump then air dodge without an observed landing is not a wavedash");
+}
+{
+  const r = replay(); r.feed(post(181)); r.feed(post(24)); r.feed(post(25));
+  r.feed(post(236)); r.feed(post(75, { percent: 7, lastHitBy: 1, isAirborne: true }));
+  r.feed(post(43)); r.frames(30, post());
+  assert.deepEqual(r.finish().get(0).oos, { jump: totals("punished") },
+    "a jump interrupted before landing cannot become a completed wavedash");
+}
+{
+  const r = replay(); r.feed(post(181)); r.feed(post(24)); r.feed(post(25));
+  r.feed(post(42)); r.frames(30, post());
+  assert.deepEqual(r.finish().get(0).oos, { jump: totals("noHit") },
+    "an ordinary jump landing stays a jump and is counted once");
+}
+for (const section of ["oos", "shieldExits"]) {
+  for (const [state, option] of [[233, "rollForward"], [234, "rollBackward"], [235, "spotDodge"], [24, "jump"]]) {
+    const r = replay(); r.feed(post(section === "oos" ? 181 : 179));
+    r.feed(post(state), undefined, { cStickX: 0, cStickY: -1, joystickX: 1, joystickY: 1, buttons: 1024 });
+    r.frames(30, post());
+    assert.deepEqual(r.finish().get(0)[section][option], { ...totals("noHit"), cStickInputs: 1, cStickSamples: 1 },
+      `${section}/${option} observes C-stick input even when other controls coexist; it does not attribute the action`);
+  }
+}
+for (const [sequence, option, initialCStick] of [[[25, 65], "aerial", 1], [[25, 236, 43], "wavedash", 0]]) {
+  const r = replay(); r.feed(post(181));
+  r.feed(post(24), undefined, { cStickX: 0, cStickY: initialCStick });
+  for (const state of sequence) r.feed(post(state), undefined, { cStickX: 0, cStickY: 1 - initialCStick });
+  r.frames(30, post());
+  assert.deepEqual(r.finish().get(0).oos[option], { ...totals("noHit"), cStickInputs: initialCStick, cStickSamples: 1 },
+    `${option} preserves the shield-exit input rather than sampling later attack/dodge inputs`);
+}
+for (const pre of [undefined, {}, { cStickX: 0 }, { cStickX: 0, cStickY: NaN }, { cStickX: Infinity, cStickY: 1 }]) {
+  const r = replay(); r.feed(post(181)); r.feed(post(235), undefined, pre); r.frames(30, post());
+  assert.deepEqual(r.finish().get(0).oos.spotDodge, totals("noHit"),
+    "unavailable or invalid C-stick axes do not become a measured neutral input");
+}
+{
+  const r = replay();
+  for (const pre of [{ cStickX: 0.28, cStickY: -0.28 }, { cStickX: -0.2875, cStickY: 0 }, undefined]) {
+    r.feed(post(181)); r.feed(post(233), undefined, pre); r.frames(30, post());
+  }
+  assert.deepEqual(r.finish().get(0).oos.rollForward, { ...totals("noHit", 3), cStickInputs: 1, cStickSamples: 2 },
+    "C-stick rate uses covered samples, with Slippi's input deadzone, instead of all attempts");
+}
+for (const state of [212, 180, 29, 341]) {
+  const r = replay(); r.feed(post(181));
+  r.feed(post(state), undefined, { cStickX: 1, cStickY: 1 }); r.frames(30, post());
+  assert.deepEqual(Object.values(r.finish().get(0).oos), [totals("noHit")],
+    "C-stick metadata is limited to jump-derived choices, rolls and spot dodges");
+}
+{
+  const r = replay(); r.feed(post(181));
+  r.feed(post(24), undefined, { cStickX: 1, cStickY: 1 });
+  r.feed(post(354, { isAirborne: true })); r.frames(30, post());
+  assert.deepEqual(r.finish().get(0).oos.unknown, totals("noHit"), "unknown special sequence loses eligible C-stick coverage");
+}
+{
+  const r = replay(); r.feed(post(253));
+  r.feed(post(260), undefined, { cStickX: 1, cStickY: 1 }); r.frames(30, post());
+  assert.deepEqual(r.finish().get(0).ledge.jump, totals("noHit"), "ledge choices do not receive shield-input metadata");
 }
 {
   const r = replay(); r.feed(post(181)); r.feed(post(24)); r.feed(post(25));

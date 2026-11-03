@@ -35,8 +35,8 @@ function Samples({ count, resolved = count }: { count: number; resolved?: number
   return <>{int(count)}{resolved < SMALL_SAMPLE && <span className="sample-note" title={`Fewer than ${SMALL_SAMPLE} resolved observations; rates can change substantially with a few more examples.`}>Small sample</span>}</>;
 }
 
-function RateCell({ count, total }: { count: number; total: number }) {
-  return <td className="data" title={total ? `${int(count)} of ${int(total)} resolved observations` : "No resolved observations"}>
+function RateCell({ count, total, observations = "resolved observations" }: { count: number; total: number; observations?: string }) {
+  return <td className="data" title={total ? `${int(count)} of ${int(total)} ${observations}` : `No ${observations}`}>
     {pct(interactionRate(count, total))}
     {total > 0 && <span className="sample-note">{int(count)} / {int(total)}</span>}
   </td>;
@@ -48,37 +48,45 @@ function Missing({ covered, kind }: { covered: number; kind: string }) {
     : `No qualifying ${kind} were observed in the measured games.`}</p>;
 }
 
-function ChoiceTable({ rows, labels, covered, kind }: {
+function ChoiceTable({ rows, labels, covered, kind, showWavedash = false }: {
   rows: Record<string, ChoiceOutcomes>;
   labels: readonly { key: string; label: string }[];
   covered: number;
   kind: string;
+  showWavedash?: boolean;
 }) {
   const ordered = Object.entries(rows).filter(([, row]) => row.attempts > 0)
     .sort((a, b) => b[1].attempts - a[1].attempts || a[0].localeCompare(b[0]));
+  if (showWavedash && covered > 0 && !ordered.some(([key]) => key === "wavedash")) {
+    ordered.push(["wavedash", { attempts: 0, punished: 0, hit: 0, traded: 0, noHit: 0, incomplete: 0 }]);
+  }
   const total = ordered.reduce((sum, [, row]) => sum + row.attempts, 0);
-  if (!total) return <Missing covered={covered} kind={kind} />;
+  if (!total && !(showWavedash && covered > 0)) return <Missing covered={covered} kind={kind} />;
   return <>
     <div className="interaction-table-scroll" tabIndex={0} role="region" aria-label={`${kind} outcomes table`}>
       <table className="interaction-table">
         <thead><tr><th scope="col">Option</th><th scope="col" className="data">Uses</th><th scope="col" className="data">Share</th>
           <th scope="col" className="data">Hit / grabbed</th><th scope="col" className="data">Hit / grab landed</th>
-          <th scope="col" className="data">No hit / grab</th><th scope="col" className="data">Unresolved</th></tr></thead>
+          <th scope="col" className="data">No hit / grab</th><th scope="col" className="data">Unresolved</th>
+          {showWavedash && <th scope="col" className="data" title="C-stick input observed on the shield-exit frame for jumps, jump-derived options, rolls and spot dodges">C-stick input<span className="sample-note">Experimental</span></th>}</tr></thead>
         <tbody>{ordered.map(([key, row]) => {
           const resolved = row.attempts - row.incomplete;
           return <tr key={key}>
             <th scope="row">{labels.find((label) => label.key === key)?.label ?? "Other / unknown"}</th>
-            <td className="data"><Samples count={row.attempts} resolved={resolved} /></td>
+            <td className="data">{row.attempts === 0 ? "0" : <Samples count={row.attempts} resolved={resolved} />}</td>
             <td className="data">{pct(interactionRate(row.attempts, total))}</td>
             <RateCell count={row.punished + row.traded} total={resolved} />
             <RateCell count={row.hit + row.traded} total={resolved} />
             <RateCell count={row.noHit} total={resolved} />
             <td className="data">{int(row.incomplete)}</td>
+            {showWavedash && (row.cStickSamples ? <RateCell count={row.cStickInputs ?? 0} total={row.cStickSamples} observations="recorded eligible exit inputs" />
+              : <td className="data" title="No recorded eligible C-stick inputs">—</td>)}
           </tr>;
         })}</tbody>
       </table>
     </div>
-    <p className="hint">First damaging hit or grab within {DEFENSIVE_OUTCOME_WINDOW_FRAMES} frames (0.5 seconds) of leaving ledge or shield. Same-frame trades count in both contact columns. Outcome rates exclude unresolved uses; no damaging hit or grab does not guarantee a safe option.</p>
+    <p className="hint">First damaging hit or grab within {DEFENSIVE_OUTCOME_WINDOW_FRAMES} frames (0.5 seconds) of leaving ledge or shield. Same-frame trades count in both contact columns. Outcome rates exclude unresolved uses; no damaging hit or grab does not guarantee a safe option.{showWavedash && " Wavedash means jump → air dodge → landing, including same-frame air-dodge landings. Zero means none were observed in these measured games."}</p>
+    {showWavedash && <p className="hint">C-stick input shows a deflection on the shield-exit frame for jumps (including jump → aerial and wavedash), rolls, and spot dodges. Its denominator counts recorded eligible inputs. It does not prove the C-stick caused or buffered the action; simultaneous stick/button inputs can overlap.</p>}
   </>;
 }
 
@@ -90,18 +98,20 @@ function RecoveryTable({ rows, covered }: { rows: Record<string, RecoveryOutcome
   return <>
     <div className="interaction-table-scroll" tabIndex={0} role="region" aria-label="Recovery outcomes table">
       <table className="interaction-table"><thead><tr>
-        <th scope="col">Route</th><th scope="col" className="data">Attempts</th><th scope="col" className="data">Reached ledge</th>
+        <th scope="col">Route</th><th scope="col" className="data">Attempts</th><th scope="col" className="data" title="Attempts with an observed opponent hit after the initial launch">Hit during recovery</th><th scope="col" className="data">Reached ledge</th>
         <th scope="col" className="data">Returned to stage</th><th scope="col" className="data">Died</th><th scope="col" className="data">Unresolved</th>
       </tr></thead><tbody>{ordered.map(([key, row]) => {
         const resolved = row.attempts - row.incomplete;
         return <tr key={key}><th scope="row">{labels[key] ?? "Unknown"}</th>
           <td className="data"><Samples count={row.attempts} resolved={resolved} /></td>
+          {row.hitDuringRecovery === undefined ? <td className="data" title="Hit tracking unavailable for these attempts">—</td>
+            : <RateCell count={row.hitDuringRecovery} total={row.attempts} observations="recorded recovery attempts" />}
           <td className="data">{int(row.reachedLedge)}</td>
           <RateCell count={row.returned} total={resolved} /><RateCell count={row.died} total={resolved} />
           <td className="data">{int(row.incomplete)}</td></tr>;
       })}</tbody></table>
     </div>
-    <p className="hint">Reaching ledge is a milestone: the same recovery can later return to stage or end in death. Return/death rates exclude unresolved attempts.</p>
+    <p className="hint">Hit during recovery counts attempts with at least one observed opponent hit after the initial launch, including unfinished attempts; multiple hits count once. It continues through ledge and the stable-return check. An unhit recovery can still be contested. Reaching ledge is a milestone: the same recovery can later return to stage or end in death. Return/death rates exclude unresolved attempts.</p>
   </>;
 }
 
@@ -209,7 +219,7 @@ function InteractionBenchmarkComparison({ local, family, scope, data, isDemo = f
           {INTERACTION_COHORTS.map((cohort) => <ComparisonCell key={cohort} result={interactionBenchmarkValue(benchmarks[cohort], family, key, measure)} format={selected.format} />)}
         </tr>)}</tbody></table>
       </div>}
-    <p className="hint">Each cell shows {selected.format === "number" ? "damage / resolved openings" : "observations / qualifying opportunities"}. A dash means no qualifying sample. Outcome rates exclude unresolved events; stock-loss rate uses completed contests. Empty matchups stay unavailable without a broader fallback.</p>
+    <p className="hint">Each cell shows {selected.format === "number" ? "damage / resolved openings" : "observations / qualifying opportunities"}. A dash means no qualifying sample. {measure === "hitDuringRecoveryRate" ? "Hit during recovery uses all recorded attempts, including unfinished ones; the initial launch is excluded." : "Outcome rates exclude unresolved events; stock-loss rate uses completed contests."} Empty matchups stay unavailable without a broader fallback.</p>
     <p className="hint">Your column uses the current game window and filters. Archive estimates follow Me / Vs / Stage across their full sampled history, ignoring date, mode, account, and named-opponent filters. The cohorts can overlap and are not balanced by player or character. The full Pro sample covers {int(data.sample.proPlayers)} mapped players; it is not a general professional average.</p>
     <details className="interaction-benchmark-method">
       <summary>Sample and limitations</summary>
@@ -289,7 +299,7 @@ export function Interactions({ games, onAnalyze, onSelectReplayFiles, analyzing 
           Required recording data is missing or incomplete{section === "recoveries" || section === "edgeguards" ? ", or the stage geometry is unsupported" : ""}. These games are excluded from the rates and are not retried automatically.</p>}
       </div>}
       {section === "ledge" && <ChoiceTable rows={summary.ledge} labels={LEDGE_OPTION_LABELS} covered={coverage} kind="ledge options" />}
-      {section === "oos" && <ChoiceTable rows={summary[shieldMode]} labels={OOS_OPTION_LABELS} covered={coverage} kind={shieldMode === "oos" ? "out-of-shield responses" : "other shield exits"} />}
+      {section === "oos" && <ChoiceTable rows={summary[shieldMode]} labels={OOS_OPTION_LABELS} covered={coverage} kind={shieldMode === "oos" ? "out-of-shield responses" : "other shield exits"} showWavedash />}
       {section === "recoveries" && <RecoveryTable rows={summary.recoveries} covered={coverage} />}
       {section === "edgeguards" && <EdgeguardTable rows={summary.edgeguards} covered={coverage} />}
       {section === "punish" && <PunishTable rows={summary.beforeOpening} covered={coverage} />}
@@ -297,7 +307,7 @@ export function Interactions({ games, onAnalyze, onSelectReplayFiles, analyzing 
     <ArchiveEstimates local={summary} family={family} scope={benchmarkScope} isDemo={isDemo} />
     <details className="interaction-method">
       <summary>How this is measured</summary>
-      {section === "ledge" && <p>Ledge actions are classified from the sequence after a ledge hold, including drop → jump → air dodge for ledgedashes. The sequence can develop for up to {LEDGE_SEQUENCE_WINDOW_FRAMES} frames and stops at the first hit or grab. Unresolved uses include interrupted observation windows, stock loss, a new defensive episode, or the replay ending.</p>}
+      {section === "ledge" && <p>Ledge actions are classified from the sequence after a ledge hold, including drop → jump → air dodge for ledgedashes. Drop → aerial includes normal aerial attacks, not special moves. Drop → regrab requires a direct return to ledge within the tracked drop/jump sequence; special-move stalls such as Fire Fox remain other / unknown. The sequence can develop for up to {LEDGE_SEQUENCE_WINDOW_FRAMES} frames and stops at the first hit or grab. Unresolved uses include interrupted observation windows, stock loss, a new defensive episode, or the replay ending.</p>}
       {section === "oos" && <p>After shield contact requires recorded shield stun within 30 frames before leaving shield. Other shield exits have no confirmed recent shield contact. The first {DEFENSIVE_SEQUENCE_WINDOW_FRAMES} frames can distinguish jump → aerial and wavedash from an ordinary jump. Unrecognized special actions remain other / unknown. Getting hit or grabbed soon afterward is an observed outcome, not proof that the choice was punishable.</p>}
       {section === "recoveries" && <p>Recovery attempts start after being knocked offstage and require an offstage frame outside damage, capture, knockdown, and tech states, or a ledge grab. Intentional trips offstage and direct launch knockouts still in uninterrupted hitstun are excluded. High and low describe observed recovery movement near the stage edge relative to stage height; routes using both are mixed. A return requires landing inside the stage bounds and then 30 consecutive frames outside disabled states without damage or a grab. Supported stage geometry is required; unsupported stages remain unavailable.</p>}
       {section === "edgeguards" && <p>Each qualifying opponent recovery creates an opportunity. Tactics describe your observed position and actions during that recovery; multiple tactics can produce a mixed classification. Holding ledge can contest a recovery without landing a hit. Opponent returns and deaths are observed outcomes, including unsuccessful contests.</p>}

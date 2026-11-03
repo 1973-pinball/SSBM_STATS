@@ -148,16 +148,37 @@ export function resolveTeamGames(records: GameRecord[], myCodes: Set<string>, in
   return out.sort((a, b) => (a.date?.getTime() ?? 0) - (b.date?.getTime() ?? 0));
 }
 
-const RANGE_DAYS: Record<Exclude<Filters["range"], "all">, number> = { "7d": 7, "14d": 14, "30d": 30, "90d": 90, "1y": 365 };
+const RANGE_DAYS: Record<Exclude<Filters["range"], "all" | "custom">, number> = { "7d": 7, "14d": 14, "30d": 30, "90d": 90, "1y": 365 };
+
+/** Validate calendar dates without interpreting date-only strings as UTC. */
+export function customRangeError(start: string | null, end: string | null): string | null {
+  if (!start || !end) return "Choose a start and end date.";
+  const valid = (day: string) => /^\d{4}-\d{2}-\d{2}$/.test(day) && localDay(new Date(`${day}T12:00:00`)) === day;
+  if (!valid(start) || !valid(end)) return "Enter valid dates.";
+  return start > end ? "End date must be on or after start date." : null;
+}
+
+function dateFilter(f: Filters): (date: Date | null) => boolean {
+  // A specific day takes precedence over either kind of range.
+  if (f.day !== null) return (date) => !!date && localDay(date) === f.day;
+  if (f.range === "custom") {
+    const start = f.rangeStart, end = f.rangeEnd;
+    if (customRangeError(start, end) !== null) return () => false;
+    return (date) => {
+      if (!date) return false;
+      const day = localDay(date);
+      return day >= start! && day <= end!;
+    };
+  }
+  if (f.range === "all") return () => true;
+  const cutoff = Date.now() - RANGE_DAYS[f.range] * 86_400_000;
+  return (date) => !!date && date.getTime() >= cutoff;
+}
 
 export function applyFilters(games: ResolvedGame[], f: Filters): ResolvedGame[] {
-  // A picked day overrides the relative range — combining them could only
-  // produce "day inside range" (redundant) or "day outside range" (empty).
-  let cutoff: number | null = null;
-  if (f.day === null && f.range !== "all") cutoff = Date.now() - RANGE_DAYS[f.range] * 86_400_000;
+  const matchesDate = dateFilter(f);
   return games.filter((g) => {
-    if (f.day !== null && (!g.date || localDay(g.date) !== f.day)) return false;
-    if (cutoff !== null && (!g.date || g.date.getTime() < cutoff)) return false;
+    if (!matchesDate(g.date)) return false;
     if (f.accountCode !== null && g.me.connectCode !== f.accountCode) return false;
     if (f.myCharacter !== null && g.me.characterId !== f.myCharacter) return false;
     if (f.oppCharacter !== null && g.opp.characterId !== f.oppCharacter) return false;
@@ -170,11 +191,9 @@ export function applyFilters(games: ResolvedGame[], f: Filters): ResolvedGame[] 
 
 /** Same filters against a 2v2 game; opponent-side predicates match if *either* opponent matches. */
 export function applyTeamFilters(games: ResolvedTeamGame[], f: Filters): ResolvedTeamGame[] {
-  let cutoff: number | null = null;
-  if (f.day === null && f.range !== "all") cutoff = Date.now() - RANGE_DAYS[f.range] * 86_400_000;
+  const matchesDate = dateFilter(f);
   return games.filter((g) => {
-    if (f.day !== null && (!g.date || localDay(g.date) !== f.day)) return false;
-    if (cutoff !== null && (!g.date || g.date.getTime() < cutoff)) return false;
+    if (!matchesDate(g.date)) return false;
     if (f.accountCode !== null && g.me.connectCode !== f.accountCode) return false;
     if (f.myCharacter !== null && g.me.characterId !== f.myCharacter) return false;
     if (f.oppCharacter !== null && !g.opps.some((o) => o.characterId === f.oppCharacter)) return false;
@@ -256,10 +275,10 @@ export function overview(games: ResolvedGame[], allResolved: ResolvedGame[], f: 
     damage += g.me.totalDamage;
   }
   const streak = streakOf(games);
-  // Prior-window comparison (only meaningful for bounded ranges; a picked day
-  // overrides the range, so no prior window exists to compare against).
+  // Prior-window comparison uses relative ranges only. Custom calendar ranges
+  // and picked days do not have an implied previous window.
   let prevWinRate: number | null = null;
-  if (f.day === null && f.range !== "all") {
+  if (f.day === null && f.range !== "all" && f.range !== "custom") {
     const days = RANGE_DAYS[f.range];
     const end = Date.now() - days * 86_400_000;
     const start = end - days * 86_400_000;
@@ -1448,6 +1467,7 @@ export interface StatCardData {
   firstDate: Date | null;
   lastDate: Date | null;
   mainChar: { id: number; games: number } | null;
+  secondaryChar: { id: number; games: number } | null;
   topOppChar: { id: number; games: number } | null;
   favStage: { id: number; games: number; winRate: number | null } | null;
   /**
@@ -1550,9 +1570,9 @@ export function statCardData(games: ResolvedGame[]): StatCardData {
     else if (g.isWin === false) run = 0;
   }
 
-  const top = <K,>(m: Map<K, number>): [K, number] | null =>
-    m.size ? [...m.entries()].sort((a, b) => b[1] - a[1])[0]! : null;
-  const mainChar = top(myChars);
+  const playedCharacters = [...myChars.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0]);
+  const mainChar = playedCharacters[0];
+  const secondaryChar = playedCharacters[1];
   let topOppChar: StatCardData["topOppChar"] = null;
   for (const [id, o] of oppChars) {
     if (!topOppChar || o.games > topOppChar.games) topOppChar = { id, games: o.games };
@@ -1624,6 +1644,7 @@ export function statCardData(games: ResolvedGame[]): StatCardData {
     firstDate: first,
     lastDate: last,
     mainChar: mainChar ? { id: mainChar[0], games: mainChar[1] } : null,
+    secondaryChar: secondaryChar ? { id: secondaryChar[0], games: secondaryChar[1] } : null,
     topOppChar,
     favStage,
     worstStage,

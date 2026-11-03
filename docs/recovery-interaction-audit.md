@@ -143,3 +143,36 @@ TypeScript check also passes. Earlier verification on 12 spread real replays
 established header invariants and full-record equality between bounded and
 retained parser paths; that equality is pipeline validation, not semantic
 classification validation.
+
+## Schema 9 addendum: hit during recovery
+
+The same latest 150 local Marth games were reparsed with schema 9, with no parse
+failures. Recovery coverage remained 127 games; 23 Stadium games lacked supported
+geometry. Their recovery metrics remain unavailable, rather than contributing zeros.
+
+**Hit during recovery** counts an attempt once when an opponent-attributed percent
+increase has damage/capture-state or hitlag evidence after the episode's starting
+frame. The starting launch hit is excluded. The window continues through ledge
+options and the return-stability interval, and includes incomplete attempts.
+This differs from an edgeguard contest: nearby pressure or holding ledge does not
+require a hit. Death alone and percent increases without hit evidence do not count.
+
+| Recovery route | Attempts | Hit during recovery |
+| --- | ---: | ---: |
+| Low | 477 | 188 |
+| Mixed | 284 | 136 |
+| High | 99 | 55 |
+| Unclassified | 82 | 36 |
+| Total | 942 | 415 |
+
+All 942 attempt flags were reconciled against raw frame damage evidence within
+the production episode boundaries, with no mismatches. All 356 per-game route
+rows matched the production parser's totals. Sixteen compact trace checks covered
+hit/no-hit returns, deaths and incomplete episodes. Representative evidence
+included an offstage 38.66% → 50.66% hit with seven frames of hitlag; a return
+remaining at 30%; and a death remaining at 68.66%. Only the first counted as hit.
+
+This validates the new count against its stated frame rule. It reuses production
+episode boundaries, so it does not independently validate recovery detection or
+establish video ground truth, player intent, or classifier accuracy. The sample
+is local and Marth-specific; it does not establish performance across the roster.

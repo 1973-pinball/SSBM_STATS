@@ -54,6 +54,9 @@ jobs:
       - name: Verify known CPU filtering
         run: npm run verify:cpu
 
+      - name: Verify custom date filters and player card
+        run: npm run verify:filters
+
       - name: Verify replay retries and metadata recovery
         run: npm run verify:replays
 

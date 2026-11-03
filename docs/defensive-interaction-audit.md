@@ -78,3 +78,41 @@ the window ends. Attribution describes what followed a choice, not whether a
 punish was guaranteed. Character-specific specials and ambiguous sequences
 remain unknown; the sample cannot establish accuracy for every character,
 stage situation, or rare interaction.
+
+## Schema 9 addendum: latest 150 local Marth games
+
+All 150 games parsed successfully with defensive coverage. The sample contained
+544 shield-contact OOS choices and 1,634 other shield exits. It had zero completed
+OOS wavedashes and one wavedash among other shield exits. Zero remains a measured
+result; a jump followed by an air dodge needs an observed special landing within
+the sequence window to count as a wavedash. An interrupted or airborne-only
+sequence remains a jump.
+
+**Drop → aerial** means a normal aerial attack, including G&W's character-specific
+aerial states; it excludes specials. **Drop → regrab** requires an uninterrupted
+drop/jump return to ledge. Fire Fox stalls pass through a special and remain
+**Other / unknown**, rather than being counted as aerials or regrabs. These
+boundaries have synthetic regression cases.
+
+The experimental **C-stick input observed** count samples the shield-exit frame
+for jumps, jump-derived aerials/wavedashes, rolls and spot dodges. Both recorded
+axes must be finite; either axis reaching an absolute value of 0.2875 counts as
+input observed. This uses the [Slippi input counter's deadzone](https://github.com/project-slippi/slippi-js/blob/master/src/common/stats/inputs.ts),
+not an action-trigger threshold. Missing inputs are excluded from the denominator,
+while recorded neutral inputs count as measured samples. A jump sequence retains
+its original exit-frame sample when subsequently classified as an aerial or wavedash.
+
+| Eligible choices | Recorded input samples | C-stick input observed |
+| --- | ---: | ---: |
+| Shield-contact OOS | 138 | 0 |
+| Other shield exits | 575 | 45 |
+
+The 45 observations comprise 38 forward rolls, three backward rolls, two spot
+dodges, one jump and one jump-to-aerial. This is input presence, including held
+input, and does not establish a buffered action or which control caused it.
+The [Slippi pre-frame specification](https://github.com/project-slippi/slippi-wiki/blob/master/SPEC.md#pre-frame-update)
+records both sticks and buttons. The decompiled [jump](https://github.com/doldecomp/melee/blob/master/src/melee/ft/kinds/ftCommon/ftCo_Jump.c)
+and [dodge](https://github.com/doldecomp/melee/blob/master/src/melee/ft/kinds/ftCommon/ftCo_Escape.c)
+handlers permit competing inputs, so causal attribution requires more than observing
+the C-stick. These aggregate and raw-state checks are not independent video ground
+truth or a precision/recall estimate.

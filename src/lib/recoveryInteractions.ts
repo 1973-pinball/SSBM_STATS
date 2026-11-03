@@ -13,6 +13,9 @@ export interface RecoveryOutcomes {
   attempts: number;
   /** Overlapping milestone: reaching ledge does not end a recovery. */
   reachedLedge: number;
+  /** Attempts with an observed opponent hit after the initial launch, including
+   * incomplete attempts. Absent in older analyses; absence is not zero hits. */
+  hitDuringRecovery?: number;
   returned: number;
   died: number;
   incomplete: number;
@@ -66,6 +69,7 @@ interface Episode {
   started: number;
   eligible: boolean;
   reachedLedge: boolean;
+  wasHitDuringRecovery: boolean;
   landed: boolean;
   stableFrames: number;
   high: boolean;
@@ -140,10 +144,13 @@ function record(episode: Episode, outcome: "returned" | "died" | "incomplete", r
   // A straight launch KO before any actionable offstage frame is not a recovery attempt.
   if (!episode.eligible) return;
   const route = routeOf(episode);
-  const recovery = recovering.recoveries[route] ??= { attempts: 0, reachedLedge: 0, returned: 0, died: 0, incomplete: 0 };
+  const recovery = recovering.recoveries[route] ??= {
+    attempts: 0, reachedLedge: 0, hitDuringRecovery: 0, returned: 0, died: 0, incomplete: 0,
+  };
   recovery.attempts++;
   recovery[outcome]++;
   if (episode.reachedLedge) recovery.reachedLedge++;
+  if (episode.wasHitDuringRecovery) recovery.hitDuringRecovery = (recovery.hitDuringRecovery ?? 0) + 1;
   const tactic = tacticOf(episode);
   const edgeguard = guarding.edgeguards[tactic] ??= {
     opportunities: 0, contested: 0, completedContests: 0, stocksTaken: 0, opponentReturned: 0, uncontestedDeaths: 0, incomplete: 0,
@@ -226,11 +233,15 @@ export function addRecoveryFrame(acc: RecoveryAccumulator, frame: FrameEntryType
     if (!outside && !disabled(post.state) && !post.airborne && !passiveLaunchState) player.launchUntil = -Infinity;
     if (!player.episode && !died && outside && post.airborne && player.launchUntil >= frame.frame) {
       player.episode = { side: Math.sign(post.x) || Math.sign(player.previous?.x ?? 1) || 1,
-        started: frame.frame, eligible: false, reachedLedge: false, landed: false, stableFrames: 0,
+        started: frame.frame, eligible: false, reachedLedge: false, wasHitDuringRecovery: false, landed: false, stableFrames: 0,
         high: false, low: false, approachEnded: false, tactics: new Set(), opponentStock: opponent.stocks, opponentLostStock: false };
     }
     const episode = player.episode;
     if (!episode) continue;
+    // Exclude the hit that starts this episode. Later hits count even during
+    // the launch's disabled frames, provided the episode ultimately qualifies
+    // as a recovery. Track once per attempt, not once per damaging frame.
+    if (hit && frame.frame > episode.started) episode.wasHitDuringRecovery = true;
     if (opponent.stocks < episode.opponentStock || isDead(opponent.state)) episode.opponentLostStock = true;
     if (cliff(post.state)) { episode.reachedLedge = true; episode.eligible = true; episode.approachEnded = true; }
     if (!post.airborne && inStage(post, acc.edge)) episode.approachEnded = true;

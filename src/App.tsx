@@ -1025,7 +1025,7 @@ export default function App() {
   const saveAccounts = useCallback((accts: Account[]) => {
     setAccountsState(accts);
     if (!isDemo) void setMyAccounts(accts);
-    setFilters((f) => ({ ...DEFAULT_FILTERS, format: f.format, range: f.range }));
+    setFilters((f) => ({ ...DEFAULT_FILTERS, format: f.format, range: f.range, rangeStart: f.rangeStart, rangeEnd: f.rangeEnd }));
     closeOverlay("accounts");
   }, [closeOverlay, isDemo]);
 

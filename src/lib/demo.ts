@@ -28,13 +28,22 @@ function mkInteractions(rand: () => number, minutes: number, deaths: number, kil
     oos: choiceRows(["aerial", "aerial", "grab", "grab", "rollForward", "rollBackward", "spotDodge", "wavedash", "jump"], Math.round(minutes * 8)),
     shieldExits: choiceRows(["shieldRelease", "jump", "wavedash", "rollBackward", "grab"], Math.round(minutes * 5)),
   };
+  for (const family of [defense.oos, defense.shieldExits]) {
+    for (const [key, row] of Object.entries(family)) {
+      if (!row || !["jump", "aerial", "wavedash", "rollForward", "rollBackward", "spotDodge"].includes(key)) continue;
+      row.cStickSamples = row.attempts;
+      row.cStickInputs = Math.floor(row.attempts / 3);
+    }
+  }
   const recovery: RecoveryStats = { recoveries: {}, edgeguards: {} };
   const routes: RecoveryRoute[] = ["low", "low", "high", "mixed"];
   const recoveryCount = Math.max(deaths, Math.round(minutes * 2.5));
   for (let i = 0; i < recoveryCount; i++) {
     const key = routes[Math.floor(rand() * routes.length)]!;
-    const row = recovery.recoveries[key] ??= { attempts: 0, reachedLedge: 0, returned: 0, died: 0, incomplete: 0 };
+    const row = recovery.recoveries[key] ??= { attempts: 0, reachedLedge: 0, returned: 0, died: 0, incomplete: 0, hitDuringRecovery: 0 };
     row.attempts++;
+    // Deterministic synthetic examples without advancing the existing RNG.
+    if (i % 3 === 0) row.hitDuringRecovery = (row.hitDuringRecovery ?? 0) + 1;
     if (rand() < 0.6) row.reachedLedge++;
     if (i < Math.max(0, deaths - 1)) row.died++;
     else if (i === recoveryCount - 1 && rand() < 0.12) row.incomplete++;

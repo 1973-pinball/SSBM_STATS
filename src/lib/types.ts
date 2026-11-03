@@ -158,13 +158,13 @@ export function hasFullStats(rec: GameRecord): boolean {
  * Bump when a full replay parse gains fields that cannot be derived from an
  * older cached/cloud record. The marker lives inside the cloud JSON payload,
  * so no Supabase schema migration is needed.
- * Version 8 corrects interaction classifications after the real-replay audit.
- * Versions 6 and 7 still supply valid baseline stats; contextual analysis is
- * upgraded only when requested. Earlier versions lack complete special evidence.
+ * Version 9 adds observed hits during recovery attempts. Versions 6–8 still
+ * supply valid baseline stats; the latest filtered interaction window upgrades
+ * automatically when its replay files are accessible.
  */
-export const CURRENT_STATS_VERSION = 8;
-export const INTERACTION_STATS_VERSION = 8;
-/** v6 baseline stats remain valid; contextual analysis is an opt-in upgrade. */
+export const CURRENT_STATS_VERSION = 9;
+export const INTERACTION_STATS_VERSION = 9;
+/** v6 baseline stats remain valid; contextual upgrades stay scoped to recent games. */
 export const MIN_COMPATIBLE_STATS_VERSION = 6;
 
 /** Only positive CPU evidence excludes a game; old records remain eligible. */
@@ -195,7 +195,7 @@ export function needsStatsRepair(rec: GameRecord): boolean {
   return rec.parseError === undefined && hasFullStats(rec) && !hasCurrentStats(rec);
 }
 
-/** Only an explicit Analyze interactions action requests this optional reparse. */
+/** Used by the bounded automatic queue and an explicit retry/reconnect action. */
 export function needsInteractionAnalysis(rec: GameRecord): boolean {
   return hasFullStats(rec) && rec.parseError === undefined && !rec.isTeams && rec.players.length === 2
     && (rec.statsVersion ?? 0) < INTERACTION_STATS_VERSION;
@@ -295,7 +295,9 @@ export function accountsError(accounts: Account[]): string | null {
 export interface Filters {
   includeCpuGames: boolean;
   format: Format;
-  range: "all" | "7d" | "14d" | "30d" | "90d" | "1y";
+  range: "all" | "7d" | "14d" | "30d" | "90d" | "1y" | "custom";
+  rangeStart: string | null; // inclusive local YYYY-MM-DD, used by custom range
+  rangeEnd: string | null; // inclusive local YYYY-MM-DD, used by custom range
   day: string | null; // local YYYY-MM-DD; overrides range when set
   accountCode: string | null; // which of my accounts; null = all of them
   myCharacter: number | null;
@@ -310,6 +312,8 @@ export const DEFAULT_FILTERS: Filters = {
   includeCpuGames: false,
   format: "singles",
   range: "all",
+  rangeStart: null,
+  rangeEnd: null,
   day: null,
   accountCode: null,
   myCharacter: null,

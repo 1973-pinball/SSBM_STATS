@@ -7,15 +7,17 @@
  * This module has no Node/browser dependencies; builds and readers share it.
  */
 const COHORTS = ["venue", "tournament", "pro"];
+const C_STICK_FIELDS = ["cStickInputs", "cStickSamples"];
 const FIELDS = {
   ledge: ["attempts", "punished", "hit", "traded", "noHit", "incomplete"],
-  oos: ["attempts", "punished", "hit", "traded", "noHit", "incomplete"],
-  shieldExits: ["attempts", "punished", "hit", "traded", "noHit", "incomplete"],
-  recoveries: ["attempts", "reachedLedge", "returned", "died", "incomplete"],
+  oos: ["attempts", "punished", "hit", "traded", "noHit", "incomplete", ...C_STICK_FIELDS],
+  shieldExits: ["attempts", "punished", "hit", "traded", "noHit", "incomplete", ...C_STICK_FIELDS],
+  recoveries: ["attempts", "reachedLedge", "hitDuringRecovery", "returned", "died", "incomplete"],
   edgeguards: ["opportunities", "contested", "completedContests", "stocksTaken", "opponentReturned", "uncontestedDeaths", "incomplete"],
   beforeOpening: ["openings", "damage", "kills", "incomplete"],
 };
 const FAMILIES = Object.keys(FIELDS);
+const optionalCounter = (family, field) => (family === "oos" || family === "shieldExits") && C_STICK_FIELDS.includes(field);
 const SHIELD_OPTIONS = ["grab", "rollForward", "rollBackward", "spotDodge", "jump", "aerial", "wavedash", "fall", "shieldRelease", "unknown"];
 // Tests compare this transport allowlist with the detector's public labels.
 export const INTERACTION_CODEC_OPTIONS = {
@@ -44,7 +46,8 @@ function array(value, length, label) {
 }
 function metadata(value) {
   keys(value, META_FIELDS, "metadata");
-  check(value.schemaVersion === 1 && count(value.statsVersion), "analysis schema");
+  // v9 adds recovery-hit observations; v8 cannot supply a measured zero.
+  check(value.schemaVersion === 1 && value.statsVersion === 9, "analysis schema");
   check(typeof value.generatedAt === "string" && Number.isFinite(Date.parse(value.generatedAt)), "generation time");
   check(typeof value.sourceDataset === "string" && /^[a-zA-Z0-9_.-]+$/.test(value.sourceDataset), "source dataset");
   check(value.sourceUrl === "https://replays.nikki.sh/", "source URL");
@@ -76,17 +79,22 @@ function metadata(value) {
   }
 }
 function counter(value, family) {
-  keys(value, FIELDS[family], `${family} counter`);
+  const hasInputSamples = object(value) && C_STICK_FIELDS.some(field => Object.hasOwn(value, field));
+  keys(value, FIELDS[family].filter(field => !optionalCounter(family, field) || hasInputSamples), `${family} counter`);
   for (const [field, val] of Object.entries(value)) check(field === "damage" ? number(val) : count(val), `${family} counter value`);
   if (family === "recoveries") {
-    check(value.attempts === value.returned + value.died + value.incomplete && value.reachedLedge <= value.attempts, "recovery partition");
+    check(value.attempts === value.returned + value.died + value.incomplete
+      && value.reachedLedge <= value.attempts && value.hitDuringRecovery <= value.attempts, "recovery partition");
   } else if (family === "edgeguards") {
     check(value.opportunities === value.stocksTaken + value.opponentReturned + value.uncontestedDeaths + value.incomplete
       && value.completedContests <= value.contested && value.contested <= value.opportunities
       && value.completedContests <= value.opportunities - value.incomplete && value.stocksTaken <= value.completedContests, "edgeguard partition");
   } else if (family === "beforeOpening") {
     check(value.incomplete <= value.openings && value.kills <= value.openings - value.incomplete, "opening partition");
-  } else check(value.attempts === value.punished + value.hit + value.traded + value.noHit + value.incomplete, "defensive partition");
+  } else {
+    check(value.attempts === value.punished + value.hit + value.traded + value.noHit + value.incomplete, "defensive partition");
+    if (hasInputSamples) check(value.cStickInputs <= value.cStickSamples && value.cStickSamples <= value.attempts, "C-stick sample bounds");
+  }
 }
 function rawData(value) {
   keys(value, [...META_FIELDS, "rows"], "artifact");
@@ -121,17 +129,18 @@ export function encodeInteractionBenchmarks(value) {
   rawData(value);
   const { rows, ...metadata } = value;
   const options = Object.fromEntries(FAMILIES.map(family => [family, [...new Set(rows.flatMap(row => Object.keys(row[family])))].sort()]));
-  return { encoding: "ssbm-interactions", encodingVersion: 1, metadata, options,
+  return { encoding: "ssbm-interactions", encodingVersion: 2, metadata, options,
     rows: rows.map(row => [COHORTS.indexOf(row.cohort), ...DIMENSIONS.slice(1).map(field => row[field]),
       ...FAMILIES.map(family => Object.entries(row[family]).map(([option, counts]) =>
-        [options[family].indexOf(option), ...FIELDS[family].map(field => counts[field])]))]) };
+        [options[family].indexOf(option), ...FIELDS[family].map(field =>
+          optionalCounter(family, field) && !Object.hasOwn(counts, field) ? null : counts[field])]))]) };
 }
 
 /** Decode the compact format, or validate the original schema during migration. */
 export function decodeInteractionBenchmarks(value) {
   if (!object(value) || !Object.hasOwn(value, "encoding")) return rawData(value);
   keys(value, ["encoding", "encodingVersion", "metadata", "options", "rows"], "compact envelope");
-  check(value.encoding === "ssbm-interactions" && value.encodingVersion === 1, "encoding version");
+  check(value.encoding === "ssbm-interactions" && value.encodingVersion === 2, "encoding version");
   metadata(value.metadata); keys(value.options, FAMILIES, "option dictionaries");
   for (const family of FAMILIES) {
     const options = value.options[family]; array(options, null, `${family} dictionary`);
@@ -149,7 +158,10 @@ export function decodeInteractionBenchmarks(value) {
         array(item, FIELDS[family].length + 1, `${family} entry`);
         check(count(item[0]) && item[0] < value.options[family].length && !seen.has(item[0]), `${family} option index`);
         seen.add(item[0]);
-        row[family][value.options[family][item[0]]] = Object.fromEntries(FIELDS[family].map((field, index) => [field, item[index + 1]]));
+        // Two null C-stick slots mean no eligible observed input sample, not
+        // an observed neutral stick. The raw validator rejects a partial pair.
+        row[family][value.options[family][item[0]]] = Object.fromEntries(FIELDS[family].flatMap((field, index) =>
+          optionalCounter(family, field) && item[index + 1] === null ? [] : [[field, item[index + 1]]]));
       }
     });
     return row;
