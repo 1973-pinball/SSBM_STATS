@@ -1,8 +1,8 @@
 # Benchmark baseline roadmap
 
 Updated 2026-11-03. Tournament consolidation and the main Pro rebuild are
-implemented and locally verified. The v11 archive is staged, not yet published;
-the live main archive remains v10. A bounded ranked pilot is implemented and
+implemented and verified. The v11 archive was published on 2026-11-03 after
+the additive schema migration; v10 remains available as an immutable revision. A bounded ranked pilot is implemented and
 audited; full ingestion awaits its parser and source-evidence gates. The goal is one consistent set
 of comparisons across Community, Execution, Move/Matchup/Stage Atlas,
 Interactions, and Insights. See the [release guide](benchmark-baselines-release.md)
@@ -17,7 +17,7 @@ for reproducible rebuilds, validation, and the database prerequisite.
 | Platinum Slippi | Player sides labelled Platinum in the same source | Supported additional tier |
 | SSBMStats Community | Existing consenting users and publishable aggregate cells | Preserve existing consent and thresholds |
 | Tournament | Deduplicated union of the existing Venue and Tournament populations | Implemented; former broad sample for full archive, union for sampled interactions |
-| Pro Tournament | Evidence-backed named-player sides in conservative tournament games | Reconciled and staged as v11 |
+| Pro Tournament | Evidence-backed named-player sides in conservative tournament games | Reconciled and published as v11 |
 
 The ranked labels describe a historical source sample. Do not imply current
 rank, a particular season, divisions, or a separate Grandmaster population
@@ -72,7 +72,7 @@ The rebuilt main archive now reconciles with the interaction cohort:
 | Pipeline | Mapped players | Singles player-games |
 | --- | ---: | ---: |
 | Published main archive v10 | 27 | 702 |
-| Rebuilt main archive v11 (staged) | 98 | 1,883 |
+| Published main archive v11 | 98 | 1,883 |
 | Shipped interaction reference | 98 | 1,883 |
 
 The interaction reference covers 1,338 distinct Pro games and includes reviewed
@@ -236,10 +236,11 @@ dates, and measurement coverage. The interaction artifact is schema 2 / encoding
 shared by the old draws. All Pro counters and all cached parse results are
 unchanged. Main v11 adds 365 pooled Pro cells while preserving all 48,030 field
 rollups. Local build, lint, benchmark, move, interaction, and independent source
-receipt checks pass; production publication and deployment remain pending.
+receipt checks pass. Main archive v11 is published; the site changes deploy through
+[PR 10](https://github.com/1973-pinball/SSBM_STATS/pull/10).
 
-Remaining order: apply the additive database migration and publish the verified
-main revision; resolve the ranked pilot's missing-end and heavy-rollback parity
+Remaining order: finish the protected-branch site rollout, then resolve the
+ranked pilot's missing-end and heavy-rollback parity
 failures and extend its ditto/duplicate coverage; then choose the ranked storage
 and ingestion scope from measured coverage. Bulk ranked download and current-rank
 claims are not implied by the pilot.

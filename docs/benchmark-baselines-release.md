@@ -3,11 +3,12 @@
 ## Status and results
 
 As of 2026-11-03, the implementation and local verification are complete for
-Tournament consolidation and Pro identity expansion. Main archive v11 is staged
-locally; v10 is still the published main revision. Database publication and the
-site release are separate operations. The new UI remains compatible with v10.
+Tournament consolidation and Pro identity expansion. Main archive v11 was
+published on 2026-11-03 after its additive schema migration; v10 remains
+available. The site changes deploy through PR 10. The new UI remains
+compatible with older published revisions.
 
-| Measure | Published v10 | Staged v11 |
+| Measure | Previous v10 | Published v11 |
 | --- | ---: | ---: |
 | Unique parsed games | 158,530 | 158,530 |
 | Tournament eligible games (former broad population) | 151,021 | 151,021 |
@@ -88,7 +89,9 @@ bytes in two detector files, with no logical changes. See the
    transactional. Fresh installations use the full
    [public-archive.sql](../supabase/public-archive.sql). The existing service-role
    REST key can load data but cannot run this DDL migration. A read-only live
-   check on 2026-11-03 found v10 published and the capability RPC absent.
+   check initially found the capability RPC absent. The operator then applied
+   the migration; the capability returned true and v11 publication completed
+   on 2026-11-03.
    The migration installs a service-role-only capability RPC; pooled exports
    require a successful response before the loader writes any rows. Legacy
    exports do not require this capability, and dry runs remain entirely local.
