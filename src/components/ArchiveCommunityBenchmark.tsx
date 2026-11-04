@@ -40,7 +40,7 @@ interface Props {
   onCharacterChange?: (characterId: number) => void;
 }
 
-type MoveMetric = "attempts" | "landed" | "damage" | "kills" | "killPct";
+type MoveMetric = "attempts" | "landed" | "whiffedPerGame" | "damage" | "kills" | "killPct";
 
 interface GroupedArchiveMove extends ArchiveMoveMetrics {
   key: string;
@@ -427,14 +427,16 @@ export function ArchiveCommunityBenchmark({
 
           <div className="acb-move-heading">
             <h3>Move profile</h3>
-            <label>Measure<select value={moveMetric} onChange={(event) => setMoveMetric(event.target.value as MoveMetric)}><option value="attempts">Attempts / game</option><option value="landed">Landed / game</option><option value="damage">Damage share</option><option value="kills">Kills / game</option><option value="killPct">Average kill %</option></select></label>
+            <label>Measure<select value={moveMetric} onChange={(event) => setMoveMetric(event.target.value as MoveMetric)}><option value="attempts">Attempts / game</option><option value="landed">Landed / game</option><option value="whiffedPerGame">Whiffed / Game</option><option value="damage">Damage share</option><option value="kills">Kills / game</option><option value="killPct">Average kill %</option></select></label>
           </div>
+          {moveMetric === "whiffedPerGame" && <div className="hint">Whiffed / Game = Attempts / game − Landed / game. Landed counts hits and can exceed attempts, so this derived measure can be negative.</div>}
           {moveKeys.length ? <div className="table-scroll"><table><thead><tr><th>Move</th><th className="data">You</th>{RANKED_TIERS.map(tier => <th className="data" key={tier}>{BENCHMARK_LABELS[tier]}<span className="sample-note">{rankedSampleLabel(ranked[tier])}</span></th>)}<th className="data">{BENCHMARK_LABELS.community}<span className="sample-note">{communityGames === null ? "sample not yet publishable" : `${communityGames.toLocaleString()} player-games`}</span></th><th className="data">{BENCHMARK_LABELS.tournament}<span className="sample-note">{benchmarks.broad?.game_count.toLocaleString() ?? "—"} player-games</span></th><th className="data">{BENCHMARK_LABELS.pro}<span className="sample-note">{proAggregateBenchmark?.game_count.toLocaleString() ?? "—"} player-games · {countNoun(proAggregateBenchmark?.identified_player_count, "pro")}</span></th>{selectedPro && <th className="data">{selectedPro.display_name}<span className="sample-note">{proBenchmark?.game_count.toLocaleString() ?? "—"} games</span></th>}</tr></thead><tbody>{moveKeys.map((key) => {
             const ownMove = ownMoveByKey.get(key);
             const mine = localMoveMetric(ownMove, moveMetric, ownMoves.covered);
             const field = archiveMoveMetric(comparisonMoves.get(key), moveMetric, comparisonRow);
-            const localSample = moveMetric === "attempts" && ownMove ? localMoveComparisonGames(ownMove, "attemptsPerGame", ownMoves.covered) : ownMoves.covered;
-            const fieldSample = moveMetric === "attempts" ? archiveMoveComparisonGames(comparisonRow, key, "attemptsPerGame") : comparisonRow?.game_count ?? 0;
+            const measure = moveMetric === "attempts" ? "attemptsPerGame" : moveMetric === "whiffedPerGame" ? "whiffedPerGame" : null;
+            const localSample = measure && ownMove ? localMoveComparisonGames(ownMove, measure, ownMoves.covered) : ownMoves.covered;
+            const fieldSample = measure ? archiveMoveComparisonGames(comparisonRow, key, measure) : comparisonRow?.game_count ?? 0;
             const difference = moveDifference(mine, field, moveMetric, localSample, fieldSample);
             const localValue = formatLocalMove(ownMove, moveMetric, ownMoves.covered);
             const comparisonLabel = BENCHMARK_LABELS[comparisonSource];
@@ -491,6 +493,7 @@ function formatArchiveMove(move: GroupedArchiveMove | undefined, metric: MoveMet
 function formatCommunityMove(move: CommunityMoveRow | undefined, metric: MoveMetric, totalDamage: number): string {
   if (!move || move.characterGames === 0) return "—";
   if (metric === "attempts") return formatMoveMetric(!moveGroupTracksAttempts(move.moveKey) || move.attempts === null ? null : move.attempts / move.characterGames, metric);
+  if (metric === "whiffedPerGame") return formatMoveMetric(!moveGroupTracksAttempts(move.moveKey) || move.attempts === null ? null : (move.attempts - move.landed) / move.characterGames, metric);
   if (metric === "landed") return formatMoveMetric(move.landed / move.characterGames, metric);
   if (metric === "damage") return formatMoveMetric(ratio(move.damage, totalDamage), metric);
   if (metric === "kills") return formatMoveMetric(move.kills / move.characterGames, metric);
@@ -500,6 +503,7 @@ function formatCommunityMove(move: CommunityMoveRow | undefined, metric: MoveMet
 function localMoveMetric(move: ReturnType<typeof moveTable>["rows"][number] | undefined, metric: MoveMetric, covered: number): number | null {
   if (!move) return null;
   if (metric === "attempts") return move.attemptsPerGame;
+  if (metric === "whiffedPerGame") return move.whiffedPerGame;
   if (metric === "landed") return move.landedPerGame;
   if (metric === "damage") return move.dmgShare;
   if (metric === "kills") return covered > 0 ? move.kills / covered : null;
@@ -509,6 +513,7 @@ function localMoveMetric(move: ReturnType<typeof moveTable>["rows"][number] | un
 function archiveMoveMetric(move: GroupedArchiveMove | undefined, metric: MoveMetric, row: BenchmarkMetricRow | null): number | null {
   if (!move || !row || row.game_count === 0) return null;
   if (metric === "attempts") return archiveMoveBenchmark(row, move.key, "attemptsPerGame");
+  if (metric === "whiffedPerGame") return archiveMoveBenchmark(row, move.key, metric);
   if (metric === "landed") return move.landed / row.game_count;
   if (metric === "damage") return ratio(move.damage, row.metrics.damageTotal);
   if (metric === "kills") return move.kills / row.game_count;

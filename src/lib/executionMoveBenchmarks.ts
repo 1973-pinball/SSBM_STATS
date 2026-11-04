@@ -42,7 +42,7 @@ export function localMoveMetric(move: MoveRow | undefined, metric: MoveMetricKey
 
 export function localMoveSample(move: MoveRow | undefined, metric: MoveMetricKey): string | undefined {
   if (!move || specialMoveId(move.key) === null) return undefined;
-  if (metric === "attemptsPerGame") return move.attemptGames > 0 ? `${move.attemptGames.toLocaleString()} tracked games` : "No tracked games";
+  if (metric === "attemptsPerGame" || metric === "whiffedPerGame") return move.attemptGames > 0 ? `${move.attemptGames.toLocaleString()} tracked games` : "No tracked games";
   if ((metric === "noHitPerGame" || metric === "noHitRate") && move.attemptGames === 0) return "No tracked games";
   if (metric === "noHitPerGame") return move.outcomeGames > 0 ? `${move.outcomeGames.toLocaleString()} outcome-tracked games` : "Outcome tracking unavailable";
   if (metric === "noHitRate") return move.outcomeGames > 0 ? `${(move.outcomeAttempts ?? 0).toLocaleString()} completed uses` : "Outcome tracking unavailable";
@@ -53,7 +53,7 @@ export function archiveMoveSample(row: BenchmarkMetricRow | null, moveKey: strin
   if (specialMoveId(moveKey) === null || !row) return undefined;
   const move = groupedArchiveMove(row, moveKey);
   const unavailable = (row.stats_version ?? 0) < CURRENT_STATS_VERSION ? "Archive reparse needed" : "No tracked games";
-  if (metric === "attemptsPerGame") return (move?.attemptGames ?? 0) > 0 ? `${move!.attemptGames!.toLocaleString()} tracked games` : unavailable;
+  if (metric === "attemptsPerGame" || metric === "whiffedPerGame") return (move?.attemptGames ?? 0) > 0 ? `${move!.attemptGames!.toLocaleString()} tracked games` : unavailable;
   if (metric === "noHitPerGame" || metric === "noHitRate") {
     if (!(move?.outcomeGames && move.outcomeGames > 0)) return (move?.attemptGames ?? 0) > 0 ? "Outcome tracking unavailable" : unavailable;
     return metric === "noHitRate" ? `${((move.hitAttempts ?? 0) + (move.noHitAttempts ?? 0)).toLocaleString()} completed uses` : `${move.outcomeGames.toLocaleString()} outcome-tracked games`;
@@ -63,7 +63,7 @@ export function archiveMoveSample(row: BenchmarkMetricRow | null, moveKey: strin
 
 /** Highlighting must use the same capable-game sample as the displayed rate. */
 export function localMoveComparisonGames(move: MoveRow, metric: MoveMetricKey, coveredGames: number): number {
-  if (metric === "attemptsPerGame") return move.attemptGames;
+  if (metric === "attemptsPerGame" || metric === "whiffedPerGame") return move.attemptGames;
   if (metric === "noHitPerGame" || metric === "noHitRate") return move.outcomeGames;
   return coveredGames;
 }
@@ -71,7 +71,7 @@ export function localMoveComparisonGames(move: MoveRow, metric: MoveMetricKey, c
 export function archiveMoveComparisonGames(row: BenchmarkMetricRow | null, moveKey: string, metric: MoveMetricKey): number {
   if (!row) return 0;
   const move = groupedArchiveMove(row, moveKey);
-  if (specialMoveId(moveKey) !== null && metric === "attemptsPerGame") return move?.attemptGames ?? 0;
+  if (specialMoveId(moveKey) !== null && (metric === "attemptsPerGame" || metric === "whiffedPerGame")) return move?.attemptGames ?? 0;
   if (metric === "noHitPerGame" || metric === "noHitRate") return move?.outcomeGames ?? 0;
   return row.game_count;
 }
@@ -79,6 +79,10 @@ export function archiveMoveComparisonGames(row: BenchmarkMetricRow | null, moveK
 export function archiveMoveBenchmark(row: BenchmarkMetricRow | null, moveKey: string, metric: MoveMetricKey): number | null {
   const move = groupedArchiveMove(row, moveKey);
   if (!row || row.game_count <= 0 || !move) return null;
+  if (metric === "whiffedPerGame") {
+    const attempts = archiveMoveBenchmark(row, moveKey, "attemptsPerGame");
+    return attempts === null ? null : attempts - move.landed / row.game_count;
+  }
   if (metric === "attemptsPerGame") {
     if (row.unavailableMoveAttempts?.has(moveKey)) return null;
     if (specialMoveId(moveKey) !== null) return (move.attemptGames ?? 0) > 0 ? move.attempts / move.attemptGames! : null;
@@ -116,7 +120,7 @@ export function communityMoveBenchmark(rows: CommunityMoveRow[], moveKey: string
   }
   // Unpublished character/move cells are unknown, not zero. A per-game rate
   // needs the selected move for every character counted in its denominator.
-  const isPerGameMetric = metric === "attemptsPerGame" || metric === "landedPerGame"
+  const isPerGameMetric = metric === "attemptsPerGame" || metric === "whiffedPerGame" || metric === "landedPerGame"
     || metric === "dmgPerGame" || metric === "killsPerGame";
   if (isPerGameMetric && new Set(moves.map((move) => move.characterId)).size < gamesByCharacter.size) return null;
   const characterGames = [...gamesByCharacter.values()].reduce((sum, games) => sum + games, 0);
@@ -131,6 +135,7 @@ export function communityMoveBenchmark(rows: CommunityMoveRow[], moveKey: string
   const lCancelSuccess = moves.reduce((sum, move) => sum + move.lCancelSuccess, 0);
   const lCancelFail = moves.reduce((sum, move) => sum + move.lCancelFail, 0);
   if (metric === "attemptsPerGame") return attempts === null ? null : attempts / characterGames;
+  if (metric === "whiffedPerGame") return attempts === null ? null : (attempts - landed) / characterGames;
   if (metric === "landedPerGame") return landed / characterGames;
   if (metric === "dmgPerGame") return damage / characterGames;
   if (metric === "dmgShare") {

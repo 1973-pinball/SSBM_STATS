@@ -548,11 +548,11 @@ function groupArchiveMoves(row: BenchmarkMetricRow | null): Map<string, GroupedA
   return grouped;
 }
 
-type MoveMetric = "attempts" | "noHitPerGame" | "noHitRate" | "landed" | "damage" | "kills" | "killPct" | "openings" | "openingDamage";
+type MoveMetric = "attempts" | "whiffedPerGame" | "noHitPerGame" | "noHitRate" | "landed" | "damage" | "kills" | "killPct" | "openings" | "openingDamage";
 type MoveSortKey = RankedTier | "move" | "you" | "community" | "tournament" | "proAggregate" | "pro";
 
 const attemptMetric = (metric: MoveMetric) => metric === "attempts" ? "attemptsPerGame"
-  : metric === "noHitPerGame" || metric === "noHitRate" ? metric : null;
+  : metric === "whiffedPerGame" || metric === "noHitPerGame" || metric === "noHitRate" ? metric : null;
 
 function localMoveValue(move: ReturnType<typeof moveTable>["rows"][number] | undefined, metric: MoveMetric, games: number) {
   return formatMoveMetric(localMoveMetric(move, metric, games), metric);
@@ -571,6 +571,7 @@ function archiveMoveValue(move: GroupedArchiveMove | undefined, metric: MoveMetr
 function localMoveMetric(move: ReturnType<typeof moveTable>["rows"][number] | undefined, metric: MoveMetric, games: number): number | null {
   if (!move) return null;
   if (metric === "attempts") return move.attemptsPerGame;
+  if (metric === "whiffedPerGame") return move.whiffedPerGame;
   if (metric === "noHitPerGame") return move.noHitPerGame;
   if (metric === "noHitRate") return move.noHitRate;
   if (metric === "landed") return move.landedPerGame;
@@ -585,6 +586,7 @@ function communityMoveMetric(move: CommunityMoveRow | undefined, metric: MoveMet
   if (!move || move.characterGames === 0) return null;
   if (metric === "noHitPerGame" || metric === "noHitRate") return null;
   if (metric === "attempts") return !moveGroupTracksAttempts(move.moveKey) || move.attempts === null ? null : move.attempts / move.characterGames;
+  if (metric === "whiffedPerGame") return !moveGroupTracksAttempts(move.moveKey) || move.attempts === null ? null : (move.attempts - move.landed) / move.characterGames;
   if (metric === "landed") return move.landed / move.characterGames;
   if (metric === "damage") return totalDamage > 0 ? move.damage / totalDamage : null;
   if (metric === "kills") return move.kills / move.characterGames;
@@ -624,7 +626,7 @@ function moveDifference(
 ): { direction: "above" | "below"; strength: number } | null {
   if (mine === null || field === null || localGames < 10 || fieldGames < 25) return null;
   const absoluteMinimum = {
-    attempts: 0.5, noHitPerGame: 0.5, noHitRate: 0.05, landed: 0.25, damage: 0.05, kills: 0.05,
+    attempts: 0.5, whiffedPerGame: 0.5, noHitPerGame: 0.5, noHitRate: 0.05, landed: 0.25, damage: 0.05, kills: 0.05,
     killPct: 10, openings: 0.25, openingDamage: 5,
   }[metric];
   const gap = mine - field;
@@ -861,9 +863,10 @@ export function ArchiveMoveAtlasComparison({
         <h3>Move profile</h3>
         <div className="acb-profile-controls">
           <label>Minimum tracked attempts / game<span className="number-suffix unitless"><input type="number" min="0" max="100" step="1" inputMode="numeric" value={minAttemptsInput} onChange={(event) => setMinAttemptsInput(event.target.value)} onBlur={() => setMinAttemptsInput(String(minAttempts))} /></span></label>
-          <label>Measure<select value={metric} onChange={(event) => setMetric(event.target.value as MoveMetric)}><option value="landed">Landed / game</option><option value="attempts">Attempts / game</option><option value="noHitPerGame">No-hit uses / game</option><option value="noHitRate">No-hit rate</option><option value="damage">Damage share</option><option value="kills">Kills / game</option><option value="killPct">Average kill %</option><option value="openings">Openings / game</option><option value="openingDamage">Damage / opening</option></select></label>
+          <label>Measure<select value={metric} onChange={(event) => setMetric(event.target.value as MoveMetric)}><option value="landed">Landed / game</option><option value="attempts">Attempts / game</option><option value="whiffedPerGame">Whiffed / Game</option><option value="noHitPerGame">No-hit uses / game</option><option value="noHitRate">No-hit rate</option><option value="damage">Damage share</option><option value="kills">Kills / game</option><option value="killPct">Average kill %</option><option value="openings">Openings / game</option><option value="openingDamage">Damage / opening</option></select></label>
         </div>
       </div>
+      {metric === "whiffedPerGame" && <div className="hint">Whiffed / Game = Attempts / game − Landed / game. Landed counts hits and can exceed attempts, so this derived measure can be negative.</div>}
       {metric === "noHitPerGame" || metric === "noHitRate"
         ? <div className="hint">No-hit counts completed special uses with no opponent damage, including shields and defensive uses; it is not a verified whiff rate. Incomplete uses are excluded. Utility and delayed attacks have attempts only; hover a move name for its limits.</div>
         : <div className="hint">Attempt rates use measured games for each special direction. Unsupported copied moves, form changes, or missing frames remain unavailable. Damage / opening includes follow-up damage.</div>}

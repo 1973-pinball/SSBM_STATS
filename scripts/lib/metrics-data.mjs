@@ -86,6 +86,10 @@ export const SECTIONS = [
         def: "Attempts/game divides move activations by games with measured attempts, including measured zero-use games. Specials with reliable damage attribution also track completed uses with and without opponent damage. No-hit uses/game divides no-hit uses by outcome-tracked games. No-hit rate divides no-hit uses by completed uses and excludes incomplete uses. Shield contact and defensive uses are included, so this is not a verified whiff rate or attempts minus landed hits. Utility, counter, and independently persisting projectile/item moves have attempts only. Diamond Slippi, Master Slippi, Tournament, Pro Tournament, and named-player comparisons use the same per-move denominators. Older local statistics need refreshing; missing or incomplete source observations remain unavailable. Archive comparisons require measured samples for each move.",
       },
       {
+        term: "Whiffed / Game",
+        def: "Attempts/game minus Landed/game, using each rate's measured-game sample. When both rates cover the same games, this equals (Attempts − Landed) ÷ Games. Landed counts hits, so multi-hit moves can make the result negative. Missing attempt measurements remain unavailable. The measure is available in Move Atlas, move comparisons, and the Execution trend.",
+      },
+      {
         term: "Move comparisons",
         def: "Choose a measure to compare your move effectiveness with Diamond Slippi, Master Slippi, SSBMStats Community, Tournament, and Pro Tournament samples. Landed per game is the default; damage, kill, and other available measures use the same selection in the Move trend chart. Your Execution values cover the most recent rolling window after filters; reference values are fixed aggregates over their published samples. Missing measurements stay blank rather than counting as zero.",
       },

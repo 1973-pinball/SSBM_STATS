@@ -879,6 +879,7 @@ export interface MoveRow {
   attempts: number | null; // null = no tracked initiation sample for this move
   attemptGames: number;
   attemptsPerGame: number | null;
+  whiffedPerGame: number | null; // derived attempts/game minus landed/game; may be negative for multi-hit moves
   noHitAttempts: number | null;
   outcomeGames: number;
   outcomeAttempts: number | null; // completed uses; incomplete uses are excluded
@@ -979,6 +980,7 @@ export function moveTable(games: ResolvedGame[]): { rows: MoveRow[]; covered: nu
         attempts,
         attemptGames,
         attemptsPerGame: attempts !== null ? attempts / attemptGames : null,
+        whiffedPerGame: attempts !== null && covered > 0 ? attempts / attemptGames - a.landed / covered : null,
         noHitAttempts: a.outcomeGames > 0 ? a.noHitAttempts : null,
         outcomeGames: a.outcomeGames,
         outcomeAttempts: a.outcomeGames > 0 ? a.outcomeAttempts : null,
@@ -1007,6 +1009,7 @@ export function moveTable(games: ResolvedGame[]): { rows: MoveRow[]; covered: nu
 /** One column of the move table, as a key the chart's metric picker passes back. */
 export type MoveMetricKey =
   | "attemptsPerGame"
+  | "whiffedPerGame"
   | "noHitPerGame"
   | "noHitRate"
   | "landedPerGame"
@@ -1050,8 +1053,9 @@ const MV_STRIDE = 14;
  * and the quality columns (avg damage, avg kill %, L-cancel) by their own event
  * count — so an unavailable measurement never becomes a fabricated zero.
  */
-const MOVE_METRICS: Record<MoveMetricKey, { num: number; den: number; scale: number }> = {
+const MOVE_METRICS: Record<MoveMetricKey, { num: number; den: number; scale: number; subtract?: { num: number; den: number } }> = {
   attemptsPerGame: { num: MV.attempts, den: MV.attemptGames, scale: 1 },
+  whiffedPerGame: { num: MV.attempts, den: MV.attemptGames, scale: 1, subtract: { num: MV.landed, den: MV.games } },
   noHitPerGame: { num: MV.noHitAttempts, den: MV.outcomeGames, scale: 1 },
   noHitRate: { num: MV.noHitAttempts, den: MV.outcomeAttempts, scale: 100 },
   landedPerGame: { num: MV.landed, den: MV.games, scale: 1 },
@@ -1175,22 +1179,25 @@ export function moveMetricSeriesMany(
   const keys = [...new Set(moveKeys)];
   if (keys.length === 0) return [];
   const keyIndex = new Map(keys.map((key, index) => [key, index]));
-  const { num, den, scale } = MOVE_METRICS[metric];
+  const { num, den, scale, subtract } = MOVE_METRICS[metric];
   const w = Math.max(1, Math.floor(window));
   const stride = seriesStride(games.length, maxPoints);
   const moveCount = keys.length;
-  // The ring only needs the selected numerator and denominator for each move;
-  // `slice` holds the full one-game aggregate while that pair is chosen.
-  const ring = new Float64Array(w * moveCount * 2);
+  // Derived differences retain each rate's own measured-game denominator.
+  // The ring holds only the selected pairs; `slice` holds the full aggregate.
+  const ringStride = subtract ? 4 : 2;
+  const ring = new Float64Array(w * moveCount * ringStride);
   const slice = new Float64Array(moveCount * MV_STRIDE);
   const numSums = new Float64Array(moveCount);
   const denSums = new Float64Array(moveCount);
+  const subtractNumSums = new Float64Array(subtract ? moveCount : 0);
+  const subtractDenSums = new Float64Array(subtract ? moveCount : 0);
   const out: MultiMoveMetricPoint[] = [];
   for (let i = 0; i < games.length; i++) {
     const g = games[i]!;
     moveSlices(g, keyIndex, moveCount, slice, side);
     for (let moveIndex = 0; moveIndex < moveCount; moveIndex++) {
-      const ringBase = ((i % w) * moveCount + moveIndex) * 2;
+      const ringBase = ((i % w) * moveCount + moveIndex) * ringStride;
       // That slot still holds the game about to leave the window; drop it first.
       if (i >= w) {
         numSums[moveIndex] = numSums[moveIndex]! - ring[ringBase]!;
@@ -1203,14 +1210,30 @@ export function moveMetricSeriesMany(
       ring[ringBase + 1] = nextDen;
       numSums[moveIndex] = numSums[moveIndex]! + nextNum;
       denSums[moveIndex] = denSums[moveIndex]! + nextDen;
+      if (subtract) {
+        if (i >= w) {
+          subtractNumSums[moveIndex] = subtractNumSums[moveIndex]! - ring[ringBase + 2]!;
+          subtractDenSums[moveIndex] = subtractDenSums[moveIndex]! - ring[ringBase + 3]!;
+        }
+        const subtractNum = slice[sliceBase + subtract.num]!;
+        const subtractDen = slice[sliceBase + subtract.den]!;
+        ring[ringBase + 2] = subtractNum;
+        ring[ringBase + 3] = subtractDen;
+        subtractNumSums[moveIndex] = subtractNumSums[moveIndex]! + subtractNum;
+        subtractDenSums[moveIndex] = subtractDenSums[moveIndex]! + subtractDen;
+      }
     }
     if (!emitsAt(i, games.length, stride)) continue;
     out.push({
       index: i + 1,
       date: dayLabel(g.date),
-      values: keys.map((_, moveIndex) =>
-        denSums[moveIndex]! > 0 ? (numSums[moveIndex]! / denSums[moveIndex]!) * scale : null,
-      ),
+      values: keys.map((_, moveIndex) => {
+        if (denSums[moveIndex]! <= 0) return null;
+        const value = numSums[moveIndex]! / denSums[moveIndex]!;
+        if (!subtract) return value * scale;
+        return subtractDenSums[moveIndex]! > 0
+          ? (value - subtractNumSums[moveIndex]! / subtractDenSums[moveIndex]!) * scale : null;
+      }),
     });
   }
   return out;
