@@ -1538,7 +1538,7 @@ export function Execution({
   onSelectAnalysisFiles?: () => void;
   analyzingInteractions?: boolean;
 }) {
-  const [moveMetric, setMoveMetric] = useState<MoveMetricKey>("landedPerGame");
+  const [moveMetric, setMoveMetric] = useState<MoveMetricKey>("attemptsPerGame");
   const [comparisonSource, setComparisonSource] = useState<ComparisonSource>("master");
   // The charts cover the whole filter; everything under them describes current
   // form, so it reads the trailing window the charts smooth over. The same
