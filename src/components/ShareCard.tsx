@@ -68,13 +68,14 @@ export function ShareCard({ games, teamGames }: { games: ResolvedGame[]; teamGam
                 <div className="sc-character" key={role}>
                   <div className="sc-character-meta">
                     <span className="sc-label">{role}</span>
-                    <span className="sc-character-games">{int(character.games)} games</span>
+                    <span className="sc-label">Games</span>
                   </div>
                   <div className="sc-value">
                     <img className="sc-stock" src={`/stock/${character.id}.png`} alt="" />
                     <span className={charName(character.id).length > 10 ? "sc-character-name sc-character-name-long" : "sc-character-name"}>
                       {charName(character.id)}
                     </span>
+                    <span className="sc-character-games">{int(character.games)}</span>
                   </div>
                 </div>
               ))}

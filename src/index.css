@@ -1223,15 +1223,15 @@ button.linky:hover { color: #a094ff; }
    rather than the value row, and nudged onto its baseline. */
 .sc-stock-sm { width: 15px; height: 15px; vertical-align: -3px; margin-right: 4px; }
 .sc-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
-/* Two characters share the original cell's 60.5px content budget. */
-.sc-characters { display: flex; flex-direction: column; gap: 4px; }
+/* Two compact character rows stay within the original cell height. */
+.sc-characters { display: flex; flex-direction: column; padding-block: 9px; }
 .sc-character-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 4px; line-height: 10px; }
 .sc-character-meta .sc-label { font-size: 9px; line-height: 10px; margin: 0; }
-.sc-character-games { font-size: 9px; color: var(--muted); white-space: nowrap; }
-.sc-character .sc-value { font-size: 13px; line-height: 18px; gap: 4px; }
+.sc-character-games { font-size: 10px; font-weight: 400; color: var(--muted); white-space: nowrap; margin-left: auto; }
+.sc-character .sc-value { font-size: 13px; line-height: 22px; min-height: 22px; gap: 4px; }
 .sc-character .sc-stock { width: 16px; height: 16px; }
-.sc-character-name { min-width: 0; white-space: nowrap; }
-.sc-character-name-long { font-size: 11px; }
+.sc-character-name { min-width: 0; line-height: 14px; }
+.sc-character-name-long { font-size: 11px; line-height: 11px; }
 .sc-foot {
   display: flex;
   justify-content: space-between;
