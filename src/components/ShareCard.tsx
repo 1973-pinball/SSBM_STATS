@@ -63,22 +63,29 @@ export function ShareCard({ games, teamGames }: { games: ResolvedGame[]; teamGam
           </div>
 
           <div className="sc-grid">
-            <div className="sc-cell">
+            {d.mainChar && d.secondaryChar ? <div className="sc-cell sc-characters">
+              {([["Main", d.mainChar], ["Secondary", d.secondaryChar]] as const).map(([role, character]) => (
+                <div className="sc-character" key={role}>
+                  <div className="sc-character-meta">
+                    <span className="sc-label">{role}</span>
+                    <span className="sc-character-games">{int(character.games)} games</span>
+                  </div>
+                  <div className="sc-value">
+                    <img className="sc-stock" src={`/stock/${character.id}.png`} alt="" />
+                    <span className={charName(character.id).length > 10 ? "sc-character-name sc-character-name-long" : "sc-character-name"}>
+                      {charName(character.id)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div> : <div className="sc-cell">
               <div className="sc-label">Main</div>
               <div className="sc-value">
                 {d.mainChar && <img className="sc-stock" src={`/stock/${d.mainChar.id}.png`} alt="" />}
                 {d.mainChar ? charName(d.mainChar.id) : "—"}
               </div>
               {d.mainChar && <div className="sc-sub">{int(d.mainChar.games)} games logged</div>}
-              {d.secondaryChar && <div className="sc-secondary">
-                <div className="sc-label">Secondary</div>
-                <div className="sc-value">
-                  <img className="sc-stock" src={`/stock/${d.secondaryChar.id}.png`} alt="" />
-                  {charName(d.secondaryChar.id)}
-                </div>
-                <div className="sc-sub">{int(d.secondaryChar.games)} games logged</div>
-              </div>}
-            </div>
+            </div>}
             {cell(
               "Record",
               `${int(d.wins)}–${int(d.losses)}`,

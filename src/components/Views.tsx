@@ -1539,7 +1539,7 @@ export function Execution({
   analyzingInteractions?: boolean;
 }) {
   const [moveMetric, setMoveMetric] = useState<MoveMetricKey>("landedPerGame");
-  const [comparisonSource, setComparisonSource] = useState<ComparisonSource>("tournament");
+  const [comparisonSource, setComparisonSource] = useState<ComparisonSource>("master");
   // The charts cover the whole filter; everything under them describes current
   // form, so it reads the trailing window the charts smooth over. The same
   // number on purpose — see ROLLING_WINDOW.
@@ -1569,12 +1569,15 @@ export function Execution({
 
       <div className="execution-reference-controls">
         <div className="execution-chart-guidance"><strong>Your trend is the solid line.</strong><span className="hint">Hover or focus a legend label to emphasize its line. All available references stay visible.</span></div>
-        <div className="execution-table-comparison"><BenchmarkSourceControl value={comparisonSource} onChange={setComparisonSource} /><span className="hint">Table highlighting only · differences, not a skill rating.</span></div>
       </div>
       <div className="execution-reference-notes">
-        <ChartReferenceScope benchmarks={benchmarks} />
-        <BenchmarkFootnote />
-        {benchmarks.rankedState && <RankedBenchmarkSource state={benchmarks.rankedState} />}
+        <RankedBenchmarkSource
+          state={benchmarks.rankedState ?? { manifest: null, loading: false, error: null }}
+          summary="Baseline Definitions and Sources"
+        >
+          <ChartReferenceScope benchmarks={benchmarks} />
+          <BenchmarkFootnote />
+        </RankedBenchmarkSource>
       </div>
       <RollingExecChart games={games} benchmarks={benchmarks} />
 
@@ -1656,6 +1659,10 @@ export function Execution({
         )}
       </div>
 
+      <div className="execution-table-comparison">
+        <BenchmarkSourceControl value={comparisonSource} onChange={setComparisonSource} />
+        <span className="hint">Table highlighting only · differences, not a skill rating.</span>
+      </div>
       <div className="panel">
         <h2>Actions per game (past {actions.covered.toLocaleString()} games)</h2>
         {actions.covered === 0 ? (
@@ -1745,7 +1752,7 @@ function MovesSection({
   setMetric: (metric: MoveMetricKey) => void;
   interactionPanel: ReactNode;
 }) {
-  const comparisonSource = benchmarks.comparisonSource ?? "tournament";
+  const comparisonSource = benchmarks.comparisonSource ?? "master";
   type OpeningSortKey = "diamond" | "master" | "openings" | "tournament" | "pro" | "share" | "tournamentShare" | "damage";
   const [minMoveUsageInput, setMinMoveUsageInput] = useState("3");
   const [minOpeningShareInput, setMinOpeningShareInput] = useState("3");

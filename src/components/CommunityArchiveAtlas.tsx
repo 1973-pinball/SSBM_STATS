@@ -713,7 +713,7 @@ export function ArchiveMoveAtlasComparison({
   const archive = useArchiveAtlas(characterId);
   const ranked = useRankedBenchmarkRows(characterId);
   const [metric, setMetric] = useState<MoveMetric>("landed");
-  const [comparisonSource, setComparisonSource] = useState<ComparisonSource>("tournament");
+  const [comparisonSource, setComparisonSource] = useState<ComparisonSource>("master");
   const [sort, setSort] = useState<{ key: MoveSortKey; direction: SortDirection }>({ key: "you", direction: "desc" });
   const [minAttemptsInput, setMinAttemptsInput] = useState("1");
   const [minActionsInput, setMinActionsInput] = useState("1");

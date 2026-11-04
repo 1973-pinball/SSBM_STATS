@@ -1,11 +1,17 @@
+import type { ReactNode } from "react";
 import { RANKED_SOURCE_DESCRIPTION } from "../lib/benchmarkCohorts";
 import type { RankedBenchmarkState } from "../lib/rankedBenchmarks";
 
-export function RankedBenchmarkSource({ state }: { state: Pick<RankedBenchmarkState, "manifest" | "loading" | "error"> }) {
+export function RankedBenchmarkSource({ state, summary = "Ranked source and sample", children }: {
+  state: Pick<RankedBenchmarkState, "manifest" | "loading" | "error">;
+  summary?: string;
+  children?: ReactNode;
+}) {
   return <div className="hint ranked-benchmark-source">
     {state.loading && <p role="status">Loading historical ranked comparisons…</p>}
     {state.error && <p role="status">{state.error}</p>}
-    <details><summary>Ranked source and sample</summary>
+    <details><summary>{summary}</summary>
+      {children}
       <p>{RANKED_SOURCE_DESCRIPTION}</p>
       {state.manifest && <>
         <p>{state.manifest.source.selectionMethod}</p>
