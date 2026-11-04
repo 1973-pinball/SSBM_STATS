@@ -210,7 +210,7 @@ export function ArchiveCommunityBenchmark({
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [proAggregateBenchmark, setProAggregateBenchmark] = useState<ArchiveRollup | null>(null);
   const [proBenchmark, setProBenchmark] = useState<ArchiveRollup | null>(null);
-  const [comparisonSource, setComparisonSource] = useState<ComparisonSource>("tournament");
+  const [comparisonSource, setComparisonSource] = useState<ComparisonSource>("master");
   const [moveMetric, setMoveMetric] = useState<MoveMetric>("attempts");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

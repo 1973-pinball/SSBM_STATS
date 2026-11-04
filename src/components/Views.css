@@ -41,8 +41,9 @@
 @media (prefers-reduced-motion: reduce) {
   .execution-line-chart .recharts-line-curve { transition: none; }
 }
-.execution-table-comparison { justify-items: end; }
+.execution-table-comparison { display: grid; gap: 5px; justify-items: end; margin: 16px 0 8px; }
 .execution-table-comparison > label { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.execution-table-comparison .hint { margin: 0; font-size: 11px; }
 .execution-reference-notes { margin-bottom: 12px; }
 .execution-reference-notes .hint { margin: 4px 0; }
 .execution-reference-scope,

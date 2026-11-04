@@ -249,7 +249,7 @@ function CoefBar({ coef, max }: { coef: number; max: number }) {
 
 export function Insights({ games }: { games: ResolvedGame[] }) {
   const [includeOutcome, setIncludeOutcome] = useState(false);
-  const [coachSource, setCoachSource] = useState<CoachSource>("tournament");
+  const [coachSource, setCoachSource] = useState<CoachSource>("master");
   const tournamentMoveBenchmarks = useMoveBenchmarks(games, coachSource);
 
   const features = useMemo(
