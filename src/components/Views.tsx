@@ -1,7 +1,7 @@
 import { BENCHMARK_LABELS, type BenchmarkMetricRow } from "../lib/benchmarkCohorts";
 import { RANKED_TIERS, rankedMetricRow, useRankedBenchmarks, type RankedBenchmarkState } from "../lib/rankedBenchmarks";
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from "recharts";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import type { Account, ActionCounts, GameRecord, PlayerSide, ResolvedGame } from "../lib/types";
 import { ACTION_LABELS, codeShort, hasCurrentStats } from "../lib/types";
 import { matchupMatrix, byStage, byOpponent, byOppCharacter, computeSets, setsSummary, executionSummary, rollingExecutionSeries, ROLLING_WINDOW, MAX_SERIES_POINTS, actionAverages, actionImpact, moveTable, moveImpact, moveMetricSeriesMany, neutralSummary, perGameSeries, stageCharMatrix, hasSpecialMoveAttempts, hasSpecialMoveOutcomes } from "../lib/stats";
@@ -627,7 +627,6 @@ const EXECUTION_BENCHMARK_STYLES: { key: BenchmarkKind; label: string; color: st
 
 interface ExecutionBenchmarks {
   comparisonSource?: ComparisonSource;
-  chartSources?: ReadonlySet<BenchmarkKind>;
   rankedState?: Pick<RankedBenchmarkState, "manifest" | "loading" | "error">;
   characterId: number | null;
   opponentCharacterId: number | null;
@@ -722,34 +721,65 @@ function archiveBenchmarkLabel(benchmarks: ExecutionBenchmarks): string {
   return `${character} vs ${opponent}`;
 }
 
-const DEFAULT_CHART_SOURCES: ReadonlySet<BenchmarkKind> = new Set(["tournament"]);
-const selectedBenchmarkStyles = (benchmarks: ExecutionBenchmarks) =>
-  EXECUTION_BENCHMARK_STYLES.filter(style => (benchmarks.chartSources ?? DEFAULT_CHART_SOURCES).has(style.key));
+interface ExecutionChartLine {
+  key: string;
+  label: string;
+  color: string;
+  kind: "mine" | "opponent" | "reference";
+  dash?: string;
+  connectNulls?: boolean;
+}
 
-function ChartBenchmarkControl({ selected, onChange }: {
-  selected: ReadonlySet<BenchmarkKind>;
-  onChange: (selected: ReadonlySet<BenchmarkKind>) => void;
+function useChartEmphasis(lines: ExecutionChartLine[]) {
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [focused, setFocused] = useState<string | null>(null);
+  const candidate = hovered ?? focused;
+  return { active: lines.some(line => line.key === candidate) ? candidate : null, setHovered, setFocused };
+}
+
+function chartLineAppearance(line: ExecutionChartLine, active: string | null) {
+  const emphasized = active === line.key;
+  return {
+    strokeWidth: emphasized ? 3.5 : line.kind === "mine" ? 3 : line.kind === "opponent" ? 1.75 : 1.25,
+    strokeOpacity: active ? (emphasized ? 1 : 0.2) : line.kind === "mine" ? 1 : line.kind === "opponent" ? 0.8 : 0.6,
+  };
+}
+
+function renderChartLines(lines: ExecutionChartLine[], active: string | null) {
+  // Explicit layers keep local trends above references that load asynchronously.
+  return lines.map(line => <Line
+    key={line.key}
+    type={line.kind === "reference" ? "linear" : "monotone"}
+    dataKey={line.key}
+    name={line.label}
+    stroke={line.color}
+    zIndex={line.kind === "mine" ? 420 : line.kind === "opponent" ? 410 : 400}
+    {...chartLineAppearance(line, active)}
+    strokeDasharray={line.dash}
+    dot={false}
+    activeDot={line.kind === "reference" ? false : undefined}
+    isAnimationActive={line.kind === "reference" ? false : undefined}
+    connectNulls={line.connectNulls}
+  />);
+}
+
+function ExecutionChartLegend({ lines, emphasis }: {
+  lines: ExecutionChartLine[];
+  emphasis: ReturnType<typeof useChartEmphasis>;
 }) {
-  const selectedStyles = EXECUTION_BENCHMARK_STYLES.filter(style => selected.has(style.key));
-  const label = selectedStyles.length === 0 ? "None" : selectedStyles.length === 1 ? selectedStyles[0]!.label : `${selectedStyles.length} selected`;
-  return <details className="execution-reference-picker">
-    <summary><span>Chart references</span><strong>{label}</strong></summary>
-    <div className="execution-reference-menu">
-      <fieldset>
-        <legend>References for all three charts</legend>
-        {EXECUTION_BENCHMARK_STYLES.map(style => <label key={style.key}>
-          <input type="checkbox" checked={selected.has(style.key)} onChange={() => {
-            const next = new Set(selected);
-            if (next.has(style.key)) next.delete(style.key); else next.add(style.key);
-            onChange(next);
-          }} />
-          <span className="dot" style={{ background: style.color }} aria-hidden="true" />
-          {style.label}
-        </label>)}
-      </fieldset>
-      <button type="button" className="ghost" disabled={selected.size === 0} onClick={() => onChange(new Set())}>None — hide references</button>
-    </div>
-  </details>;
+  return <ul className="execution-chart-legend" aria-label="Chart legend">
+    {lines.map(line => <li key={line.key}>
+      <button type="button" className={emphasis.active === line.key ? "emphasized" : undefined}
+        aria-label={`Emphasize ${line.label}`}
+        onPointerEnter={() => emphasis.setHovered(line.key)} onPointerLeave={() => emphasis.setHovered(null)}
+        onFocus={() => { emphasis.setHovered(null); emphasis.setFocused(line.key); }} onBlur={() => emphasis.setFocused(null)}>
+        <svg width="26" height="12" viewBox="0 0 26 12" aria-hidden="true">
+          <line x1="1" x2="25" y1="6" y2="6" stroke={line.color} strokeWidth={line.kind === "mine" ? 3 : 1.5} strokeDasharray={line.dash} />
+        </svg>
+        <span>{line.label}</span>
+      </button>
+    </li>)}
+  </ul>;
 }
 
 function BenchmarkAvailability({ benchmarks, available, context = "this metric and filter" }: {
@@ -757,7 +787,7 @@ function BenchmarkAvailability({ benchmarks, available, context = "this metric a
   available: (source: BenchmarkKind) => boolean;
   context?: string;
 }) {
-  const missing = selectedBenchmarkStyles(benchmarks).filter(style => !available(style.key)
+  const missing = EXECUTION_BENCHMARK_STYLES.filter(style => !available(style.key)
     && !(benchmarks.rankedState?.loading && (style.key === "diamond" || style.key === "master")));
   return missing.length > 0 ? <div className="hint execution-reference-unavailable" role="status">
     No matching reference for {context}: {missing.map(style => style.label).join(", ")}.
@@ -765,29 +795,27 @@ function BenchmarkAvailability({ benchmarks, available, context = "this metric a
 }
 
 function ChartReferenceScope({ benchmarks }: { benchmarks: ExecutionBenchmarks }) {
-  const selected = new Set(selectedBenchmarkStyles(benchmarks).map(style => style.key));
   const scope = archiveBenchmarkLabel(benchmarks);
-  const descriptions: string[] = [];
-  const tournament = (["tournament", "pro"] as const).filter(source => selected.has(source));
-  if (tournament.length) descriptions.push(`${tournament.map(source => BENCHMARK_LABELS[source]).join(" + ")}: ${scope}; all stages and dates.`);
-  const ranked = RANKED_TIERS.filter(source => selected.has(source));
-  if (ranked.length) descriptions.push(`${ranked.map(source => BENCHMARK_LABELS[source]).join(" + ")}: ${scope}; ${benchmarks.stageId === null ? "all stages" : stageName(benchmarks.stageId)}; full historical sample.`);
-  if (selected.has("community")) descriptions.push(`${BENCHMARK_LABELS.community}: ${benchmarks.characterId === null ? "all characters" : charName(benchmarks.characterId)}; all opponents, stages and dates.`);
-  return descriptions.length > 0 ? <div className="hint execution-reference-scope">{descriptions.map(description => <span key={description}>{description}</span>)}</div> : null;
+  const rankedSource = benchmarks.rankedState?.manifest?.source.url
+    ?? "https://huggingface.co/datasets/erickfm/melee-ranked-replays/tree/ef54ddc230e01373ff2a179b49a7e559af788081";
+  return <ul className="execution-reference-scope">
+    <li><strong>Diamond / Master Slippi:</strong> {scope}; {benchmarks.stageId === null ? "all stages" : stageName(benchmarks.stageId)}.
+      {" "}<span className="execution-reference-credit">Source: <a href={rankedSource} target="_blank" rel="noreferrer">Slippi ranked data from Fizzi</a>.</span></li>
+    <li><strong>Tournament:</strong> Venue + tournament games, counted once; {scope}; all stages.
+      {" "}<span className="execution-reference-credit">Source: <a href="https://replays.nikki.sh/" target="_blank" rel="noreferrer">Slippi tournament replays from Nikki</a>.</span></li>
+    <li><strong>Pro Tournament:</strong> Identified pros in conservative tournament games; same filters as Tournament.
+      {" "}<span className="execution-reference-credit">Source: <a href="https://replays.nikki.sh/" target="_blank" rel="noreferrer">Slippi tournament replays from Nikki</a>.</span></li>
+    <li><strong>SSBMStats Community:</strong> {benchmarks.characterId === null ? "All characters" : charName(benchmarks.characterId)}; all opponents and stages; player-balanced headline medians.
+      {" "}<span className="execution-reference-credit">Source: <a href="/?view=community">SSBMStats community contributions</a>.</span></li>
+  </ul>;
 }
 
-function BenchmarkFootnote({ benchmarks }: { benchmarks: ExecutionBenchmarks }) {
-  return (
-    <details className="hint execution-chart-method">
-      <summary>Comparison scope and method</summary>
-      <p>
-      Tournament and Pro Tournament use {archiveBenchmarkLabel(benchmarks)}, matching the Me and Vs filters, across all stages and dates.
-      {" "}SSBMStats Community follows Me and includes all opponents. Tournament includes eligible event-venue games, counted once; Pro Tournament uses identified players in conservative tournament games. Dotted lines show fixed aggregates; Community headline medians retain their player-balanced weighting. A missing selected reference
-      means that source has no qualifying published sample for that metric.
-      {" "}Diamond Slippi and Master Slippi also follow Stage ({benchmarks.stageId === null ? "all stages" : stageName(benchmarks.stageId)}), without a broader fallback.
-      </p>
-    </details>
-  );
+function BenchmarkFootnote() {
+  return <ul className="execution-chart-method">
+    <li><strong>Dates:</strong> Full available samples; date filters don’t apply.</li>
+    <li><strong>Reference lines:</strong> Fixed benchmarks.</li>
+    <li><strong>Missing data:</strong> No qualifying published sample; no broader fallback.</li>
+  </ul>;
 }
 
 const ROLLING_METRICS: { key: ExecMetricKey; label: string; unit: string; color: string }[] = [
@@ -849,7 +877,7 @@ function RollingExecChart({ games, benchmarks }: { games: ResolvedGame[]; benchm
   const points = useMemo(() => rollingExecutionSeries(games, metric), [games, metric]);
   const benchmarkValues = useMemo(() => {
     const values = new Map<BenchmarkKind, number>();
-    for (const style of selectedBenchmarkStyles(benchmarks)) {
+    for (const style of EXECUTION_BENCHMARK_STYLES) {
       const value = executionBenchmarkValue(benchmarks, style.key, metric);
       if (value !== null) values.set(style.key, value);
     }
@@ -863,6 +891,14 @@ function RollingExecChart({ games, benchmarks }: { games: ResolvedGame[]; benchm
   // Points are thinned across the whole history, so a tick's game index is no
   // longer its position in the array — look the date up instead of deriving it.
   const dateByIndex = useMemo(() => new Map<number, string>(points.map((p) => [p.index, p.date])), [points]);
+  const lines: ExecutionChartLine[] = [
+    { key: "value", label: "Me", color: def.color, kind: "mine", connectNulls: true },
+    ...(showOpp ? [{ key: "oppValue", label: "Opponents", color: OPP_SERIES_COLOR, kind: "opponent" as const, dash: "5 4", connectNulls: true }] : []),
+    ...EXECUTION_BENCHMARK_STYLES.filter(style => benchmarkValues.has(style.key)).map(style => ({
+      key: `benchmark:${style.key}`, label: style.label, color: style.color, kind: "reference" as const, dash: style.dash,
+    })),
+  ];
+  const emphasis = useChartEmphasis(lines);
   return (
     <div className="panel">
       <h2>Rolling {ROLLING_WINDOW}-game average</h2>
@@ -893,7 +929,7 @@ function RollingExecChart({ games, benchmarks }: { games: ResolvedGame[]; benchm
         </button>
       </div>
       <ResponsiveContainer width="100%" height={220}>
-        <LineChart data={data} margin={{ top: 4, right: 8, left: -14, bottom: 0 }}>
+        <LineChart className="execution-line-chart" data={data} margin={{ top: 4, right: 8, left: -14, bottom: 0 }}>
           <CartesianGrid {...gridStyle} />
           {/* Unique game index as the axis key, dates as labels — see L-cancel chart. */}
           <XAxis
@@ -913,37 +949,10 @@ function RollingExecChart({ games, benchmarks }: { games: ResolvedGame[]; benchm
             }}
             formatter={(v, name) => [`${Number(v).toFixed(1)}${def.unit}`, name]}
           />
-          <Legend wrapperStyle={{ fontSize: 12, fontFamily: "var(--font-data)" }} />
-          <Line type="monotone" dataKey="value" name="Me" stroke={def.color} strokeWidth={2} dot={false} connectNulls />
-          {showOpp && <Line
-              type="monotone"
-              dataKey="oppValue"
-              name="Opponents"
-              stroke={OPP_SERIES_COLOR}
-              strokeWidth={1.5}
-              strokeDasharray="5 4"
-              strokeOpacity={0.9}
-              dot={false}
-              connectNulls
-            />}
-          {EXECUTION_BENCHMARK_STYLES.map((style) => {
-            if (!benchmarkValues.has(style.key)) return null;
-            return <Line
-              key={style.key}
-              type="linear"
-              dataKey={`benchmark:${style.key}`}
-              name={style.label}
-              stroke={style.color}
-              strokeWidth={1.5}
-              strokeDasharray={style.dash}
-              strokeOpacity={0.95}
-              dot={false}
-              activeDot={false}
-              isAnimationActive={false}
-            />;
-          })}
+          {renderChartLines(lines, emphasis.active)}
         </LineChart>
       </ResponsiveContainer>
+      <ExecutionChartLegend lines={lines} emphasis={emphasis} />
       <div className="hint">
         Each point averages the previous {ROLLING_WINDOW} games. The line spans all {games.length.toLocaleString()}{" "}
         games in this filter
@@ -1084,7 +1093,7 @@ function PerGameMetricChart({
   );
   const benchmarkValues = useMemo(() => {
     const values = new Map<string, number>();
-    for (const item of series) for (const style of selectedBenchmarkStyles(benchmarks)) {
+    for (const item of series) for (const style of EXECUTION_BENCHMARK_STYLES) {
       const value = actionBenchmarkValue(benchmarks, style.key, item.key);
       if (value !== null) values.set(`benchmark:${style.key}:${item.key}`, value);
     }
@@ -1098,6 +1107,14 @@ function PerGameMetricChart({
   // Points are thinned across the whole history, so a tick's game index is no
   // longer its position in the array — look the date up instead of deriving it.
   const dateByIndex = useMemo(() => new Map<number, string>(rawData.map((p) => [p.index, p.date])), [rawData]);
+  const lines: ExecutionChartLine[] = series.filter(item => item.key === selected).flatMap(item => [
+    { key: item.key, label: item.label, color: item.color, kind: "mine" as const },
+    ...(showOpp && item.oppValue ? [{ key: `opp:${item.key}`, label: `${item.label} — opponents`, color: OPP_SERIES_COLOR, kind: "opponent" as const, dash: "5 4" }] : []),
+    ...EXECUTION_BENCHMARK_STYLES.filter(style => benchmarkValues.has(`benchmark:${style.key}:${item.key}`)).map(style => ({
+      key: `benchmark:${style.key}:${item.key}`, label: `${style.label} · ${item.label}`, color: style.color, kind: "reference" as const, dash: style.dash,
+    })),
+  ]);
+  const emphasis = useChartEmphasis(lines);
 
   return (
     <div className="panel">
@@ -1131,7 +1148,7 @@ function PerGameMetricChart({
         )}
       </div>
       <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={data} margin={{ top: 4, right: 8, left: -14, bottom: 0 }}>
+          <LineChart className="execution-line-chart" data={data} margin={{ top: 4, right: 8, left: -14, bottom: 0 }}>
             <CartesianGrid {...gridStyle} />
             {/* Unique game index as the axis key, dates as labels — see L-cancel chart. */}
             <XAxis
@@ -1152,51 +1169,10 @@ function PerGameMetricChart({
               }}
               formatter={(v, name) => [num(Number(v), 1), name]}
             />
-            <Legend wrapperStyle={{ fontSize: 12, fontFamily: "var(--font-data)" }} />
-            {series
-              .filter((s) => selected === s.key)
-              .map((s) => (
-                <Line key={s.key} type="monotone" dataKey={s.key} name={s.label} stroke={s.color} strokeWidth={2} dot={false} />
-              ))}
-            {showOpp &&
-              series
-                .filter((s) => selected === s.key && s.oppValue)
-                .map((s) => (
-                  <Line
-                    key={`opp:${s.key}`}
-                    type="monotone"
-                    dataKey={`opp:${s.key}`}
-                    name={`${s.label} — opponents`}
-                    stroke={OPP_SERIES_COLOR}
-                    strokeWidth={1.5}
-                    strokeDasharray="5 4"
-                    strokeOpacity={0.9}
-                    dot={false}
-                  />
-                ))}
-            {series
-              .filter((s) => selected === s.key)
-              .flatMap((s) => EXECUTION_BENCHMARK_STYLES.map((style) => {
-                const key = `benchmark:${style.key}:${s.key}`;
-                if (!benchmarkValues.has(key)) return null;
-                return (
-                  <Line
-                    key={key}
-                    type="linear"
-                    dataKey={key}
-                    name={`${style.label} · ${s.label}`}
-                    stroke={style.color}
-                    strokeWidth={1.5}
-                    strokeDasharray={style.dash}
-                    strokeOpacity={0.95}
-                    dot={false}
-                    activeDot={false}
-                    isAnimationActive={false}
-                  />
-                );
-              }))}
+            {renderChartLines(lines, emphasis.active)}
           </LineChart>
       </ResponsiveContainer>
+      <ExecutionChartLegend lines={lines} emphasis={emphasis} />
       <div className="hint">
         Each point averages the previous {ROLLING_WINDOW} games. The line spans all {games.length.toLocaleString()}{" "}
         games in this filter
@@ -1359,7 +1335,7 @@ function MoveMetricChart({ games, moves, benchmarks, metric, setMetric }: {
     const values = new Map<string, number>();
     for (let index = 0; index < activeMoves.length; index++) {
       const move = activeMoves[index]!;
-      for (const style of selectedBenchmarkStyles(benchmarks)) {
+      for (const style of EXECUTION_BENCHMARK_STYLES) {
         const value = moveBenchmarkValue(benchmarks, style.key, move.key, metric);
         if (value !== null) values.set(`benchmark:${style.key}:move-${index}`, value);
       }
@@ -1381,6 +1357,14 @@ function MoveMetricChart({ games, moves, benchmarks, metric, setMetric }: {
   // longer its position in the array — look the date up instead of deriving it.
   const dateByIndex = useMemo(() => new Map<number, string>(points.map((p) => [p.index, p.date])), [points]);
   const hasData = points.some((point) => point.values.some((value) => value !== null));
+  const lines: ExecutionChartLine[] = activeMoves.flatMap((move, index) => [
+    { key: `move-${index}`, label: move.label, color: MOVE_TREND_COLORS[index % MOVE_TREND_COLORS.length]!, kind: "mine" as const, connectNulls: true },
+    ...(showOpp ? [{ key: `opp-move-${index}`, label: `${move.label} — opponents`, color: OPP_SERIES_COLOR, kind: "opponent" as const, dash: "5 4", connectNulls: true }] : []),
+    ...EXECUTION_BENCHMARK_STYLES.filter(style => benchmarkValues.has(`benchmark:${style.key}:move-${index}`)).map(style => ({
+      key: `benchmark:${style.key}:move-${index}`, label: `${style.label} · ${move.label}`, color: style.color, kind: "reference" as const, dash: style.dash,
+    })),
+  ]);
+  const emphasis = useChartEmphasis(lines);
   const moveSummary = activeMoves.length === 1
     ? activeMoves[0]!.label
     : `${activeMoves.length} moves selected`;
@@ -1466,7 +1450,7 @@ function MoveMetricChart({ games, moves, benchmarks, metric, setMetric }: {
       ) : (
         <>
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={data} margin={{ top: 4, right: 8, left: -14, bottom: 0 }}>
+            <LineChart className="execution-line-chart" data={data} margin={{ top: 4, right: 8, left: -14, bottom: 0 }}>
               <CartesianGrid {...gridStyle} />
               {/* Unique game index as the axis key, dates as labels — see L-cancel chart. */}
               <XAxis
@@ -1486,54 +1470,10 @@ function MoveMetricChart({ games, moves, benchmarks, metric, setMetric }: {
                 }}
                 formatter={(v, name) => [`${num(Number(v), def.digits)}${def.unit}`, `${String(name)} — ${def.label}`]}
               />
-              <Legend wrapperStyle={{ fontSize: 12, fontFamily: "var(--font-data)" }} />
-              {activeMoves.map((move, i) => (
-                <Line
-                  key={move.key}
-                  type="monotone"
-                  dataKey={`move-${i}`}
-                  name={move.label}
-                  stroke={MOVE_TREND_COLORS[i % MOVE_TREND_COLORS.length]}
-                  strokeWidth={2}
-                  dot={false}
-                  connectNulls
-                />
-              ))}
-              {showOpp && activeMoves.map((move, i) => (
-                <Line
-                  key={`opp:${move.key}`}
-                  type="monotone"
-                  dataKey={`opp-move-${i}`}
-                  name={`${move.label} — opponents`}
-                  stroke={OPP_SERIES_COLOR}
-                  strokeWidth={1.5}
-                  strokeDasharray="5 4"
-                  strokeOpacity={0.9}
-                  dot={false}
-                  connectNulls
-                />
-              ))}
-              {activeMoves.flatMap((move, index) => EXECUTION_BENCHMARK_STYLES.map((style) => {
-                const key = `benchmark:${style.key}:move-${index}`;
-                if (!benchmarkValues.has(key)) return null;
-                return (
-                  <Line
-                    key={key}
-                    type="linear"
-                    dataKey={key}
-                    name={`${style.label} · ${move.label}`}
-                    stroke={style.color}
-                    strokeWidth={1.5}
-                    strokeDasharray={style.dash}
-                    strokeOpacity={0.95}
-                    dot={false}
-                    activeDot={false}
-                    isAnimationActive={false}
-                  />
-                );
-              }))}
+              {renderChartLines(lines, emphasis.active)}
             </LineChart>
           </ResponsiveContainer>
+          <ExecutionChartLegend lines={lines} emphasis={emphasis} />
           <div className="hint">
             {def.label} over the previous {ROLLING_WINDOW} games, across all{" "}
             {games.length.toLocaleString()} games in this filter
@@ -1600,7 +1540,6 @@ export function Execution({
 }) {
   const [moveMetric, setMoveMetric] = useState<MoveMetricKey>("landedPerGame");
   const [comparisonSource, setComparisonSource] = useState<ComparisonSource>("tournament");
-  const [chartSources, setChartSources] = useState<ReadonlySet<BenchmarkKind>>(DEFAULT_CHART_SOURCES);
   // The charts cover the whole filter; everything under them describes current
   // form, so it reads the trailing window the charts smooth over. The same
   // number on purpose — see ROLLING_WINDOW.
@@ -1613,7 +1552,7 @@ export function Execution({
   const career = useMemo(() => moveTable(games), [games]);
   const recentMoves = useMemo(() => moveTable(recentGames), [recentGames]);
   const loadedBenchmarks = useExecutionBenchmarks(games, isDemo, selectedCharacterId, selectedOpponentCharacterId, selectedStageId);
-  const benchmarks = { ...loadedBenchmarks, comparisonSource, chartSources };
+  const benchmarks = { ...loadedBenchmarks, comparisonSource };
   const interactionPanel = <Interactions games={recentGames} isDemo={isDemo} onAnalyze={onAnalyzeInteractions}
     onSelectReplayFiles={onSelectAnalysisFiles} analyzing={analyzingInteractions}
     benchmarkScope={{ characterId: selectedCharacterId, opponentCharacterId: selectedOpponentCharacterId, stageId: selectedStageId }} />;
@@ -1629,12 +1568,12 @@ export function Execution({
       </div>
 
       <div className="execution-reference-controls">
-        <div><ChartBenchmarkControl selected={chartSources} onChange={setChartSources} /><span className="hint">Applies to all three charts.</span></div>
+        <div className="execution-chart-guidance"><strong>Your trend is the solid line.</strong><span className="hint">Hover or focus a legend label to emphasize its line. All available references stay visible.</span></div>
         <div className="execution-table-comparison"><BenchmarkSourceControl value={comparisonSource} onChange={setComparisonSource} /><span className="hint">Table highlighting only · differences, not a skill rating.</span></div>
       </div>
       <div className="execution-reference-notes">
         <ChartReferenceScope benchmarks={benchmarks} />
-        <BenchmarkFootnote benchmarks={benchmarks} />
+        <BenchmarkFootnote />
         {benchmarks.rankedState && <RankedBenchmarkSource state={benchmarks.rankedState} />}
       </div>
       <RollingExecChart games={games} benchmarks={benchmarks} />

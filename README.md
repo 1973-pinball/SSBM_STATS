@@ -33,10 +33,10 @@ Deployment evidence is recorded in the
   visible until their replacements are saved; unfinished work resumes on return.
 - **Resumable data builds:** maintainers can pause downloads and parsing, retain
   verified work, and resume the same source selection from saved checkpoints.
-- **Clearer execution charts:** your trend and Tournament appear by default.
-  Use **Chart references** to choose other benchmark lines or hide them across
-  all three charts. Extended explanations are expandable; table highlighting
-  remains a separate choice.
+- **Clearer execution charts:** all five reference cohorts remain visible, with
+  a stronger personal trend and lighter reference lines. Hover or focus a legend
+  label to emphasize its line. Short source and filter bullets credit Fizzi,
+  Nikki, and community contributors; table highlighting remains separate.
 
 See the [v0.5.0 release notes](docs/releases/v0.5.0.md) for source selection,
 verified sample counts, limitations, and validation status. Earlier interaction
