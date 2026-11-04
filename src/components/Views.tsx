@@ -1188,6 +1188,7 @@ const MOVE_METRIC_CHOICES: { key: MoveMetricKey; label: string; unit: string; di
   { key: "noHitPerGame", label: "No-hit uses / game", unit: "", digits: 1 },
   { key: "noHitRate", label: "No-hit rate", unit: "%", digits: 1 },
   { key: "landedPerGame", label: "Landed / game", unit: "", digits: 1 },
+  { key: "whiffedPerGame", label: "Whiffed / Game", unit: "", digits: 1 },
   { key: "dmgPerGame", label: "Dmg / game", unit: "", digits: 1 },
   { key: "dmgShare", label: "Dmg share", unit: "%", digits: 1 },
   { key: "avgDmgPerHit", label: "Avg dmg / hit", unit: "", digits: 1 },
@@ -1205,6 +1206,7 @@ const MOVE_METRIC_CHOICES: { key: MoveMetricKey; label: string; unit: string; di
 const MOVE_METRIC_EMPTY: Partial<Record<MoveMetricKey, string>> = {
   attemptsPerGame:
     "Attempts require measured replay frames. Missing or incomplete observations stay unavailable.",
+  whiffedPerGame: "Whiffed / Game requires tracked attempts and landed hits.",
   noHitPerGame: "No-hit outcomes require reliable damage attribution. Utility and delayed attacks have attempts only.",
   noHitRate: "No-hit rate needs completed, outcome-tracked special uses. Utility and delayed attacks have attempts only.",
   lCancelPct: "L-cancel only applies to aerials.",
@@ -1254,7 +1256,8 @@ function hasOpponentMoveMetric(
   moveKeys: ReadonlySet<string>,
   metric: MoveMetricKey,
 ): boolean {
-  const hasTrackedAttemptMove = metric === "attemptsPerGame" && [...moveKeys].some(moveGroupTracksAttempts);
+  const usesAttempts = metric === "attemptsPerGame" || metric === "whiffedPerGame";
+  const hasTrackedAttemptMove = usesAttempts && [...moveKeys].some(moveGroupTracksAttempts);
   for (const game of games) {
     const moves = game.opp.moveStats;
     if (!moves) continue;
@@ -1263,7 +1266,7 @@ function hasOpponentMoveMetric(
     for (const key of moveKeys) {
       const moveId = specialMoveId(key);
       if (moveId === null || !hasSpecialMoveAttempts(game, moves, moveId)) continue;
-      if (metric === "attemptsPerGame") return true;
+      if (usesAttempts) return true;
       const special = moves[moveId]!;
       if (hasSpecialMoveOutcomes(game, moves, moveId)) {
         if (metric === "noHitPerGame") return true;
@@ -1805,7 +1808,7 @@ function MovesSection({
       if (specialMoveId(moveFocus) !== null && row.key !== moveFocus) return false;
       if (metric === "noHitPerGame" || metric === "noHitRate" || moveFocus === "specials") return specialMoveId(row.key) !== null;
       if (specialMoveId(moveFocus) !== null) return true;
-      if (metric === "attemptsPerGame" && (row.attempts ?? 0) > 0) return true;
+      if ((metric === "attemptsPerGame" || metric === "whiffedPerGame") && (row.attempts ?? 0) > 0) return true;
       return (row.dmgShare ?? 0) * 100 >= minDamageShare;
     }),
     [recent.rows, minDamageShare, moveFocus, metric],
@@ -1955,6 +1958,7 @@ function MovesSection({
           </tbody>
         </table></MatrixScroll>
         {metric === "attemptsPerGame" && <div className="hint">Activation counts use measured games across normals, aerials, and all four special directions. Unsupported copied moves, form changes, or missing frames remain unavailable. SSBMStats Community does not publish special attempts.</div>}
+        {metric === "whiffedPerGame" && <div className="hint">Whiffed / Game = Attempts / game − Landed / game. Landed counts hits, so multi-hit moves can produce negative values. Each rate uses its available measured games.</div>}
         {(metric === "noHitPerGame" || metric === "noHitRate") && <div className="hint">No-hit counts completed special uses with no opponent damage, including shields and defensive uses; it is not a verified whiff rate. Incomplete uses are excluded. Utility and delayed attacks have attempts only. SSBMStats Community does not publish outcomes.</div>}
         {hasStaleStats && <div className="hint">Some cached replays use older statistics. They update automatically when their replay files are accessible.</div>}
         {(metric === "noHitPerGame" || metric === "noHitRate") && specialOutcomeReason && <div className="hint">{charName(benchmarks.characterId!)}: {specialOutcomeReason}</div>}

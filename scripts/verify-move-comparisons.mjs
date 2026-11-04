@@ -40,10 +40,11 @@ const move = (fields = {}) => ({
 });
 const metricKeys = [
   "attemptsPerGame", "noHitPerGame", "noHitRate", "landedPerGame", "dmgPerGame", "dmgShare", "avgDmgPerHit",
-  "killsPerGame", "killShare", "avgKillPct", "lCancelPct",
+  "killsPerGame", "killShare", "avgKillPct", "lCancelPct", "whiffedPerGame",
 ];
 const tableValue = (row, metric, covered) => ({
   attemptsPerGame: row.attemptsPerGame,
+  whiffedPerGame: row.whiffedPerGame,
   noHitPerGame: row.noHitPerGame,
   noHitRate: row.noHitRate === null ? null : row.noHitRate * 100,
   landedPerGame: row.landedPerGame,
@@ -110,8 +111,10 @@ try {
   close(downB.dmgShare, 32 / 132, "damage share covers the whole measured arsenal");
   assert.equal(downB.attempts, null, "landed Down B hits cannot stand in for initiations");
   assert.equal(downB.attemptsPerGame, null);
+  assert.equal(downB.whiffedPerGame, null, "untracked attempts cannot produce a whiff difference");
   const nair = table.rows.find((row) => row.key === "nair");
   assert.equal(nair.attemptsPerGame, 4, "legacy rows without attempts cannot dilute tracked attempts");
+  close(nair.whiffedPerGame, 8 / 2 - 10 / 3, "Whiffed subtracts the displayed rates with their respective measured samples");
 
   for (const [id, key] of [[18, "neutral-b"], [19, "side-b"], [20, "up-b"], [21, "down-b"]]) {
     assert.equal(moveGroup(id).key, key);
@@ -180,6 +183,7 @@ try {
     zeroGame.statsVersion = 6;
     const zeroRow = stats.moveTable(stats.resolveGames([zeroGame], new Set(["LOCAL#1"]))).rows[0];
     assert.equal(zeroRow.attemptsPerGame, 0, `${key}: measured zero survives without landed hits`);
+    assert.equal(zeroRow.whiffedPerGame, 0, `${key}: measured zero is a valid whiff difference`);
     assert.equal(zeroRow.noHitPerGame, 0);
     assert.equal(zeroRow.noHitRate, null);
     assert.equal(localMoveSample(zeroRow, "attemptsPerGame"), "1 tracked games");
@@ -191,6 +195,7 @@ try {
       const row = oldSpecialRows.find((value) => value.key === key);
       assert.equal(row.landed, 9, `${key}: legacy landed measurements remain available`);
       assert.equal(row.attemptsPerGame, null, `${key}: v${old.statsVersion} cannot prove complete replay coverage`);
+      assert.equal(row.whiffedPerGame, null, `${key}: legacy attempts cannot produce whiff differences`);
       assert.equal(row.noHitRate, null);
       assert.equal(localMoveSample(row, "attemptsPerGame"), "No tracked games");
       assert.equal(localMoveSample(row, "noHitRate"), "No tracked games");
@@ -210,6 +215,7 @@ try {
   const attemptedDownB = attemptTable.rows.find((row) => row.key === "down-b");
   assert.equal(attemptedDownB.attemptGames, 3, "only explicit Down B capability contributes attempt games");
   close(attemptedDownB.attemptsPerGame, 14 / 3, "legacy games cannot dilute Down B initiations");
+  close(attemptedDownB.whiffedPerGame, 14 / 3 - 27 / 4, "multi-hit landings preserve a negative arithmetic difference");
   assert.equal(attemptedDownB.outcomeGames, 2, "attempts-only characters cannot dilute outcome games");
   assert.equal(attemptedDownB.noHitPerGame, 2.5);
   assert.equal(attemptedDownB.outcomeAttempts, 8);
@@ -249,6 +255,13 @@ try {
       }
     }
   }
+  const rollingWhiff = stats.moveMetricSeries(attemptGames, "down-b", "whiffedPerGame", 2);
+  for (let index = 0; index < rollingWhiff.length; index++) {
+    const window = stats.moveTable(attemptGames.slice(Math.max(0, index - 1), index + 1));
+    const row = window.rows.find((value) => value.key === "down-b");
+    close(rollingWhiff[index].value, row?.whiffedPerGame ?? null,
+      `Whiffed rolling point ${index}: samples expire together, including legacy-only and preview windows`);
+  }
 
   const archiveMove = (fields = {}) => ({
     attempts: 0, landed: 0, damage: 0, kills: 0, killPctSum: 0, openings: 0,
@@ -265,10 +278,13 @@ try {
       },
     },
   };
-  const archiveExpected = [null, null, null, 2, 32 / 3, 100 * 32 / 132, 32 / 6, 1 / 3, 50, 90, null];
+  const archiveExpected = [null, null, null, 2, 32 / 3, 100 * 32 / 132, 32 / 6, 1 / 3, 50, 90, null, null];
   metricKeys.forEach((metric, index) => close(archiveMoveBenchmark(archive, "down-b", metric),
     archiveExpected[index], `archive Down B/${metric}`));
   close(archiveMoveBenchmark(archive, "nair", "lCancelPct"), 75, "archive aerial L-cancel retains its own denominator");
+  close(archiveMoveBenchmark(archive, "nair", "whiffedPerGame"), -2 / 3, "archive multi-hit differences are not clamped");
+  assert.equal(archiveMoveBenchmark({ ...archive, unavailableMoveAttempts: new Set(["nair"]) }, "nair", "whiffedPerGame"), null,
+    "ranked attempt coverage exclusions also exclude derived Whiffed values");
   assert.equal(archiveMoveBenchmark(null, "down-b", "landedPerGame"), null);
   assert.equal(archiveMoveBenchmark({ ...archive, metrics: { ...archive.metrics, moves: null } }, "down-b", "landedPerGame"), null,
     "an old archive with no move payload stays unavailable");
@@ -279,12 +295,18 @@ try {
     21: archiveMove({ attempts: 14, attemptGames: 3, hitAttempts: 3, noHitAttempts: 5, incompleteAttempts: 2, outcomeGames: 2, landed: 90 }),
   } } };
   close(archiveMoveBenchmark(trackedArchive, "down-b", "attemptsPerGame"), 14 / 3, "archive attempts use explicit capable games, never all legacy games");
+  close(archiveMoveBenchmark(trackedArchive, "down-b", "whiffedPerGame"), 14 / 3 - 90 / 100,
+    "archive Whiffed retains both displayed rate denominators");
   close(archiveMoveBenchmark(trackedArchive, "down-b", "noHitPerGame"), 2.5, "archive no-hit game denominator excludes untracked characters/versions");
   close(archiveMoveBenchmark(trackedArchive, "down-b", "noHitRate"), 62.5, "archive no-hit outcomes are matched per-use, not conversion totals");
   assert.equal(archiveMoveComparisonGames(trackedArchive, "down-b", "attemptsPerGame"), 3, "difference highlighting cannot use legacy archive games as attempt evidence");
   assert.equal(archiveMoveComparisonGames(trackedArchive, "down-b", "noHitRate"), 2);
   assert.equal(localMoveComparisonGames(attemptedDownB, "attemptsPerGame", 100), 3);
   assert.equal(localMoveComparisonGames(attemptedDownB, "noHitRate", 100), 2);
+  assert.equal(archiveMoveComparisonGames(trackedArchive, "down-b", "whiffedPerGame"), 3);
+  assert.equal(localMoveComparisonGames(attemptedDownB, "whiffedPerGame", 100), 3);
+  assert.equal(archiveMoveSample(trackedArchive, "down-b", "whiffedPerGame"), "3 tracked games");
+  assert.equal(localMoveSample(attemptedDownB, "whiffedPerGame"), "3 tracked games");
   assert.equal(archiveMoveSample({ ...archive, metrics: { ...archive.metrics, moves: {} } }, "down-b", "attemptsPerGame"), "Archive reparse needed", "missing archive Down B row explains why attempts are unavailable");
   for (const key of specialKeys) for (const metric of ["attemptsPerGame", "noHitPerGame", "noHitRate"]) {
     const noSample = { ...archive, stats_version: CURRENT_STATS_VERSION, metrics: { ...archive.metrics, moves: {} } };
@@ -295,6 +317,7 @@ try {
   assert.equal(archiveMoveSample({ ...trackedArchive, stats_version: 4 }, "down-b", "attemptsPerGame"), "3 tracked games", "published v9 measurements remain available while its archive revision is live");
   const zeroTrackedArchive = { ...trackedArchive, metrics: { ...trackedArchive.metrics, moves: { 21: archiveMove({ attemptGames: 5, outcomeGames: 5, hitAttempts: 0, noHitAttempts: 0, incompleteAttempts: 0 }) } } };
   close(archiveMoveBenchmark(zeroTrackedArchive, "down-b", "attemptsPerGame"), 0, "explicit tracked zero is valid");
+  close(archiveMoveBenchmark(zeroTrackedArchive, "down-b", "whiffedPerGame"), 0, "explicit archive zero produces zero Whiffed");
   close(archiveMoveBenchmark(zeroTrackedArchive, "down-b", "noHitPerGame"), 0, "known zero no-hit uses is valid");
   close(archiveMoveBenchmark(zeroTrackedArchive, "down-b", "noHitRate"), null, "zero completed archive uses cannot invent a rate");
   for (const key of specialKeys.slice(0, 3)) {
@@ -325,7 +348,7 @@ try {
     communityMove(2, 5, "down-b", { landed: 2, damage: 12, kills: 1, killPctSum: 100 }),
     communityMove(2, 5, "jab", { attempts: 15, attemptGames: 3, landed: 10, damage: 30 }),
   ];
-  const communityExpected = [null, null, null, 10 / 15, 52 / 15, 100 * 52 / 242, 52 / 10, 3 / 15, 100 * 3 / 11, 280 / 3, null];
+  const communityExpected = [null, null, null, 10 / 15, 52 / 15, 100 * 52 / 242, 52 / 10, 3 / 15, 100 * 3 / 11, 280 / 3, null, null];
   metricKeys.forEach((metric, index) => close(communityMoveBenchmark(community, "down-b", metric),
     communityExpected[index], `community Down B/${metric}: each character denominator counts once`));
   assert.equal(communityMoveBenchmark([], "down-b", "landedPerGame"), null,
@@ -345,6 +368,8 @@ try {
   // of the privacy guard, so they cannot verify this denominator on their own.
   assert.equal(communityMoveBenchmark(community, "nair", "attemptsPerGame"), null,
     "one character's suppressed normal attempts cannot be filled with zero");
+  assert.equal(communityMoveBenchmark(community, "nair", "whiffedPerGame"), null,
+    "Whiffed cannot infer zero for suppressed community moves");
   const completeNair = [...community, communityMove(2, 5, "nair", {
     attempts: 15, attemptGames: 3, landed: 5, damage: 20, kills: 1,
   })];
@@ -352,6 +377,10 @@ try {
     "complete character coverage weights attempts by the combined character-game sample");
   close(communityMoveBenchmark(completeNair, "nair", "landedPerGame"), 45 / 15,
     "complete character coverage weights landings by the combined character-game sample");
+  close(communityMoveBenchmark(completeNair, "nair", "whiffedPerGame"), 2,
+    "community Whiffed uses the same published sample as Attempts and Landed");
+  close(communityMoveBenchmark([communityMove(20, 2, "nair", { attempts: 2, landed: 6 })], "nair", "whiffedPerGame"), -2,
+    "community multi-hit differences remain negative");
 
   const { ArchiveMoveAtlasComparison, TestArchiveFrame, testLocalMoveMetric, testArchiveMoveMetric } =
     await server.ssrLoadModule("/src/components/CommunityArchiveAtlas.tsx");
@@ -367,6 +396,7 @@ try {
   assert.doesNotMatch(atlasMarkup, /Venue archive|Tournament archive/);
   assert.match(atlasMarkup, /No-hit uses \/ game/);
   assert.match(atlasMarkup, /No-hit rate/);
+  assert.match(atlasMarkup, /Whiffed \/ Game/, "Move Atlas exposes the new measure");
   const allSpecialMarkup = renderToStaticMarkup(createElement(ArchiveMoveAtlasComparison, {
     games: specialGames, characterId: 20, lookbackGames: 150, communityRows: [],
   }));
@@ -375,10 +405,14 @@ try {
   const opponentSpecialGames = specialGames.map((game) => ({ ...game, opp: game.me }));
   for (const key of specialKeys) {
     assert.equal(testHasOpponentMoveMetric(opponentSpecialGames, new Set([key]), "attemptsPerGame"), true, `${key}: opponent attempt trend is available`);
+    assert.equal(testHasOpponentMoveMetric(opponentSpecialGames, new Set([key]), "whiffedPerGame"), true, `${key}: opponent Whiffed trend is available`);
+    close(stats.moveMetricSeriesMany(opponentSpecialGames, [key], "whiffedPerGame", stats.ROLLING_WINDOW, stats.MAX_SERIES_POINTS, "opp").at(-1).values[0],
+      specialTable.rows.find((row) => row.key === key).whiffedPerGame, `${key}: opponent Whiffed trend matches the table`);
     assert.equal(testHasOpponentMoveMetric(opponentSpecialGames, new Set([key]), "noHitRate"), key !== "neutral-b", `${key}: opponent outcome availability follows capability`);
   }
   const onlyOldOpponent = opponentSpecialGames.slice(0, 1);
   assert.equal(testHasOpponentMoveMetric(onlyOldOpponent, new Set(["side-b"]), "attemptsPerGame"), false, "opponent v4 placeholders cannot enable Side B attempt charts");
+  assert.equal(testHasOpponentMoveMetric(onlyOldOpponent, new Set(["side-b"]), "whiffedPerGame"), false, "opponent legacy placeholders cannot enable Whiffed charts");
   assert.equal(testHasOpponentMoveMetric(onlyOldOpponent, new Set(["down-b"]), "noHitRate"), false, "opponent v4 Down B cannot establish complete coverage");
   const noHitChart = renderToStaticMarkup(createElement(TestMoveMetricChart, {
     games: specialGames,
@@ -388,6 +422,7 @@ try {
   }));
   assert.match(noHitChart, /aria-label="Moves: Side B"/, "no-hit chart replaces a default normal with an outcome-tracked special");
   assert.doesNotMatch(noHitChart, /Nothing to plot/, "measured special outcomes are immediately chartable");
+  assert.match(noHitChart, /Whiffed \/ Game/, "Execution exposes the new measure");
   for (const label of ["Neutral B", "Side B", "Up B", "Down B"]) assert.match(noHitChart, new RegExp(`<span>${label}</span>`), `${label}: available in the no-hit move picker`);
   const zeroBeforeUsedGames = stats.resolveGames([record(31, {
     13: move({ attempts: 5, landed: 5 }),
@@ -415,9 +450,16 @@ try {
   assert.doesNotMatch(currentUnavailableAtlas, /Some cached replays use older statistics/, "a current archive/local sample without coverage is unavailable, not stale");
   assert.match(allSpecialMarkup, /Some cached replays use older statistics\. They update automatically when their replay files are accessible/);
   close(testLocalMoveMetric(attemptedDownB, "noHitRate", attemptTable.covered), 5 / 8, "Atlas local rate uses matched outcome sample");
+  close(testLocalMoveMetric(attemptedDownB, "whiffedPerGame", attemptTable.covered), 14 / 3 - 27 / 4, "Atlas local Whiffed agrees with execution");
+  close(testArchiveMoveMetric({ key: "down-b", ...trackedArchive.metrics.moves[21] }, "whiffedPerGame", trackedArchive), 14 / 3 - 90 / 100,
+    "Atlas archive Whiffed agrees with execution");
   close(testArchiveMoveMetric({ key: "down-b", ...trackedArchive.metrics.moves[21] }, "noHitRate", trackedArchive), 5 / 8, "Atlas archive rate agrees with execution benchmark");
   const { testLegacyArchiveMoveMetric, testLegacyCommunityMove } = await server.ssrLoadModule("/src/components/ArchiveCommunityBenchmark.tsx");
   close(testLegacyArchiveMoveMetric({ key: "down-b", ...trackedArchive.metrics.moves[21] }, "attempts", trackedArchive), 14 / 3, "Community overview uses the same explicit archive attempt sample");
+  close(testLegacyArchiveMoveMetric({ key: "down-b", ...trackedArchive.metrics.moves[21] }, "whiffedPerGame", trackedArchive), 14 / 3 - 90 / 100,
+    "Community overview Whiffed agrees with execution");
+  assert.equal(testLegacyCommunityMove(communityMove(20, 2, "nair", { attempts: 2, landed: 6 }), "whiffedPerGame", 0), "-2.00",
+    "Community overview renders negative Whiffed values");
   assert.equal(testLegacyCommunityMove(communityMove(20, 100, "down-b", { attempts: 0 }), "attempts", 0), "—", "Community overview does not invent special attempt coverage from placeholders");
   const unavailableArchive = {
     loading: false, error: "Archive unavailable", fieldRows: [], proAggregateRows: [], proRows: [],
