@@ -129,8 +129,8 @@ export function RecordsCard({ games, teamGames }: { games: ResolvedGame[]; teamG
 
   if (cells.length === 0) return null;
 
-  // .sc-grid draws its rules as a 1px gap over a --line background, so a ragged
-  // final row would render as a bare stripe. Pad it with empty cells.
+  // .sc-grid's --line background would show through a ragged final row.
+  // Pad it with empty cells.
   const filler = (COLUMNS - (cells.length % COLUMNS)) % COLUMNS;
 
   return (
