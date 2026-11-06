@@ -1190,7 +1190,7 @@ button.linky:hover { color: #a094ff; }
 .sc-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 1px;
+  gap: 0 1px;
   background: var(--line);
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -1199,6 +1199,8 @@ button.linky:hover { color: #a094ff; }
 /* Four across in the same card width means narrower cells: trim the padding and
    drop the value a point so a long stage name still fits on two lines. */
 .sc-cell { background: rgba(32, 28, 56, 0.92); padding: 11px 12px; min-width: 0; }
+/* Explicit borders keep row dividers visible when the card is scaled. */
+.sc-grid > .sc-cell:nth-child(n + 5) { border-top: 1px solid var(--line); }
 .sc-label {
   font-family: var(--font-display);
   font-size: 10px;
@@ -1249,9 +1251,11 @@ button.linky:hover { color: #a094ff; }
    RecordsCard.tsx must stay 4 or its last row pads against the wrong width. */
 @media (max-width: 760px) {
   .sc-grid { grid-template-columns: repeat(3, 1fr); }
+  .sc-grid > .sc-cell:nth-child(n + 4) { border-top: 1px solid var(--line); }
 }
 @media (max-width: 560px) {
   .sc-grid { grid-template-columns: repeat(2, 1fr); }
+  .sc-grid > .sc-cell:nth-child(n + 3) { border-top: 1px solid var(--line); }
 }
 
 /* ---- Liquipedia tab ---- */
