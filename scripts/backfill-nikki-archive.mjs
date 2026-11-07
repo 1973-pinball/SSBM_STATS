@@ -17,6 +17,7 @@ import { lstat, mkdir, readFile, readdir, realpath, rename, rm, stat, statfs, wr
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ARCHIVE_STATS_VERSION, ARCHIVE_SPECIAL_MOVE_IDS, assertArchiveSpecialMeasurements } from "./lib/archive-move-coverage.mjs";
+import { auditedSourceHash, verifyAuditedSourceHash, sourceReceiptFields, receiptMatchesSourceHash } from "./lib/archive-source-integrity.mjs";
 
 const args = new Map();
 for (let i = 2; i < process.argv.length; i += 2) {
@@ -46,6 +47,7 @@ const limit = Math.max(1, Number(args.get("limit") ?? Infinity));
 const OWNER = ".__special_moves_extraction_owner.json";
 const auditText = await readFile(path.resolve(args.get("audit")), "utf8");
 const audit = JSON.parse(auditText);
+for (const source of audit.sources) auditedSourceHash(source);
 const sources = audit.sources.filter((source) => source.sourceFilename).sort((a, b) => a.compressed_bytes - b.compressed_bytes);
 const excluded = audit.sources.filter((source) => !source.sourceFilename).map((source) => ({ id: source.id, reason: "Source unavailable; excluded by the backfill request." }));
 for (const source of sources) {
@@ -209,12 +211,13 @@ async function finish(source, summary, reused = false) {
   await save();
 }
 async function resumeResult(source) {
-  const { bundle, output, receiptPath, directory } = locations(source);
+  const { bundle, archive, output, receiptPath, directory } = locations(source);
   if (!existsSync(output) || !existsSync(receiptPath)) return false;
   const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
   if (receipt.statsVersion !== ARCHIVE_STATS_VERSION || receipt.parserSha256 !== parserHash || receipt.auditSha256 !== state.auditSha256 ||
-      receipt.bundle !== bundle || receipt.compressedBytes !== source.compressed_bytes ||
+      receipt.bundle !== bundle || receipt.compressedBytes !== source.compressed_bytes || !receiptMatchesSourceHash(source, receipt) ||
       receipt.output !== output || receipt.outputSha256 !== await fileHash(output)) return false;
+  await verifyAuditedSourceHash(source, archive);
   const summary = await validateResult(output, source);
   if (existsSync(directory)) await removeOwnedExtraction(directory, source);
   await finish(source, summary, true);
@@ -247,6 +250,7 @@ async function prepare(job) {
   const { source } = job, { bundle, archive, directory } = locations(source);
   if (await parserFingerprint() !== parserHash) throw new Error("Parser source changed during the backfill; restart to use one consistent parser");
   await progress(job, "inspecting-archive");
+  await verifyAuditedSourceHash(source, archive);
   const inspection = await inspectArchive(archive, source);
   job.inspection = inspection;
   if (inspection.compressedReplayFiles) throw new Error(`Archive has ${inspection.compressedReplayFiles} .slpz files; analyzer must decode them before processing`);
@@ -272,9 +276,12 @@ function startPreparation(source, role) {
   return job;
 }
 async function parsePrepared(job) {
-  const { source } = job, { bundle, stem, output, receiptPath, directory } = locations(source);
+  const { source } = job, { bundle, stem, archive, output, receiptPath, directory } = locations(source);
   await progress(job, "parsing");
   if (await parserFingerprint() !== parserHash) throw new Error("Parser source changed before parsing this bundle");
+  // Prefetch may have waited while another bundle parsed. Recheck after extraction
+  // and immediately before the analyzer consumes its extracted source.
+  await verifyAuditedSourceHash(source, archive);
   const temporaryOutput = `${output}.partial-${process.pid}`;
   const log = createWriteStream(path.join(work, `${stem}.log`), { flags: "a" });
   try { await command(process.execPath, [path.join(repo, "scripts/analyze-nikki-bundle.mjs"), "--bundle", bundle, "--dir", directory, "--output", temporaryOutput, "--workers", String(workers)], { log }); }
@@ -282,10 +289,12 @@ async function parsePrepared(job) {
   if (await parserFingerprint() !== parserHash) throw new Error("Parser source changed while processing this bundle; its output was not installed");
   const summary = await validateResult(temporaryOutput, source);
   const outputSha256 = await fileHash(temporaryOutput);
+  await verifyAuditedSourceHash(source, archive);
   await rename(temporaryOutput, output);
   summary.output = output;
   const receiptTemporary = `${receiptPath}.partial`;
   await writeFile(receiptTemporary, `${JSON.stringify({ bundle, compressedBytes: source.compressed_bytes,
+    ...sourceReceiptFields(source),
     statsVersion: ARCHIVE_STATS_VERSION, specialMoveIds: ARCHIVE_SPECIAL_MOVE_IDS,
     parserSha256: parserHash, auditSha256: state.auditSha256, output, outputSha256, validatedAt: new Date().toISOString() }, null, 2)}\n`);
   await rename(receiptTemporary, receiptPath);

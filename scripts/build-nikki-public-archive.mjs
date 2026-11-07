@@ -19,6 +19,7 @@ import { fileURLToPath } from "node:url";
 import { computeArchiveContentSha256 } from "./lib/archive-content-hash.mjs";
 import { ARCHIVE_STATS_VERSION, ARCHIVE_SPECIAL_MOVE_IDS, addArchiveSpecialOutcomes, assertArchiveSpecialMeasurements } from "./lib/archive-move-coverage.mjs";
 import { archiveBundleStem, planArchiveSourcePopulation, assertArchiveSourcePayload, assertArchiveSourceDownload } from "./lib/archive-source-population.mjs";
+import { auditedSourceHash, verifyAuditedSourceHash } from "./lib/archive-source-integrity.mjs";
 import { readDataset } from "./lib/liquipedia-data.mjs";
 import { displayName as canonicalDisplay, playerKey } from "./lib/liquipedia-parse.mjs";
 import { strictProAlias, compileReviewedProRegistry, resolveReviewedProIdentity, resolveArchiveProIdentity, assertDistinctSinglesIdentities } from "./lib/archive-pro-identity.mjs";
@@ -189,6 +190,16 @@ const sourceAuditText = args.sourceAudit ? await readFile(args.sourceAudit, "utf
 const sourcePlan = sourceAuditText ? planArchiveSourcePopulation(JSON.parse(sourceAuditText),
   args.excludeBundles.split(",").map((name) => name.trim()).filter(Boolean), resultFiles) : null;
 const sourcePopulation = sourcePlan ? { ...sourcePlan.metadata, sourceAuditSha256: hash(sourceAuditText) } : null;
+if (sourcePlan) for (const source of sourcePlan.sourceByStem.values()) auditedSourceHash(source);
+async function verifySourceHashes() {
+  for (const stem of sourcePlan?.metadata.includedBundles ?? []) {
+    const source = sourcePlan.sourceByStem.get(stem);
+    if (auditedSourceHash(source) === null) continue;
+    if (!source.sourceFilename) throw new Error(`Hashed source has no archive filename: ${stem}`);
+    await verifyAuditedSourceHash(source, path.join(args.downloads, source.sourceFilename));
+  }
+}
+await verifySourceHashes();
 const includedEventIds = new Set(resultFiles.map((name) => eventIdFor(`${archiveBundleStem(name)}.7z`)));
 const excludedEventIds = new Set((sourcePopulation?.excludedBundles ?? [])
   .map((stem) => eventIdFor(`${stem}.7z`)).filter((eventId) => !includedEventIds.has(eventId)));
@@ -1303,6 +1314,7 @@ await writeFile(path.join(args.output, "manifest.json"), `${JSON.stringify({
 // The complete export becomes visible only after every table, QA report, and
 // manifest has been written. A failed build therefore leaves the prior export
 // intact instead of exposing a mixed or truncated dataset to validators/loaders.
+await verifySourceHashes();
 const previousOutput = path.join(outputParent, `${path.basename(outputTarget)}.previous-${process.pid}-${Date.now()}`);
 if (path.dirname(previousOutput) !== outputParent) throw new Error("Archive backup escaped the selected output directory's parent");
 let movedPrevious = false;

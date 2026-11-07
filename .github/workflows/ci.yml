@@ -69,6 +69,9 @@ jobs:
       - name: Verify baseline cohorts and pooled Pro schema
         run: npm run verify:benchmarks
 
+      - name: Verify archive source recovery and statistical safeguards
+        run: npm run verify:recovery
+
       - name: Verify ranked source boundaries, aggregation and exact comparisons
         run: npm run verify:ranked
 
