@@ -1,5 +1,5 @@
 import type { ActionCounts, Filters, GameRecord, GameType, PlayerSide, ResolvedGame, ResolvedTeamGame, TechCounts } from "./types";
-import { ACTION_LABELS, hasFullStats, hasKnownCpu } from "./types";
+import { ACTION_LABELS, hasFullStats, hasKnownCpu, INTERACTION_STATS_VERSION } from "./types";
 import { INCLUDED_CHARACTER_ID_SET, INCLUDED_STAGE_ID_SET } from "./config";
 import { moveGroup, moveGroupTracksAttempts, specialMoveId } from "./melee";
 
@@ -364,45 +364,72 @@ const TECH_ACTION_LABELS: { key: string; label: string; pick: (p: PlayerSide) =>
   { key: "techAway", label: "Tech away", pick: (p) => p.techs?.away ?? 0 },
 ];
 
-const ACTION_AVERAGE_LABELS: { key: string; label: string; pick: (p: PlayerSide) => number }[] = [
+/** Existing ledge analysis supplies observed uses; an unmeasured game is not zero. */
+export function ledgedashCount(game: ResolvedGame, player: PlayerSide = game.me): number | null {
+  if (!hasFullStats(game.rec) || game.rec.isTeams || game.rec.parseError !== undefined
+    || (game.rec.statsVersion ?? 0) < INTERACTION_STATS_VERSION || !player.defense) return null;
+  const row = player.defense.ledge.ledgedash;
+  if (row === undefined) return 0;
+  return Number.isSafeInteger(row.attempts) && row.attempts >= 0 ? row.attempts : null;
+}
+
+const ACTION_AVERAGE_LABELS: { key: string; label: string; pick: (p: PlayerSide, g: ResolvedGame) => number | null }[] = [
   ...ACTION_LABELS.map(({ key, label }) => ({ key, label, pick: (p: PlayerSide) => p.actions?.[key] ?? 0 })),
+  { key: "ledgedashes", label: "Ledgedashes", pick: (p, g) => ledgedashCount(g, p) },
   ...TECH_ACTION_LABELS,
 ];
 
 export interface ActionAverageRow {
   key: string;
   label: string;
-  perGame: number;
-  perMinute: number;
-  oppPerGame: number;
-  oppPerMinute: number;
+  perGame: number | null;
+  perMinute: number | null;
+  oppPerGame: number | null;
+  oppPerMinute: number | null;
+  covered: number;
+  oppCovered: number;
 }
 
 /**
  * Average action counts per game (and per minute, for length-independent
  * comparison). `covered` is the measured-game count behind those averages —
  * see neutralSummary for why the caller needs it rather than `games.length`.
+ * Each row also carries independent player/opponent coverage for optional metrics.
  */
 export function actionAverages(games: ResolvedGame[]): { rows: ActionAverageRow[]; covered: number } {
   // Header previews carry zeroed action counts, and both denominators here —
   // game count and total minutes — would otherwise include them.
   const measured = games.filter((g) => hasFullStats(g.rec));
   if (measured.length === 0) return { rows: [], covered: 0 };
-  const minutes = measured.reduce((sum, g) => sum + g.rec.durationFrames, 0) / 3600;
   const rows = ACTION_AVERAGE_LABELS.map(({ key, label, pick }) => {
     let mine = 0;
     let theirs = 0;
+    let covered = 0;
+    let oppCovered = 0;
+    let minutes = 0;
+    let oppMinutes = 0;
     for (const g of measured) {
-      mine += pick(g.me);
-      theirs += pick(g.opp);
+      const mineValue = pick(g.me, g), theirValue = pick(g.opp, g);
+      if (mineValue !== null) {
+        mine += mineValue;
+        covered++;
+        minutes += g.rec.durationFrames / 3600;
+      }
+      if (theirValue !== null) {
+        theirs += theirValue;
+        oppCovered++;
+        oppMinutes += g.rec.durationFrames / 3600;
+      }
     }
     return {
       key,
       label,
-      perGame: mine / measured.length,
-      perMinute: minutes > 0 ? mine / minutes : 0,
-      oppPerGame: theirs / measured.length,
-      oppPerMinute: minutes > 0 ? theirs / minutes : 0,
+      perGame: covered ? mine / covered : null,
+      perMinute: covered ? (minutes > 0 ? mine / minutes : 0) : null,
+      oppPerGame: oppCovered ? theirs / oppCovered : null,
+      oppPerMinute: oppCovered ? (oppMinutes > 0 ? theirs / oppMinutes : 0) : null,
+      covered,
+      oppCovered,
     };
   });
   return { rows, covered: measured.length };
@@ -1902,7 +1929,7 @@ export function rollingExecutionSeries(
 export interface GameSeriesPoint {
   index: number;
   date: string;
-  [metric: string]: number | string;
+  [metric: string]: number | string | null;
 }
 
 /**
@@ -1911,29 +1938,33 @@ export interface GameSeriesPoint {
  * executionTrend's rates — but as counts per game, not ratios. Sliding sums
  * keep it single-pass; the window is computed over every game and the emitted
  * points are thinned to MAX_SERIES_POINTS across the whole filter. The first
- * `window` games of all average however many games exist, matching
- * rollingExecutionSeries.
+ * `window` games of all average however many measured games exist, matching
+ * rollingExecutionSeries. Null picks and header previews do not enter the
+ * denominator; an entirely unmeasured window remains a gap.
  */
 export function perGameSeries(
   games: ResolvedGame[],
-  picks: { key: string; value: (g: ResolvedGame) => number }[],
+  picks: { key: string; value: (g: ResolvedGame) => number | null }[],
   window = ROLLING_WINDOW,
   maxPoints = MAX_SERIES_POINTS,
 ): GameSeriesPoint[] {
   const stride = seriesStride(games.length, maxPoints);
   const sums = new Float64Array(picks.length);
+  const counts = new Float64Array(picks.length);
   const out: GameSeriesPoint[] = [];
   for (let i = 0; i < games.length; i++) {
     const g = games[i]!;
     const old = i >= window ? games[i - window]! : null;
     for (let p = 0; p < picks.length; p++) {
       const pick = picks[p]!;
-      sums[p] = sums[p]! + pick.value(g) - (old ? pick.value(old) : 0);
+      const value = hasFullStats(g.rec) ? pick.value(g) : null;
+      const oldValue = old && hasFullStats(old.rec) ? pick.value(old) : null;
+      sums[p] = sums[p]! + (value ?? 0) - (oldValue ?? 0);
+      counts[p] = counts[p]! + (value !== null ? 1 : 0) - (oldValue !== null ? 1 : 0);
     }
     if (!emitsAt(i, games.length, stride)) continue;
-    const n = Math.min(i + 1, window);
     const point: GameSeriesPoint = { index: i + 1, date: dayLabel(g.date) };
-    for (let p = 0; p < picks.length; p++) point[picks[p]!.key] = sums[p]! / n;
+    for (let p = 0; p < picks.length; p++) point[picks[p]!.key] = counts[p]! ? sums[p]! / counts[p]! : null;
     out.push(point);
   }
   return out;
