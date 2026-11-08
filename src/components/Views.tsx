@@ -4,7 +4,7 @@ import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type C
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import type { Account, ActionCounts, GameRecord, PlayerSide, ResolvedGame } from "../lib/types";
 import { ACTION_LABELS, codeShort, hasCurrentStats } from "../lib/types";
-import { matchupMatrix, byStage, byOpponent, byOppCharacter, computeSets, setsSummary, executionSummary, rollingExecutionSeries, ROLLING_WINDOW, MAX_SERIES_POINTS, actionAverages, actionImpact, moveTable, moveImpact, moveMetricSeriesMany, neutralSummary, perGameSeries, stageCharMatrix, hasSpecialMoveAttempts, hasSpecialMoveOutcomes } from "../lib/stats";
+import { matchupMatrix, byStage, byOpponent, byOppCharacter, computeSets, setsSummary, executionSummary, rollingExecutionSeries, ROLLING_WINDOW, MAX_SERIES_POINTS, actionAverages, actionImpact, moveTable, moveImpact, moveMetricSeriesMany, neutralSummary, perGameSeries, stageCharMatrix, hasSpecialMoveAttempts, hasSpecialMoveOutcomes, ledgedashCount } from "../lib/stats";
 import type { ExecMetricKey, ExecutionSummary, GameSet, MoveMetricKey, MoveRow, SetsSummary } from "../lib/stats";
 import { pct, num, int, shortDate, duration, winRateColor, countNoun } from "../lib/format";
 import { charName, moveGroup, moveGroupTracksAttempts, specialMoveId, stageName } from "../lib/melee";
@@ -967,9 +967,9 @@ interface SeriesDef {
   key: string;
   label: string;
   color: string;
-  value: (g: ResolvedGame) => number;
+  value: (g: ResolvedGame) => number | null;
   /** Opponent counterpart; when present the chart offers a "vs opponents" toggle that overlays dashed lines. */
-  oppValue?: (g: ResolvedGame) => number;
+  oppValue?: (g: ResolvedGame) => number | null;
 }
 
 // No reds here: red stays reserved for loss/danger, not series identity.
@@ -993,6 +993,13 @@ const ACTION_SERIES: SeriesDef[] = [
     value: (g) => g.me.actions?.[key] ?? 0,
     oppValue: (g) => g.opp.actions?.[key] ?? 0,
   })),
+  {
+    key: "ledgedashes",
+    label: "Ledgedashes",
+    color: "#b8a0ff",
+    value: (g) => ledgedashCount(g),
+    oppValue: (g) => ledgedashCount(g, g.opp),
+  },
   {
     key: "techInPlace",
     label: "Tech in place",
@@ -1042,12 +1049,12 @@ function actionBenchmarkValue(benchmarks: ExecutionBenchmarks, kind: BenchmarkKi
 }
 
 function actionRateDifference(
-  mine: number,
+  mine: number | null,
   field: number | null,
   localGames: number,
   fieldGames: number,
 ): { direction: "above" | "below"; strength: number } | null {
-  if (field === null || localGames < 10 || fieldGames < 25) return null;
+  if (mine === null || field === null || localGames < 10 || fieldGames < 25) return null;
   const gap = mine - field;
   const threshold = Math.max(0.5, Math.abs(field) * 0.35);
   if (Math.abs(gap) < threshold) return null;
@@ -1072,16 +1079,19 @@ function PerGameMetricChart({
   series,
   defaults,
   benchmarks,
+  recentActions,
 }: {
   title: string;
   games: ResolvedGame[];
   series: SeriesDef[];
   defaults: string[];
   benchmarks: ExecutionBenchmarks;
+  recentActions: ReturnType<typeof actionAverages>;
 }) {
   const [selected, setSelected] = useState(() => defaults[0] ?? series[0]?.key ?? "");
   const [showOpp, setShowOpp] = useState(false);
   const hasOpp = series.some((s) => s.oppValue);
+  const selectedSample = recentActions.rows.find(row => row.key === selected);
   // All metrics (including opponent counterparts) are computed once; the chips only toggle which lines render.
   const rawData = useMemo(
     () =>
@@ -1174,10 +1184,15 @@ function PerGameMetricChart({
       </ResponsiveContainer>
       <ExecutionChartLegend lines={lines} emphasis={emphasis} />
       <div className="hint">
-        Each point averages the previous {ROLLING_WINDOW} games. The line spans all {games.length.toLocaleString()}{" "}
+        Each point averages measured games within the previous {ROLLING_WINDOW} games. The line spans all {games.length.toLocaleString()}{" "}
         games in this filter
         {games.length > MAX_SERIES_POINTS ? `, sampled down to ${MAX_SERIES_POINTS.toLocaleString()} points` : ""}.
       </div>
+      {selected === "ledgedashes" && <div className="hint">
+        Latest window: {selectedSample?.covered ?? 0} measured games for you; {selectedSample?.oppCovered ?? 0} for opponents.
+        Ledgedashes use ledge analysis; unmeasured games are excluded and an unmeasured window is a gap.
+        Counts describe the movement, not invincibility or execution quality.
+      </div>}
       <BenchmarkAvailability benchmarks={benchmarks} available={source => benchmarkValues.has(`benchmark:${source}:${selected}`)} />
     </div>
   );
@@ -1592,6 +1607,7 @@ export function Execution({
         series={ACTION_SERIES}
         defaults={["wavedashes"]}
         benchmarks={benchmarks}
+        recentActions={actions}
       />
 
       <div className="panel">
@@ -1690,11 +1706,11 @@ export function Execution({
                   const comparisonRate = archiveActionBenchmark(benchmarks[comparisonSource], a.key);
                   const comparisonGames = benchmarks[comparisonSource]?.game_count ?? 0;
                   const comparisonLabel = BENCHMARK_LABELS[comparisonSource];
-                  const difference = actionRateDifference(a.perGame, comparisonRate, actions.covered, comparisonGames);
+                  const difference = actionRateDifference(a.perGame, comparisonRate, a.covered, comparisonGames);
                   const localValue = num(a.perGame, 1);
                   return (
                     <tr key={a.key}>
-                      <td>{a.label}</td>
+                      <td>{a.label}{a.key === "ledgedashes" && <span className="sample-note">{a.covered} measured games · opponents {a.oppCovered}</span>}</td>
                       <td
                         className={`data ${difference ? `community-diff-${difference.direction}` : ""}`}
                         style={actionRateDifferenceStyle(difference)}
@@ -1721,6 +1737,8 @@ export function Execution({
               materially from {BENCHMARK_LABELS[comparisonSource]}; brighter shading means a larger
               difference.
             </div>
+            <div className="hint">Ledgedashes use only games with ledge analysis, with separate coverage for you and opponents.
+              A dash means no measurement; zero means measured with no ledgedashes. Published action benchmarks do not include ledgedashes.</div>
           </>
         )}
       </div>
