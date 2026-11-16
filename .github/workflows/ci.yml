@@ -92,6 +92,9 @@ jobs:
       - name: Type-check and build
         run: npm run build
 
+      - name: Verify generated PWA lifecycle and offline routing
+        run: npm run verify:pwa
+
       # The three generated pages are the only HTML a crawler can read -- the
       # app itself serves an empty #root. If the renderer silently produced
       # nothing, the build would still be green and the site would quietly stop
