@@ -8,7 +8,7 @@
 
 import type { Major, PlayerMeta, RankingEdition, Source } from "./types";
 
-export const DATA_AS_OF = "2026-11-03";
+export const DATA_AS_OF = "2026-11-16";
 
 export const SOURCES: Source[] = [
   {
@@ -1873,6 +1873,14 @@ export const MAJORS: Major[] = [
     "winner": "Zain",
     "runnerUp": "Joshman",
     "tier": "major"
+  },
+  {
+    "name": "Port Priority DX",
+    "year": 2026,
+    "date": "2026-11-15",
+    "winner": "Cody Schwab",
+    "runnerUp": "Zain",
+    "tier": "supermajor"
   }
 ];
 
