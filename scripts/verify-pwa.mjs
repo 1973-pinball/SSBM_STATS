@@ -47,7 +47,9 @@ async function verify() {
 
   // Registration belongs to the app, whose callbacks defer reloads during parsing.
   const html = readFileSync(path.join(directory, 'index.html'), 'utf8');
-  const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)]
+  // Inspect generated HTML only; this is not an HTML sanitizer. Browsers accept
+  // whitespace, attributes, and a slash on script end tags, so count those too.
+  const scripts = [...html.matchAll(/<script(?=[\s/>])([^>]*)>([\s\S]*?)<\/script(?=[\s/>])[^>]*>/gi)]
     .filter(([, attributes]) => !/type=["']application\/ld\+json["']/i.test(attributes));
   assert.equal(scripts.length, 1, 'Only the application script registers the worker');
   assert.match(scripts[0][1], /type=["']module["']/);
