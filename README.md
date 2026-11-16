@@ -141,7 +141,9 @@ npm run lint
 npm run test:forecast
 ```
 
-Requires Node 22. Run `git config core.hooksPath .githooks` once per clone. Use `npm run verify:slpz -- <replay-folder> [count]` to compare local `.slp`/`.slpz` pairs; replay fixtures are never committed.
+Requires Node 22.14 or newer within Node 22. Run `git config core.hooksPath .githooks` once per clone. Use `npm run verify:slpz -- <replay-folder> [count]` to compare local `.slp`/`.slpz` pairs; replay fixtures are never committed.
+
+PWA builds use the maintainer's [`@unplugin-pwa/vite` successor](https://github.com/vite-pwa/unplugin-pwa/blob/v0.0.6/packages/vite/BREAKING-CHANGES.md), pinned to `0.0.6`, to remove the old Workbox build dependency paths without npm overrides. It retains the classic `/sw.js`, manual registration, and offline shell. After building, run `npm run verify:pwa` to exercise the generated worker's install/activation, cache revisions and cleanup, offline assets, and navigation exclusions. CI runs this check after the production build.
 
 ## Experimental interaction analysis
 

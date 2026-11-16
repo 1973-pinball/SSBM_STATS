@@ -1,6 +1,6 @@
 import { defineConfig, type Connect, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
-import { VitePWA } from 'vite-plugin-pwa'
+import { VitePWA } from '@unplugin-pwa/vite'
 import { execFileSync } from 'node:child_process'
 import { readFile, realpath } from 'node:fs/promises'
 import path from 'node:path'
@@ -74,6 +74,11 @@ export default defineConfig({
       // left open otherwise never re-checks, and keeps serving the precached
       // shell no matter how many times it's released behind.
       injectRegister: null,
+      // PNGs are already covered by globPatterns. The successor's automatic
+      // icon entries hash binary files as UTF-8, conflicting with glob revisions
+      // and preventing installation; precache each icon only through the glob.
+      includeManifestIcons: false,
+      includeManifestShortcutIcons: false,
       manifest: {
         id: '/',
         name: 'SSBM Stats',
@@ -113,18 +118,19 @@ export default defineConfig({
           },
         ],
       },
-      workbox: {
+      // The lazy experimental interaction reference contains exact matchup /
+      // stage counters (~2.7 MB before transfer compression). Keep it available
+      // offline alongside the other Execution data.
+      maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+      generateSW: {
         // Keep this explicit because injectRegister is disabled; already-open
         // tabs need the new worker to take control before App can reload.
         skipWaiting: true,
         clientsClaim: true,
+        cleanupOutdatedCaches: true,
         // Precache every build asset (all views are lazy chunks — offline needs
         // them all); fonts are hashed woff2 files, safe to cache immutably.
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
-        // The lazy experimental interaction reference contains exact matchup /
-        // stage counters (~2.7 MB before transfer compression). Keep it available
-        // offline alongside the other Execution data.
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         // public/share holds the generated share images — multi-megabyte GIFs
         // plus their posters. They're for sending to other people, not for
         // running the app, so they stay out of the offline bundle.

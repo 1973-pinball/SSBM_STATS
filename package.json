@@ -5,7 +5,7 @@
   "version": "0.5.0",
   "type": "module",
   "engines": {
-    "node": "22.x"
+    "node": ">=22.14.0 <23"
   },
   "scripts": {
     "dev": "vite",
@@ -13,6 +13,7 @@
     "bench:parse": "node --experimental-strip-types scripts/benchmark-parse-workers.mjs",
     "verify:large": "node scripts/verify-large-library.mjs",
     "verify:cpu": "node scripts/verify-known-cpu-filter.mjs",
+    "verify:pwa": "node scripts/verify-pwa.mjs",
     "verify:filters": "node scripts/verify-custom-range.mjs",
     "verify:benchmarks": "node scripts/verify-benchmark-filters.mjs && node scripts/verify-baseline-ui.mjs && node scripts/verify-archive-pro-identity.mjs && node scripts/verify-archive-pro-schema.mjs && node scripts/verify-archive-load-preflight.mjs && node scripts/verify-ranked-source-pilot.mjs",
     "verify:replays": "node scripts/verify-replay-retry.mjs && node scripts/verify-automatic-stats-upgrade.mjs && node scripts/verify-replay-metadata.mjs && node scripts/verify-import-report.mjs && node scripts/verify-ranked-parser.mjs",
@@ -62,10 +63,12 @@
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "@unplugin-pwa/core": "0.0.6",
+    "@unplugin-pwa/vite": "0.0.6",
     "@vitejs/plugin-react": "^6.0.3",
+    "magicast": "^0.5.5",
     "oxlint": "^1.71.0",
     "typescript": "~6.0.2",
-    "vite": "^8.1.6",
-    "vite-plugin-pwa": "^1.3.0"
+    "vite": "^8.1.6"
   }
 }
